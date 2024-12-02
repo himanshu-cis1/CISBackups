@@ -1,0 +1,1014 @@
+CREATE PROCEDURE CIS_PROC_DocumentValidations (IN DocKey VARCHAR(100), IN ObjType VARCHAR(100)
+											  ,IN TransType VARCHAR(100), OUT Error INT, OUT Error_Message VARCHAR(100))
+ LANGUAGE SQLSCRIPT
+ AS
+ BEGIN
+ 
+     DECLARE Counter INTEGER;
+     DECLARE ItemCode VARCHAR(100);      
+   /* ====================================================================================== */
+  
+  /* Begin Validation on Sales Order */ 
+ IF ObjType = '17' AND (TransType = 'A' OR TransType = 'U') THEN
+  
+     SELECT COUNT(T0."DocEntry") INTO Counter
+  	 FROM "ORDR" T0
+  	 INNER JOIN "RDR1" T1 ON T0."DocEntry" = T1."DocEntry"
+  	 WHERE T0."DocEntry" = :DocKey 
+  	 AND ((T1."WhsCode" NOT LIKE '%FG%')  
+  	 AND (T1."WhsCode" NOT LIKE '%GK-GEN%') 
+  	 AND (T1."WhsCode" NOT LIKE '%Scrap%' )
+  	 AND (T1."WhsCode" NOT LIKE '%Gkp-Dana%')
+  	 AND (T1."WhsCode" NOT LIKE '%MT%' )
+  	 AND (T1."WhsCode" NOT LIKE '%Bhiwandi%')
+  	 AND (T1."WhsCode" NOT LIKE '%BLR-Flip%')
+  	  AND (T1."WhsCode" NOT LIKE '%BLR-Amz%')
+  	  AND (T1."WhsCode" NOT LIKE '%BLR-Fli2%')
+  	  AND (T1."WhsCode" NOT LIKE '%JIO2%')
+  	  AND (T1."WhsCode" NOT LIKE '%Jio%')
+  	 AND (T1."WhsCode" NOT LIKE '%KO-Flip%')
+  	 AND (T1."WhsCode" NOT LIKE '%HR-Flip%')
+  	 AND (T1."WhsCode" NOT LIKE '%Bhiwa-Fl%')
+  	 AND (T1."WhsCode" NOT LIKE '%BLR-Fli4%')
+  	 AND (T1."WhsCode" NOT LIKE '%HY-FBF%')
+  	 AND (T1."WhsCode" NOT LIKE '%RJ-FBF%')
+  	 AND (T1."WhsCode" NOT LIKE '%PB-FBA%')
+  	 AND (T1."WhsCode" NOT LIKE '%BLR-AMZ2%')
+  	 AND (T1."WhsCode" NOT LIKE '%DL-Amz%')
+  	 AND (T1."WhsCode" NOT LIKE '%HY-AMZ%')
+  	 AND (T1."WhsCode" NOT LIKE '%KO-FBA%')
+  	 AND (T1."WhsCode" NOT LIKE '%RJ-FBA1%')
+  	 AND (T1."WhsCode" NOT LIKE '%LK-Amz%')
+)
+  	 
+  
+  	 
+  	 AND IFNULL(:Counter, 0) = 0; 
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 100;
+	   Error_Message := 'Please select correct FG Warehouse.';
+  	 END IF; 
+  
+  END IF; 
+   /* End Validation on Sales Order */  
+   
+  IF ObjType = '13' AND (TransType = 'A' OR TransType = 'U') THEN
+  	  	 
+  	/* SELECT COUNT(T0."DocEntry") INTO Counter
+  	 FROM "OINV" T0
+  	 WHERE T0."DocEntry" = :DocKey AND IFNULL(T0."NumAtCard", '') = '';
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 10131;
+	   Error_Message := 'Customer ref. No is missing';
+  	 END IF; 
+  	 */
+ ------------Invoice Shoul be based on sales Order ------01-06-2023 	 
+SELECT COUNT(T0."DocEntry") INTO Counter
+  	 FROM "OINV" T0
+  	 INNER JOIN "INV1" T1 ON T0."DocEntry" = T1."DocEntry"
+  	 INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode"
+  	 INNER JOIN "OCRD" T3 ON T0."CardCode" = T3."CardCode"
+  	 WHERE T0."DocEntry" = :DocKey
+  	 AND :TransType = 'A' AND T0."DataSource" = 'I'
+  	 AND IFNULL(T2."InvntItem", '') = 'Y' and t0."GSTTranTyp" NOt IN ('GD')
+  	 AND IFNULL(:Counter, 0) = 0 AND T0."UserSign" <> '1' and T3."GroupCode" not in('109','108','117')
+  	 AND T1."BaseType" Not IN ('17','15')
+  	   	 AND T0."Series" <> '-1'; 
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 10132;
+	   Error_Message := 'Invoice should be based on Sales Order.';
+  	 END IF;
+-----------------------
+    SELECT COUNT(T0."DocEntry") INTO Counter
+  	  FROM "OINV" T0
+      INNER JOIN "INV1" T1 ON T0."DocEntry" = T1."DocEntry"
+  	 INNER JOIN "OITM" T5 ON T1."ItemCode" = T5."ItemCode"  	 
+  	 LEFT JOIN "B1_OinmWithBinTransfer" T2 ON T1."DocEntry" = T2."CreatedBy"
+  	  AND T1."ObjType" = T2."TransType"
+  	 LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+  	 LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+  	 WHERE T0."DocEntry" = :DocKey 	
+  	 AND T0."DataSource" = 'I'
+  	 AND :TransType = 'A'
+  	 AND IFNULL(T5."InvntItem", '') = 'Y'  AND T0."UserSign" <> '1'	 
+  	 AND ((T1."WhsCode" NOT LIKE '%FG%' OR T4."SL1Code" NOT LIKE '%SALEABLE%')
+  	 	   AND (T1."WhsCode" NOT LIKE '%GK-GEN%' OR T4."SL1Code" NOT LIKE '%USABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%GK-RNGTA%' OR T4."SL1Code" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%GK-FG%' OR T4."SL1Code" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%GK-GEN%' OR T4."SL1Code" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%MT%' OR T4."SL1Code" NOT LIKE '%SALEABLE%')
+  	 	   AND (T1."WhsCode" NOT LIKE '%Scrap%' AND T1."WhsCode" NOT LIKE '%Gkp-Dana%')
+  	 	   AND (T1."WhsCode" NOT LIKE '%SS%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	   AND (T1."WhsCode" NOT LIKE '%AL-11%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	   AND (T1."WhsCode" NOT LIKE '%Bhiwandi%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	   AND (T1."WhsCode" NOT LIKE '%BLR-Amz%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%BLR-Flip%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%BLR-Fli2%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%WH04' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%GK-GEN%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%Jio%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%Jio2%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%LK-Amz%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%BLR-Fli4%' AND T1."WhsCode" NOT LIKE '%SEALABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%KO-Flip%' AND T1."WhsCode" NOT LIKE '%SEALABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%Bhiwa-Fl%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%HR-Flip%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%LK-FG%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%DL-Amz%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%HY-FBF%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%HY-AMZ%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%RJ-FBF%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%PB-FBA%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%HR-JIO2%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%RJ-FBA1%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%D-1%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	    AND (T1."WhsCode" NOT LIKE '%KO-FBA%' AND T1."WhsCode" NOT LIKE '%SALEABLE%')
+  	 	  
+  	 	   )
+  	 	   
+  	 AND IFNULL(:Counter, 0) = 0; 
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 10133;
+	   Error_Message := 'Please select correct Scrap / FG Warehouse / BIN';
+  	 END IF; 
+  	
+ /*
+-- Removed By Manoj Kumar
+  	SELECT COUNT(T0."LogEntry") INTO Counter
+  	 FROM "OITL" T0
+  	 INNER JOIN "ITL1" T1 ON T0."LogEntry" = T1."LogEntry" AND T0."ItemCode" = T1."ItemCode" 
+  	 INNER JOIN "OBTN" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."MdAbsEntry" = T2."AbsEntry"
+  	 INNER JOIN "OINV" T3 ON T0."DocEntry" = T3."DocEntry" AND T3."ObjType" = T0."DocType"
+  	 WHERE T0."DocEntry" = DocKey AND T0."DocType" = '13' AND IFNULL(Counter, 0) = 0
+  	 AND TransType = 'A' AND T3."DataSource" = 'I'
+  	 AND T2."InDate" > (SELECT C1."InDate"
+  	 				    FROM "OBTQ" C0
+  	 				    INNER JOIN "OBTN" C1 ON C0."ItemCode" = C1."ItemCode" AND C0."MdAbsEntry" = C1."AbsEntry"
+  	 				    WHERE C0."ItemCode" = T0."ItemCode" AND C0."WhsCode" =  T0."LocCode"
+  	 				    GROUP BY C1."DistNumber", C1."InDate"
+  	 				    HAVING SUM(IFNULL(C0."Quantity", 0.00)) > 0);
+  	
+ 	  IF Counter > 0 THEN
+  	
+	  	 SELECT T0."ItemCode" INTO ItemCode
+	  	 FROM "OITL" T0
+	  	 INNER JOIN "ITL1" T1 ON T0."LogEntry" = T1."LogEntry" AND T0."ItemCode" = T1."ItemCode" 
+	  	 INNER JOIN "OBTN" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."MdAbsEntry" = T2."AbsEntry"
+	  	 INNER JOIN "OINV" T3 ON T0."DocEntry" = T3."DocEntry" AND T3."ObjType" = T0."DocType"
+	  	 WHERE T0."DocEntry" = DocKey AND T0."DocType" = '13' AND T3."DataSource" = 'I'
+	  	 AND T2."InDate" > (SELECT C1."InDate"
+	  	 				    FROM "OBTQ" C0
+	  	 				    INNER JOIN "OBTN" C1 ON C0."ItemCode" = C1."ItemCode" AND C0."MdAbsEntry" = C1."AbsEntry"
+	  	 				    WHERE C0."ItemCode" = T0."ItemCode" AND C0."WhsCode" =  T0."LocCode"
+	  	 				    GROUP BY C1."DistNumber", C1."InDate"
+	  	 				    HAVING SUM(IFNULL(C0."Quantity", 0.00)) > 0);
+	  	 				    
+		Error = 10133;
+		Error_Message := 'Please Select Batch on Fifo Basis ' || ItemCode;
+			  	 				    
+	  END IF; 
+	   
+	 IF  :Error = 0 THEN
+		 CALL CIS_PROC_Validate_Batch_For_LandedCost_OpenGRPO (:DocKey, :ObjType, :TransType, :Error, :Error_Message);
+	     CALL CIS_PROC_Validate_Non_Batch_For_LandedCost_OpenGRPO (:DocKey, :ObjType, :TransType, :Error, :Error_Message);  
+	 END IF;*/
+	    
+END IF;
+   
+   
+	  /* Begin Validation on A/R Credit Memo */ 
+	  /*IF ObjType = '14' AND (TransType = 'A' OR TransType = 'U') THEN
+	  
+	     SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "ORIN" T0
+	  	 INNER JOIN "RIN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey AND T0."DataSource" = 'I'
+	  	 AND (T1."WhsCode" NOT LIKE '%FG%' )
+	  	 AND IFNULL(:Counter, 0) = 0; 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 14001;
+		   Error_Message := 'Please select correct FG Warehouse.';
+	  	 END IF; 
+	  
+	     SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "ORIN" T0
+	  	 WHERE T0."DocEntry" = :DocKey AND T0."DataSource" = 'I'
+	  	 AND :TransType = 'A' AND IFNULL(T0."RevRefNo", '') = ''
+	  	 AND IFNULL(:Error, 0) = 0;
+	  	 
+	  	 IF IFNULL(:Counter, 0) = 0 THEN
+	  	 	Error := 14002;
+		    Error_Message := 'Please mention Original Ref. No.';	  	 	
+	  	 END IF;	
+	  	 
+	     SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "ORIN" T0
+	  	 WHERE T0."DocEntry" = :DocKey 
+	  	 AND :TransType = 'A' AND IFNULL(T0."RevRefDate", '') IS NULL
+	  	 AND T0."DataSource" = 'I'
+	  	 AND IFNULL(:Error, 0) = 0;
+	  	 
+	  	 IF IFNULL(:Counter, 0) = 0 THEN
+	  	 	Error := 14003;
+		    Error_Message := 'Please mention Original Ref. Date';	  	 	
+	  	 END IF;		  
+	  
+	  END IF;*/
+      /* End Validation on A/R Credit Memo */     
+      
+ 	 /* Begin Validation Purchase Order  */
+     IF ObjType = '22' AND (TransType = 'A' OR TransType = 'U') AND IFNULL(:Counter, 0) = 0 THEN
+    	
+     	SELECT COUNT(T2."DocEntry") INTO Counter
+     	FROM "OPOR" T0
+     	INNER JOIN "POR1" T1 ON T0."DocEntry" = T1."DocEntry"
+     	INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode" 
+     	INNER JOIN "OUSR" T3 ON CASE :TransType WHEN 'A' THEN T0."UserSign" ELSE T0."UserSign2" END = T3."INTERNAL_K"
+     	INNER JOIN "OITB" T4 ON T2."ItmsGrpCod" = T4."ItmsGrpCod"
+     	WHERE T0."DocEntry" = :DocKey 
+     	AND IFNULL(:Counter, 0) = 0
+     	AND IFNULL((SELECT COUNT(C0."UserCode")
+     	     FROM "USR6" C0 
+     	     INNER JOIN "OBPL" C1 ON C0."BPLId" = C1."BPLId"
+     	     WHERE C0."UserCode" = T3."USER_CODE" AND C1."MainBPL" = 'Y' ), 0) = 0 
+     	AND T4."ItmsGrpCod" NOT IN (104, 103);
+     	
+     	IF IFNULL(:Counter, 0) > 0 THEN 
+     		Error := 0;
+			Error_Message := 'You are authorize to procure FG items only';     		
+     	END IF;
+     	
+     	SELECT COUNT(T2."DocEntry") INTO Counter
+     	FROM "OPOR" T0
+     	INNER JOIN "POR1" T1 ON T0."DocEntry" = T1."DocEntry"
+     	INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode" 
+	    INNER JOIN "OWHS" T3 ON T1."WhsCode" = T3."WhsCode"
+     	WHERE T0."DocEntry" = :DocKey 
+     	AND IFNULL(:Counter, 0) = 0 
+     	AND IFNULL(T2."U_IsReqrd", '') = 'Y' AND IFNULL(T3."U_TypeWH", '') <> 'QC';
+     
+     	IF IFNULL(:Counter, 0) > 0 THEN 
+     	
+	     	SELECT STRING_AGG(T1."ItemCode", ',') INTO ItemCode
+	     	FROM "OPOR" T0
+	     	INNER JOIN "POR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	     	INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode" 
+		    INNER JOIN "OWHS" T3 ON T1."WhsCode" = T3."WhsCode"
+	     	WHERE T0."DocEntry" = :DocKey 
+	     	AND IFNULL(T2."U_IsReqrd", '') = 'Y' AND IFNULL(T3."U_TypeWH", '') <> 'QC';
+ 
+     		Error := 10223;
+			Error_Message := 'QC Applicable Codes should be receive in QC warehouse: ' || :ItemCode;     		
+     	END IF;	     	
+     	
+    	SELECT COUNT(T0."DocEntry") INTO Counter
+     	FROM "OPOR" T0
+     	INNER JOIN "POR1" T1 ON T0."DocEntry" = T1."DocEntry"
+     	WHERE T0."DocEntry" = :DocKey 
+     	AND IFNULL(:Counter, 0) = 0 AND IFNULL(T1."Price", 0.00) = 0.00;
+     
+      	IF IFNULL(:Counter, 0) > 0 THEN 
+     	
+	     	SELECT STRING_AGG(T1."ItemCode", ',') INTO ItemCode
+	     	FROM "OPOR" T0
+	     	INNER JOIN "POR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	     	WHERE T0."DocEntry" = :DocKey 
+	     	AND IFNULL(:Counter, 0) = 0 AND IFNULL(T1."Price", 0.00) = 0.00;
+ 
+     		Error := 10224;
+			Error_Message := 'Price is missing. ItemCode: ';     		
+     	END IF;	       	
+     	    	
+     END IF;
+ 	 /* End Validation Purchase Order  */   
+ 	 
+ 	 /* Begin Validation Goods Receipt PO  */
+ 	 
+      iF ObjType = '20' AND (TransType = 'A' or TransType = 'U') AND IFNULL(:Counter, 0) = 0 THEN
+     
+	  ---   SELECT COUNT(T0."DocEntry") INTO Counter
+	  --	 FROM "OPDN" T0
+	  --	 INNER JOIN "PDN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  --	 WHERE T0."DocEntry" = :DocKey
+	  --	 AND IFNULL(:Counter, 0) = 0
+	  --	 AND T1."BaseType" <> '22'  
+	  --	 AND T0."Series" <> '-1'; 
+	  	 
+		-- IF IFNULL(Counter, 0) > 0 THEN
+		 --  Error := 100;
+		 --  Error_Message := 'GRPO should be based on Purchase Order.';
+	  	-- END IF;
+
+	  	
+     	/* Request by Sagar Niine
+     	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OPDN" T0
+	  	 INNER JOIN "PDN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 INNER JOIN "POR1" T2 ON T1."BaseEntry" = T2."DocEntry" AND T1."BaseType" = T2."ObjType" AND T1."BaseLine" = T2."LineNum"
+	  	 WHERE T0."DocEntry" = :DocKey
+	  	 AND IFNULL(:Counter, 0) = 0
+	  	 AND IFNULL(T1."Quantity", 0.00) - IFNULL(T1."BaseOpnQty", 0) > T2."Quantity" * (0.00 / 100.00); 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 100;
+		   Error_Message := 'GRPO quantity cannot be more than Purchase Order.';
+	  	 END IF;
+*/
+------06.04.2022
+
+     	SELECT COUNT(T2."DocEntry") INTO Counter
+     	FROM "OPDN" T0
+     	Inner Join "OCRD" T4 ON T4."CardCode"=T0."CardCode"
+	     --INNER JOIN "PDN1" T1 ON T0."DocEntry" = T1."DocEntry"
+     	INNER JOIN "PDN1" T1 ON T0."DocEntry" = T1."DocEntry"
+     	INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode" 
+	    INNER JOIN "OWHS" T3 ON T1."WhsCode" = T3."WhsCode"
+     	WHERE T0."DocEntry" = :DocKey AND :TransType = 'A'  AND  T4."GroupCode" <>'118'
+     	AND IFNULL(:Counter, 0) = 0 
+     	AND IFNULL(T2."U_IsReqrd", '') = 'Y' AND IFNULL(T3."U_TypeWH", '') <> 'QC';
+     
+     	IF IFNULL(:Counter, 0) > 0 THEN 
+     	
+	     	SELECT STRING_AGG(T1."ItemCode", ',') INTO ItemCode
+	     	FROM "OPDN" T0
+	     	Inner Join "OCRD" T4 ON T4."CardCode"=T0."CardCode"
+	     	--INNER JOIN "PDN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	     	INNER JOIN "PDN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	     	INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode" 
+		    INNER JOIN "OWHS" T3 ON T1."WhsCode" = T3."WhsCode"
+	     	WHERE T0."DocEntry" = :DocKey AND :TransType = 'A'  AND  T4."GroupCode" <>'118'
+	     	AND IFNULL(T2."U_IsReqrd", '') = 'Y' AND IFNULL(T3."U_TypeWH", '') <> 'QC';
+ 
+     		Error := 10203;
+			Error_Message := 'QC Applicable Codes should be receive in QC warehouse: ' || :ItemCode;     		
+     	END IF;	
+     	
+     END IF;
+     
+     
+--------------06.04.2022    ==================
+ 	 /* End Validation Goods Receipt PO  */   
+
+	 /* Begin Validation A/P Invoice  */
+     IF ObjType = '18' AND (TransType = 'A' or TransType = 'U') AND IFNULL(:Counter, 0) = 0 THEN
+     	
+	     SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OPCH" T0
+	  	 INNER JOIN "PCH1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode"
+	  	 INNER JOIN "OCRD" T3 ON T0."CardCode" = T3."CardCode"
+	  	 WHERE T0."DocEntry" = :DocKey AND T2."InvntItem" = 'Y'
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND T3."GroupCode" <> 118
+	  	 AND T1."BaseType" <> '20'
+	  	 AND T0."GSTTranTyp"<>'GD'
+	  	 AND T0."Series" <> '-1'; 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 100181;
+		   Error_Message := 'A/P Invoice should be based on GRPO.';
+	  	 END IF;
+     	
+     	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OPCH" T0
+	  	 INNER JOIN "PCH1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 INNER JOIN "PDN1" T2 ON T1."BaseEntry" = T2."DocEntry" AND T1."BaseType" = T2."ObjType" AND T1."BaseLine" = T2."LineNum"
+	  	 WHERE T0."DocEntry" = :DocKey
+	  	 AND IFNULL(:Counter, 0) = 0
+	  	 AND IFNULL(T1."Quantity", 0.00) - IFNULL(T1."BaseOpnQty", 0) < 0; 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 100182;
+		   Error_Message := 'A/P Invoice quantity cannot be more than Goods Receipt PO.';
+	  	 END IF;
+     
+     	SELECT COUNT(T0."DocEntry") INTO Counter
+     	FROM "OPCH" T0
+     	WHERE T0."DocEntry" = :DocKey 
+     	AND IFNULL(:Counter, 0) = 0 AND IFNULL(T0."U_LandedCstReq", '') = '';
+     
+     	IF IFNULL(:Counter, 0) > 0 THEN 
+     		Error := 10225;
+			Error_Message := 'Specify Landed Cost Req. or not';     		
+     	END IF;	     
+     
+     END IF;
+ 	 /* End Validation A/P Invoice  */  
+
+
+	 /* Begin Validation A/P Credit Memo  */
+   
+  IF ObjType = '19' AND (TransType = 'A' or TransType = 'U') AND IFNULL(:Error, 0) = 0 THEN
+   /*
+	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "ORPC" T0
+	  	 INNER JOIN "RPC1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 LEFT JOIN "B1_OinmWithBinTransfer" T2 ON T1."DocEntry" = T2."CreatedBy" AND T1."ObjType" = T2."TransType"
+	  	 LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+	  	 LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+	  	 LEFT JOIN "OITM" T5 ON T1."ItemCode" = T5."ItemCode"
+	  	 WHERE T0."DocEntry" = :DocKey 
+	  	 AND :TransType = 'A' AND IFNULL(T5."InvntItem", '') = 'Y'
+	  	 AND (IFNULL(T4."SL1Code", '') NOT LIKE '%REJECTED%' AND IFNULL(T4."SL1Code", '') NOT LIKE '%SHORTAGE%')
+	  	 AND IFNULL(:Counter, 0) = 0; 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 10191;
+		   Error_Message := 'Please Select Rejection / Shortage Bin';
+	  	 END IF;
+ */
+	     SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "ORPC" T0
+	  	 WHERE T0."DocEntry" = :DocKey
+	  	 AND :TransType = 'A' AND IFNULL(T0."RevRefNo", '') = ''
+	  	 AND IFNULL(:Error, 0) = 0;
+	  	 
+	  	 IF IFNULL(:Counter, 0) > 0 THEN
+	  	 	Error := 10192;
+		    Error_Message := 'Please mention Original Ref. No.';	  	 	
+	  	 END IF;	
+	  	 
+	     SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "ORPC" T0
+	  	 WHERE T0."DocEntry" = :DocKey
+	  	 AND :TransType = 'A' AND IFNULL(T0."RevRefDate", '') =''
+	  	 AND IFNULL(:Error, 0) = 0;
+	  	 
+	  	 IF IFNULL(:Counter, 0) > 0 THEN
+	  	 	Error := 10194;
+		    Error_Message := 'Please mention Original Ref. Date';	  	 	
+	  	 END IF;		  	 
+     
+	 END IF;
+
+	 /* End Validation A/P Credit Memo  */
+	 
+ 
+ 	 /* Begin Validation Inventory Transfer  */
+
+       IF ObjType = '67' AND (TransType = 'A' OR TransType = 'U') AND IFNULL(:Error, 0) = 0 THEN
+    
+	   SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OWTR" T0
+	  	 INNER JOIN "WTR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 LEFT JOIN "B1_OinmWithBinTransfer" T2 ON T1."DocEntry" = T2."CreatedBy" AND T1."ObjType" = T2."TransType"
+	  	 LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+	  	 LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+	  	 WHERE T0."DocEntry" = :DocKey 
+	  	 AND :TransType = 'A'
+	  	 AND (T1."FromWhsCod" = 'GK-RM' OR T1."FromWhsCod" = 'GK-PM')
+	  	 AND (IFNULL(T4."SL1Code", '') LIKE '%REJECTED%' OR IFNULL(T4."SL1Code", '') LIKE '%SHORTAGE%')
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND T0."UserSign" not in ('22','10','7','18','51'); 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 1067001;
+		   Error_Message := 'You are not allowed to do stock transfer from REJECTED / SHORTAGE BIN.';
+	  	 END IF;   
+
+	     SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OWTR" T0
+	  	 INNER JOIN "WTR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey 
+	  	 AND :TransType = 'A'
+	  	 AND (T1."FromWhsCod" = 'GK-QC-RM' OR T1."FromWhsCod" = 'GK-QC-PM')
+	  	 AND IFNULL(T1."BaseType", 0) NOT IN ('20','67','-1') 
+	  	 AND IFNULL(:Error, 0) = 0; 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 1067002;
+		   Error_Message := 'Transfer From selected warehouse should be based from GRPO or Inventory Transfer';
+	  	 END IF;      
+
+		IF  IFNULL(:Error, 0) = 0 THEN
+			 CALL CIS_PROC_Validate_Batch_For_LandedCost_OpenGRPO (:DocKey, :ObjType, :TransType, :Error, :Error_Message);
+		END IF;
+		 
+		IF  IFNULL(:Error, 0) = 0 THEN
+		    CALL CIS_PROC_Validate_Non_Batch_For_LandedCost_OpenGRPO (:DocKey, :ObjType, :TransType, :Error, :Error_Message);  
+		END IF;
+     	     
+     END IF;
+
+ 	 /* End Validation Inventory Transfer  */   
+
+ 	  /* Begin Validation Goods Issue  */
+ 	  
+ 	   
+     IF ObjType = '60' AND (TransType = 'A' OR TransType = 'U') AND IFNULL(:Error, 0) = 0 THEN
+
+	  	/*SELECT COUNT(T0."LogEntry") INTO Counter
+	  	 FROM "OITL" T0
+	  	 INNER JOIN "ITL1" T1 ON T0."LogEntry" = T1."LogEntry" AND T0."ItemCode" = T1."ItemCode" 
+	  	 INNER JOIN "OBTN" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."MdAbsEntry" = T2."AbsEntry"
+	  	 WHERE T0."DocEntry" = DocKey AND T0."DocType" = '60' AND IFNULL(Counter, 0) = 0
+	  	 AND TransType = 'A' 
+	  	 AND T2."InDate" > (SELECT C1."InDate"
+	  	 				    FROM "OBTQ" C0
+	  	 				    INNER JOIN "OBTN" C1 ON C0."ItemCode" = C1."ItemCode" AND C0."MdAbsEntry" = C1."AbsEntry"
+	  	 				    WHERE C0."ItemCode" = T0."ItemCode" AND C0."WhsCode" =  T0."LocCode"
+	  	 				    GROUP BY C1."DistNumber", C1."InDate"
+	  	 				    HAVING SUM(IFNULL(C0."Quantity", 0.00)) > 0);
+	  	
+	 	  IF Counter > 0 THEN
+	  	
+		  	 SELECT T0."ItemCode" INTO ItemCode
+		  	 FROM "OITL" T0
+		  	 INNER JOIN "ITL1" T1 ON T0."LogEntry" = T1."LogEntry" AND T0."ItemCode" = T1."ItemCode" 
+		  	 INNER JOIN "OBTN" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."MdAbsEntry" = T2."AbsEntry"
+		  	 WHERE T0."DocEntry" = DocKey AND T0."DocType" = '13'
+		  	 AND T2."InDate" > (SELECT C1."InDate"
+		  	 				    FROM "OBTQ" C0
+		  	 				    INNER JOIN "OBTN" C1 ON C0."ItemCode" = C1."ItemCode" AND C0."MdAbsEntry" = C1."AbsEntry"
+		  	 				    WHERE C0."ItemCode" = T0."ItemCode" AND C0."WhsCode" =  T0."LocCode"
+		  	 				    GROUP BY C1."DistNumber", C1."InDate"
+		  	 				    HAVING SUM(IFNULL(C0."Quantity", 0.00)) > 0);
+		  	 				    
+			Error := 0;
+			Error_Message := 'Please Select Batch on Fifo Basis ' || ItemCode;
+				  	 				    
+		  END IF;   */   
+	    /* 
+  	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGE" T0
+	  	 INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202'
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND (HOUR(CURRENT_TIME) < 14 OR (HOUR(CURRENT_TIME) = 14 AND MINUTE(CURRENT_TIME) = 0))
+	  	 AND TO_VARCHAR(T0."DocDate", 'yyyyMMdd') != TO_VARCHAR(ADD_DAYS(CURRENT_DATE, -1), 'yyyyMMdd'); 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100599;
+		   Error_Message := 'Please select yestarday date.';
+	  	 END IF;	     
+	     */
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGE" T0
+	  	 INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+		 INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" 
+		 INNER JOIN "OITM" T3 ON T3."ItemCode" = T1."ItemCode"
+ 	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202' AND T3."ItmsGrpCod" NOT IN  ('104','117','121')
+		 AND T1."WhsCode" <> CASE IFNULL(T2."U_ProdLine", '') WHEN 'LINE-1' THEN 'GK-PSF1' WHEN 'LINE-2' THEN 'GK-PSF2' WHEN 'LINE-4' THEN 'GK-PSF4' END
+	  	 AND IFNULL(:Error, 0) = 0;
+	  	-- Select * from "OITB"
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		 
+		 	DECLARE RMWhs VARCHAR(20);		 
+		 
+			 SELECT CASE IFNULL(T2."U_ProdLine", '') WHEN 'LINE-1' THEN 'GK-PSF1' WHEN 'LINE-2' THEN 'GK-PSF2' WHEN 'LINE-4' THEN 'GK-PSF4' END INTO RMWhs
+		  	 FROM "OIGE" T0
+		  	 INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+			 INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" 
+	 	  	 WHERE T0."DocEntry" = :DocKey and T0."BaseType" = '202';
+			 
+			 Error := 100602;
+			 Error_Message := 'Component/s should be issued from warehouse: ' || :RMWhs;
+
+	  	 END IF;     
+
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGE" T0
+	  	 INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+		 INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" 
+		 INNER JOIN "WOR1" T3 ON T1."BaseEntry" = T3."DocEntry" AND T1."BaseLine" = T3."LineNum"
+ 	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202'
+		 AND IFNULL(T3."IssuedQty", 0.00) > IFNULL(T3."PlannedQty", 0.00)
+	  	 AND IFNULL(:Error, 0) = 0;
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100603;
+		   Error_Message := 'Material cannot be issued more than the planned quantity of production order.';
+	  	 END IF; 
+
+		IF  IFNULL(:Error, 0) = 0 THEN
+			 CALL CIS_PROC_Validate_Batch_For_LandedCost_OpenGRPO (:DocKey, :ObjType, :TransType, :Error, :Error_Message);
+		END IF;
+		 
+		/*IF  IFNULL(:Error, 0) = 0 THEN
+		    CALL CIS_PROC_Validate_Non_Batch_For_LandedCost_OpenGRPO (:DocKey, :ObjType, :TransType, :Error, :Error_Message);  
+		END IF;*/
+     	     
+     END IF;
+ 	 /* End Validation Goods Issue  */   
+ 	 
+ 	 /* Begin Validation on Landed Cost */
+ 	 IF ObjType = '69' AND (TransType = 'A') AND IFNULL(:Counter, 0) = 0 THEN
+ 	 	 
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIPF" T0
+	  	 INNER JOIN "IPF1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey
+	  	 AND IFNULL(:Counter, 0) = 0
+	  	 AND IFNULL(T1."BaseType", 0.00) = 20; 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 100691;
+		   Error_Message := 'Landed cost cannot be based on GRPO';
+	  	 END IF;
+	  	 
+	  	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIPF" T0
+	  	 --INNER JOIN "IPF1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey
+	  	 AND IFNULL(:Counter, 0) = 0
+	  	 AND T0."DocCur" <> 'INR'; 
+	  	 
+		 IF IFNULL(Counter, 0) > 0 THEN
+		   Error := 100691;
+		   Error_Message := 'Currency should be INR for Landed Cost';
+	  	 END IF;
+	  	 
+ 	 END IF; 
+ 	 /* End Validation on Landed Cost */
+ 	 
+ 	 /* Begin Validation on Production Order */
+ 	 IF ObjType = '202' AND (TransType = 'A' OR TransType = 'U') AND IFNULL(:Counter, 0) = 0 THEN
+ 	 	 
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OWOR" T0
+	  	 INNER JOIN "WOR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND IFNULL(T0."U_ProdLine", '') = ''; 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 10020201;
+		   Error_Message := 'Please Select Production Line.';
+	  	 END IF;
+
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OWOR" T0
+	  	 WHERE T0."DocEntry" = :DocKey AND T0."Status" = 'L'
+		 AND IFNULL(T0."CmpltQty", 0.00) + IFNULL(T0."RjctQty", 0.00) <> IFNULL(T0."PlannedQty", 0.00) 
+	  	 AND IFNULL(:Error, 0) = 0;
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 10020202;
+		   Error_Message := 'Production order cannot be closed, variance in Parent received quantity and planned quantity.';
+	  	 END IF;
+	  	 
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OWOR" T0
+	  	 INNER JOIN "WOR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey AND T0."Status" = 'L'
+		 AND IFNULL(T1."IssuedQty", 0.00) > IFNULL(T1."PlannedQty", 0.00) 
+	  	 AND IFNULL(:Error, 0) = 0;
+
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 10020202;
+		   Error_Message := 'Production order cannot be closed, Component/s are issued in excess.';
+	  	 END IF;
+	  	 
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OWOR" T0
+	  	 INNER JOIN "WOR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode"
+	  	 
+ 	  	 WHERE T0."DocEntry" = :DocKey and T2."ItmsGrpCod" NOT IN ('104','117','121')
+		 AND T1."wareHouse" <> CASE IFNULL(T0."U_ProdLine", '') WHEN 'LINE-1' THEN 'GK-PSF1' WHEN 'LINE-2' THEN 'GK-PSF2' END
+	  	 AND IFNULL(:Error, 0) = 0;
+
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		 
+		  DECLARE RMWhs VARCHAR(20);		 
+		 
+		 SELECT CASE IFNULL(T0."U_ProdLine", '') WHEN 'LINE-1' THEN 'GK-PSF1' WHEN 'LINE-2' THEN 'GK-PSF2' END INTO RMWhs
+		 FROM "OWOR" T0
+ 	  	 WHERE T0."DocEntry" = :DocKey;
+		 
+		   Error := 1002020311;
+		   Error_Message := 'Please select ' || :RMWhs || ' for components warehouse';
+	  	 END IF;   	  	 
+
+ 	 END IF; 
+ 	 /* End Validation on Production Order */
+
+
+ 	 /* Begin Validation on Goods Receipt */
+ 	 IF ObjType = '59' AND (:TransType = 'A') AND IFNULL(:Counter, 0) = 0 THEN
+ /*
+  	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGN" T0
+	  	 INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202'
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND (HOUR(CURRENT_TIME) < 14 OR (HOUR(CURRENT_TIME) = 14 AND MINUTE(CURRENT_TIME) = 0))
+	  	 AND TO_VARCHAR(T0."DocDate", 'yyyyMMdd') != TO_VARCHAR(ADD_DAYS(CURRENT_DATE, -1), 'yyyyMMdd'); 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100599;
+		   Error_Message := 'Please select yestarday date.';
+	  	 END IF;
+ 	 	 */
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGN" T0
+	  	 INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202'
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND IFNULL(T1."U_Shift", '') = ''; 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100591;
+		   Error_Message := 'Shift is mandatory.';
+	  	 END IF;
+
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGN" T0
+	  	 INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode"
+	  	 INNER JOIN "OWHS" W1 ON W1."WhsCode" = T1."WhsCode"
+	  	 INNER JOIN "OWOR" T3 on T3."DocEntry" = T1."BaseEntry"
+	  	 --INNER JOIN "WOR1" T4 ON T3."DocEntry" = T4."DocEntry"
+	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202' and T2."ItmsGrpCod" = '104' 
+	  	 AND W1."Location" = '3' AND T3."Warehouse" LIKE '%GK%'
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND IFNULL(T1."WhsCode", '') <> 'GK-QC-FG'; 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100591;
+		   Error_Message := 'Receipt warehouse should be GK-QC-FG.';
+	  	 END IF;
+
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGN" T0
+	  	 INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+	  	 INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode"
+	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202' and T2."ItmsGrpCod" = '103'
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND IFNULL(T1."WhsCode", '') NOT IN ('GK-PSF1', 'GK-PSF2','GK-PSF3','GK-PSF4'); 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100591;
+		   Error_Message := 'Receipt warehouse should be GK-PSF1 or PSF2';
+	  	 END IF;
+
+ 	 	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGN" T0
+	  	 INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+		 INNER JOIN "OWOR" T9 ON T1."BaseEntry" = T9."DocEntry" 
+		 LEFT JOIN "B1_OinmWithBinTransfer" T2 ON T1."DocEntry" = T2."CreatedBy" AND T1."ObjType" = T2."TransType"
+		 LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+		 LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+		 INNER JOIN "OITM" I1 ON I1."ItemCode" = T1."ItemCode"
+ 	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202' and I1."ItmsGrpCod" = '104' AND T1."WhsCode" LIKE '%GK%'
+		 AND IFNULL(T4."SL1Code", '') <> IFNULL(T9."U_ProdLine", '')
+	  	 AND IFNULL(:Error, 0) = 0;	  	 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100592;
+		   Error_Message := 'Please check receipt line, selected line is mismatched with production line';
+	  	 END IF;
+	  	 
+	  	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGN" T0
+	  	 INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+		 INNER JOIN "OWOR" T9 ON T1."BaseEntry" = T9."DocEntry" 
+		 LEFT JOIN "B1_OinmWithBinTransfer" T2 ON T1."DocEntry" = T2."CreatedBy" AND T1."ObjType" = T2."TransType"
+		 LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+		 LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+		 INNER JOIN "OITM" I1 ON I1."ItemCode" = T1."ItemCode"
+ 	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202' and I1."ItmsGrpCod" = '103' and IFNULL(T9."U_ProdLine", '') = 'LINE-1'
+		 AND IFNULL(T1."WhsCode", '') NOT IN ('GK-PSF1') 
+	  	 AND IFNULL(:Error, 0) = 0;	  	 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100592;
+		   Error_Message := 'Please check receipt line, selected line is mismatched with production line';
+	  	 END IF;
+	  	 
+	  	 SELECT COUNT(T0."DocEntry") INTO Counter
+	  	 FROM "OIGN" T0
+	  	 INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+		 INNER JOIN "OWOR" T9 ON T1."BaseEntry" = T9."DocEntry" 
+		 LEFT JOIN "B1_OinmWithBinTransfer" T2 ON T1."DocEntry" = T2."CreatedBy" AND T1."ObjType" = T2."TransType"
+		 LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+		 LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+		 INNER JOIN "OITM" I1 ON I1."ItemCode" = T1."ItemCode"
+ 	  	 WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = '202' and I1."ItmsGrpCod" = '103' and IFNULL(T9."U_ProdLine", '') = 'LINE-2'
+		 AND IFNULL(T1."WhsCode", '') NOT IN ('GK-PSF2') 
+	  	 AND IFNULL(:Error, 0) = 0;	  	 
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100592;
+		   Error_Message := 'Please check receipt line, selected line is mismatched with production line';
+	  	 END IF;	  	 
+	  	 
+
+		 SELECT COUNT(T0."DocEntry") INTO Counter
+		 FROM "OIGN" T0
+		 INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+		 INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" AND T1."BaseType" = '202'
+		 INNER JOIN "WOR1" T3 ON T2."DocEntry" = T3."DocEntry"
+		 WHERE T0."DocEntry" = :DocKey And T2."Type"<>'D'
+		 AND IFNULL(:Error, 0) = 0 AND IFNULL(T3."PlannedQty", 0.0000)/IFNULL(T2."PlannedQty", 0.0000) <> 0.0000
+		 AND Round((IFNULL(T3."IssuedQty", 0.0000) / (IFNULL(T3."PlannedQty", 0.0000)/IFNULL(T2."PlannedQty", 0.0000))),0) < IFNULL(T2."CmpltQty", 0.0000) + IFNULL(T2."RjctQty", 0.00); 
+
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 100596;
+		   Error_Message :=  'Component/s quantity is not issued fully for receipt quantity';
+	  	 END IF;
+
+
+
+
+
+
+ 	 END IF; 
+ 	 /* End Validation on Goods Receipt */
+
+ 	 /* Begin Validation on Chart of Accounts */
+ 	 IF ObjType = '1' AND (TransType = 'A' OR TransType = 'U') AND IFNULL(:Counter, 0) = 0 THEN
+ 	 	 
+ 	 	 SELECT COUNT(T0."AcctCode") INTO Counter
+	  	 FROM "OACT" T0
+	  	 WHERE T0."AcctCode" = :DocKey 
+	  	 AND IFNULL(:Error, 0) = 0
+	  	 AND (LENGTH(T0."AcctCode") <> 10 OR IFNULL(T0."AcctCode", '') LIKE_REGEXPR '[A-Z]' OR  IFNULL(T0."AcctCode", '') LIKE '% %' );
+		      
+	  	 
+		 IF IFNULL(:Counter, 0) > 0 THEN
+		   Error := 1000001;
+		   Error_Message := 'Please enter valid account code';
+	  	 END IF;
+	  	 
+ 	 END IF; 
+ 	 /* End Validation on Chart of Accounts */
+
+
+  /* Begin Valiadation on Draft */
+  IF ObjType = '112' AND (TransType = 'A' OR TransType = 'U') THEN
+
+  	/*=========================================================================================================*/  	
+  	/* Begin A/R Invoice Draft */  	 
+  	/*=========================================================================================================*/
+  	/* SELECT COUNT(T0."DocEntry") INTO Counter
+  	 FROM "ODRF" T0
+  	 WHERE T0."DocEntry" = :DocKey
+  	 AND T0."ObjType" = '13'
+  	 AND IFNULL(T0."NumAtCard", '') = '';
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 10131;
+	   Error_Message := 'Customer ref. No is missing';
+  	 END IF; */
+  	 
+    /* SELECT COUNT(T0."DocEntry") INTO Counter
+  	 FROM "ODRF" T0
+  	 INNER JOIN "DRF1" T1 ON T0."DocEntry" = T1."DocEntry"
+  	 INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode"
+  	 WHERE T0."DocEntry" = :DocKey
+  	 AND T0."ObjType" = '13'
+  	 AND T2."InvntItem" = 'Y'
+  	 AND :TransType = 'A'
+  	-- AND (TransType = 'A' OR TransType = 'U')
+  	 AND T0."DataSource" = 'I'
+  	 AND IFNULL(:Counter, 0) = 0
+  	 AND T1."BaseType" not in ('17','13','15'); 
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 10132;
+	   Error_Message := 'Invoice should be based on Sales Order.';
+  	 END IF;
+  */
+     SELECT COUNT(T0."DocEntry") INTO Counter
+  	 FROM "ODRF" T0
+  	 INNER JOIN "DRF1" T1 ON T0."DocEntry" = T1."DocEntry"
+  	 INNER JOIN "OITM" T5 ON T1."ItemCode" = T5."ItemCode"
+  	 LEFT JOIN "B1_OinmWithBinTransfer" T2 ON T1."DocEntry" = T2."CreatedBy" AND T1."ObjType" = T2."TransType"
+  	 LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+  	 LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"  	 
+  	 WHERE T0."DocEntry" = :DocKey 
+  	 AND T0."ObjType" = '13'
+  	 AND :TransType = 'A'
+  	 AND T0."DataSource" = 'I'
+  	 AND IFNULL(T5."InvntItem", '') = 'Y'  	   	 
+  	 AND (T1."WhsCode" NOT LIKE '%FG%' OR T4."SL1Code" NOT LIKE '%SALEABLE%')
+  	 AND IFNULL(:Counter, 0) = 0; 
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 10133;
+	   Error_Message := 'Please select correct FG Warehouse / BIN';
+  	 END IF; 
+  	 
+ 
+  	/*SELECT COUNT(T0."LogEntry") INTO Counter
+  	 FROM "OITL" T0
+  	 INNER JOIN "ITL1" T1 ON T0."LogEntry" = T1."LogEntry" AND T0."ItemCode" = T1."ItemCode" 
+  	 INNER JOIN "OBTN" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."MdAbsEntry" = T2."AbsEntry"
+  	 WHERE T0."DocEntry" = DocKey AND T0."DocType" = '13' AND IFNULL(Counter, 0) = 0 	 
+  	 AND TransType = 'A' 
+  	 AND T2."InDate" > (SELECT MIN(C1."InDate")
+  	 				    FROM "OBTQ" C0
+  	 				    INNER JOIN "OBTN" C1 ON C0."ItemCode" = C1."ItemCode" AND C0."MdAbsEntry" = C1."AbsEntry"
+  	 				    WHERE C0."ItemCode" = T0."ItemCode" AND C0."WhsCode" =  T0."LocCode"
+  	 				    GROUP BY C1."DistNumber", C1."InDate"
+  	 				    HAVING SUM(IFNULL(C0."Quantity", 0.00)) > 0);
+  	
+ 	  IF Counter > 0 THEN
+  	
+	  	 SELECT T0."ItemCode" INTO ItemCode
+	  	 FROM "OITL" T0
+	  	 INNER JOIN "ITL1" T1 ON T0."LogEntry" = T1."LogEntry" AND T0."ItemCode" = T1."ItemCode" 
+	  	 INNER JOIN "OBTN" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."MdAbsEntry" = T2."AbsEntry"
+	  	 WHERE T0."DocEntry" = DocKey AND T0."DocType" = '13'
+	  	 AND T2."InDate" > (SELECT MIN(C1."InDate")
+	  	 				    FROM "OBTQ" C0
+	  	 				    INNER JOIN "OBTN" C1 ON C0."ItemCode" = C1."ItemCode" AND C0."MdAbsEntry" = C1."AbsEntry"
+	  	 				    WHERE C0."ItemCode" = T0."ItemCode" AND C0."WhsCode" =  T0."LocCode"
+	  	 				    GROUP BY C1."DistNumber", C1."InDate"
+	  	 				    HAVING SUM(IFNULL(C0."Quantity", 0.00)) > 0);
+	  	 				    
+		Error = 10133;
+		Error_Message := 'Please Select Batch on Fifo Basis ' || ItemCode;
+			  	 				    
+	  END IF; */
+   	/* End A/R Invoice Draft */  	 
+   	
+   	/*===============================================================================================================================
+   	IF  (ObjType='59') and (TransType='A' OR TransType = 'U') THEN
+	SELECT COUNT(*)INTO Counter FROM OIGN T0 
+	Inner JOIN IGN1 T1 ON T1."DocEntry"=T0."DocEntry"
+	Inner JOIN OWOR T2 ON T2."DocNum"=T1."BaseRef" 
+		WHERE T0."DocEntry" = :DocKey  And T1."BaseType"='202'  AND IFNull(T0."U_PSDate",'')=''; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF Counter > 0 THEN
+		error := 1002;
+		error_message := 'Please Select Production Start Date';
+	END IF;
+END IF;	
+   IF  (ObjType='59') and (TransType='A' OR TransType = 'U') THEN
+	SELECT COUNT(*)INTO Counter FROM OIGN T0 
+	Inner JOIN IGN1 T1 ON T1."DocEntry"=T0."DocEntry"
+	Inner JOIN OWOR T2 ON T2."DocNum"=T1."BaseRef" 
+		WHERE T0."DocEntry" = :DocKey  And T1."BaseType"='202'  AND IFNull(T0."U_PEDate",'')=''; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF Counter > 0 THEN
+		error := 1002;
+		error_message := 'Please Select Production End Date';
+	END IF;
+END IF;	
+IF  (ObjType='59') and (TransType='A' OR TransType = 'U') THEN
+	SELECT COUNT(*)INTO Counter FROM OIGN T0 
+	Inner JOIN IGN1 T1 ON T1."DocEntry"=T0."DocEntry"
+	Inner JOIN OWOR T2 ON T2."DocNum"=T1."BaseRef" 
+		WHERE T0."DocEntry" = :DocKey  And T1."BaseType"='202'  AND T0."U_PS_Time" =''; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF Counter > 0 THEN
+		error := 1002;
+		error_message := 'Please Select Production Start Time';
+	END IF;
+END IF;	
+*/
+   	/* Begin A/P Invoice Draft =========================================================================================================*/
+     SELECT COUNT(T0."DocEntry") INTO Counter
+  	 FROM "ODRF" T0
+  	 INNER JOIN "DRF1" T1 ON T0."DocEntry" = T1."DocEntry"
+  	 INNER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode"
+  	 LEFT JOIN "OCRD" T3 ON T0."CardCode" = T3."CardCode"
+  	 WHERE T0."DocEntry" = :DocKey AND T2."InvntItem" = 'Y'
+  	 AND T3."GroupCode" <> 116
+  	 AND T1."ObjType" = '18'
+  	 AND IFNULL(:Error, 0) = 0
+  	 AND T1."BaseType" <> '20'; 
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 100181;
+	   Error_Message := 'A/P Invoice should be based on GRPO.';
+  	 END IF;
+ 	
+ 	 SELECT COUNT(T0."DocEntry") INTO Counter
+  	 FROM "OPCH" T0
+  	 INNER JOIN "PCH1" T1 ON T0."DocEntry" = T1."DocEntry"
+  	 INNER JOIN "PDN1" T2 ON T1."BaseEntry" = T2."DocEntry" AND T1."BaseType" = T2."ObjType" AND T1."BaseLine" = T2."LineNum"
+  	 WHERE T0."DocEntry" = :DocKey
+  	 AND T0."ObjType" = '18'
+  	 AND IFNULL(:Counter, 0) = 0
+  	 AND IFNULL(T1."Quantity", 0.00) - IFNULL(T1."BaseOpnQty", 0) < 0; 
+  	 
+	 IF IFNULL(Counter, 0) > 0 THEN
+	   Error := 100182;
+	   Error_Message := 'A/P Invoice quantity cannot be more than Goods Receipt PO.';
+  	 END IF;
+
+ 
+ 	SELECT COUNT(T0."DocEntry") INTO Counter
+ 	FROM "ODRF" T0
+ 	WHERE T0."DocEntry" = :DocKey AND T0."ObjType" = '18'
+ 	AND IFNULL(:Counter, 0) = 0 AND IFNULL(T0."U_LandedCstReq", '') = '';
+ 
+ 	IF IFNULL(:Counter, 0) > 0 THEN 
+ 		Error := 10225;
+		Error_Message := 'Specify Landed Cost Req. or not';     		
+ 	END IF;	        	
+   	/* End A/P Invoice Draft =========================================================================================================*/ 
+   	
+	END IF;	
+	/* End Validation on Draft */
+
+ END;

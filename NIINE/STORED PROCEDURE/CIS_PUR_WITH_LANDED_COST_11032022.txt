@@ -1,0 +1,69 @@
+CREATE PROCEDURE CIS_PUR_WITH_LANDED_COST_11032022
+(
+	IN FromDate DATE,
+	IN ToDate DATE,
+	IN R_Type VARCHAR(25)
+
+)
+ AS
+ BEGIN	
+ 
+ IF R_Type = 'LANDED' THEN
+
+	 SELECT T1."DocEntry", T0."DocNum" "LC No.",T10."TransId",T0."DocDate" "LC Date",T1."Currency",
+		T1."BaseType" "DocType", T1."BaseEntry" "A/P DocEntry", T1."Reference" "A/P Invoice No.",
+		T1."OrigLine" "Line Number", T0."CardCode", T0."SuppName", T0."AgentCode", T0."AgentName", T2."BPLName", 
+		T1."ItemCode", T1."Dscription",T5."ItmsGrpNam" "Item Group", T1."Quantity", T1."Cost", T0."CostSum",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='01'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "Custom duty",
+	   
+	    (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='02'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "CHA Service Charges",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='03'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "Shipping line Charges",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='04'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "Freight Inward",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='05'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "In transit Insurance",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='06'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "Misc Charges",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='07'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "Container handling Charges",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='08'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "LC Issuance Charges",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='09'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "IGST",
+	   
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='10'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity"+
+	   (IFNULL((SELECT T00."CostSum" FROM IPF2 T00 WHERE T00."DocEntry" = T0."DocEntry" AND T00."AlcCode"='11'),0)/
+	   IFNULL((SELECT SUM("Quantity") FROM IPF1 WHERE IPF1."DocEntry" = T0."DocEntry"),0)) * T1."Quantity" "Others Charegs",
+	   T3."BASE_REF", T3."Price", T3."TransValue", T3."PriceDiff",T3."TransValue"+ T3."PriceDiff" "Purchase A/C Balance"
+	   
+	   
+	   
+	   
+	FROM OIPF T0  
+	INNER JOIN IPF1 T1 ON T0."DocEntry" = T1."DocEntry" 
+	left outer JOIN OBPL T2 ON T0."BPLId" = T2."BPLId" 
+	LEFT OUTER JOIN OINM T3 ON T3."CreatedBy" = T1."DocEntry" AND T3."DocLineNum" = T1."LineNum" AND T3."TransType" = 69
+	INNER JOIN OITM T4 ON T4."ItemCode" = T1."ItemCode"
+	INNER JOIN OITB T5 ON T4."ItmsGrpCod" = T5."ItmsGrpCod"	
+	LEFT OUTER JOIN OJDT T10 ON T10."CreatedBy" = T1."DocEntry" AND T10."TransType" = 69	
+	WHERE T0."DocDate" >= FromDate AND T0."DocDate" <= ToDate
+	--and  t0."DocEntry"in (1115, 1168,9)
+	
+and t1."TargetDoc" is  null
+	ORDER BY T1."BaseEntry" ;
+END IF;
+	
+	
+END;

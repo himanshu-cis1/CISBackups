@@ -1,0 +1,151 @@
+CREATE PROCEDURE CIS_PUR_WITH_LANDED_COST_26022022
+(
+	IN FromDate DATE,
+	IN ToDate DATE,
+	IN R_Type VARCHAR(25)
+
+)
+ AS
+ BEGIN	
+ 
+ IF R_Type = 'PUR' THEN 
+	
+	SELECT   A."DocEntry",A."TransId",A."Transp. Type",A."DocNum",A."GRPO",A."DocDate", A."CardCode",A."CardName",A."ItemCode", A."Dscription", 
+		A."Item Group",A."Quantity",A."Quantity_In_KG", A."Unit Price",A."Base Amount",A."Freight",
+		A."Item CGST",A."Item SGST",A."Item IGST",A."Freight CGST",A."Freight SGST",A."Freight IGST",
+		A."Freight"+A."Base Amount"+A."Item CGST"+A."Item SGST"+A."Item IGST"+A."Freight CGST"+A."Freight SGST"+A."Freight IGST" "Line Total",
+		SUM(A."Freight"+A."Base Amount"+A."Item CGST"+A."Item SGST"+A."Item IGST"+A."Freight CGST"+A."Freight SGST"+A."Freight IGST")
+		OVER (PARTITION BY A."DocEntry")"Document Total",
+		
+		
+		CASE WHEN A."100%">0 THEN 'Y' ELSE 'N' END "100% Deductable",
+		A."GRPO_Date",A."GRPO_CREATE_DATE",
+		A."GRPO_CREATE_TIME"
+FROM( 
+		SELECT DISTINCT 'AP' "Transp. Type",t1."LineNum",T0."DocEntry",T0."DocNum",T1."BaseRef" "GRPO",T0."DocDate", T0."CardCode", T0."CardName",T1."ItemCode", T1."Dscription", 
+		T5."ItmsGrpNam" "Item Group",T1."Quantity",Case when T1."UomCode" like '%qMtrs%' then T1."InvQty" /*Round((T1."Quantity"/T8."AltQty"),2)*/ end "Quantity_In_KG",T1."PriceBefDi" "Unit Price",T1."LineTotal" "Base Amount",T0."TransId",
+		
+		(T0."TotalExpns"/(SELECT SUM("Quantity") FROM PCH1 WHERE T0."DocEntry" = PCH1."DocEntry"))*T1."Quantity" "Freight",	
+		
+				IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -100 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "Item CGST",											
+																		
+				IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -110 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "Item SGST",											
+																		
+				IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -120 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "Item IGST",
+																		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -100
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM PCH1 WHERE T0."DocEntry" = PCH1."DocEntry"))*T1."Quantity" AS "Freight CGST",											
+																		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -110 
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM PCH1 WHERE T0."DocEntry" = PCH1."DocEntry"))*T1."Quantity" AS "Freight SGST",											
+																		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -120 
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM PCH1 WHERE T0."DocEntry" = PCH1."DocEntry"))*T1."Quantity" AS "Freight IGST",
+			
+				
+				IFNULL((SELECT MAX(T00."NonDdctPrc") FROM PCH4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) "100%",
+								
+								
+								
+		(Select Distinct x."DocDate" from OPDN x where x."DocEntry" = T1."BaseEntry"  )  as "GRPO_Date",
+		(Select Distinct x."CreateDate" from OPDN x where x."DocEntry" = T1."BaseEntry"  ) AS "GRPO_CREATE_DATE",
+		(Select Distinct x."CreateTS" from OPDN x where x."DocEntry" = T1."BaseEntry"  ) AS "GRPO_CREATE_TIME"
+				
+		
+		
+		FROM OPCH T0  
+		INNER JOIN PCH1 T1 ON T0."DocEntry" = T1."DocEntry"
+	
+		INNER JOIN OITM T4 ON T4."ItemCode" = T1."ItemCode" and  t4."InvntItem"='Y'
+		INNER JOIN OITB T5 ON T4."ItmsGrpCod" = T5."ItmsGrpCod"		
+		--left outer join OPDN T6 ON T1."BaseEntry"=t6."DocEntry" 
+		--Left Outer JOin OUOM T7 ON T1."UomCode" = T7."UomCode"
+		--Left Outer Join UGP1 T8 ON T7."UomEntry" = T8."UomEntry"
+	
+		
+		WHERE T0."DocType" = 'I' AND T0."CANCELED" = 'N' AND T0."DocDate" BETWEEN FromDate AND ToDate
+		--AND T0."DocEntry" = 1666---1652 --AND T0."DocNum" = 1500392
+		/*AND T3."Account" IN ('5020101001',	'5020101002',	'5020101003',	'5020101004',	'5020101005',	
+							 '5020101006',	'5020101007',	'5020101008',	'5020101009',	'5020101010',	
+							 '5020101011',	'5020101012',	'5020101013',	'5020101014',	'5020101015'
+							 )
+		*/
+		
+		union all
+		
+		
+SELECT DISTINCT 'AP Credit Memo' "Transp. Type",t1."LineNum",T0."DocEntry",T0."DocNum",'' "GRPO",T0."DocDate",
+ T0."CardCode", T0."CardName",T1."ItemCode", T1."Dscription", 
+		T5."ItmsGrpNam" "Item Group",(T1."Quantity"*-1)"Quantity",
+		((Case when T1."UomCode" like '%qMtrs%' then T1."InvQty" /*Round((T1."Quantity"/T8."AltQty"),2)*/ end) *-1) as "Quantity_In_KG",
+		(T1."PriceBefDi"*-1) "Unit Price",
+		(T1."LineTotal"*-1) "Base Amount",
+		T0."TransId",
+		
+		(((T0."TotalExpns"/(SELECT SUM("Quantity") FROM RPC1 
+		WHERE T0."DocEntry" = RPC1."DocEntry"))*T1."Quantity")*-1) "Freight",	
+		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -100 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0)*-1) AS "Item CGST",											
+																		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -110 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0)*-1) AS "Item SGST",											
+																		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -120 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0)*-1) AS "Item IGST",
+																		
+				(((IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -100
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM RPC1 WHERE T0."DocEntry" = RPC1."DocEntry"))*T1."Quantity")*-1) AS "Freight CGST",											
+																		
+				(((IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -110 
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM RPC1 WHERE T0."DocEntry" = RPC1."DocEntry"))*T1."Quantity")*-1) AS "Freight SGST",											
+																		
+				(((IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -120 
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM RPC1 WHERE T0."DocEntry" = RPC1."DocEntry"))*T1."Quantity")*-1) AS "Freight IGST",
+			
+				
+				IFNULL((SELECT MAX(T00."NonDdctPrc") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) "100%",
+								
+								
+								
+		'' as "GRPO_Date"
+		, (Select Distinct x."CreateDate" from OPDN x where x."DocEntry" = T1."BaseEntry" and x."ObjType" = T1."BaseType" ) AS "GRPO_CREATE_DATE",
+		(Select Distinct x."CreateTS" from OPDN x where x."DocEntry" = T1."BaseEntry" and x."ObjType" = T1."BaseType" ) AS "GRPO_CREATE_TIME"
+				
+		
+		
+		FROM ORPC T0  
+		INNER JOIN RPC1 T1 ON T0."DocEntry" = T1."DocEntry"
+	
+		INNER JOIN OITM T4 ON T4."ItemCode" = T1."ItemCode" and  t4."InvntItem"='Y'
+		INNER JOIN OITB T5 ON T4."ItmsGrpCod" = T5."ItmsGrpCod"		
+		left outer join OPCH T6 ON T1."BaseEntry"=t6."DocEntry"
+		--Left Outer JOin OUOM T7 ON T1."UomCode" = T7."UomCode"
+		--Left Outer Join UGP1 T8 ON T7."UomEntry" = T8."UomEntry"
+		WHERE T0."DocType" = 'I' AND T0."CANCELED" = 'N' AND T0."DocDate" BETWEEN FromDate AND ToDate
+		
+	)A ORDER BY A."DocEntry";
+	
+
+	
+END IF;
+END;

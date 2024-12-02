@@ -1,0 +1,168 @@
+CREATE PROCEDURE CIS_PROC_PurchaseRegister_With_LandedCost 
+	(IN FromDate VARCHAR(20)
+	, IN ToDate VARCHAR(20))
+ LANGUAGE SQLSCRIPT
+ AS
+ BEGIN
+ 
+ 
+ 	DECLARE SNo INT;
+ 	DECLARE MaxSNo INT;
+	DECLARE TNAME VARCHAR(100);
+	DECLARE TaxLCType VARCHAR(100);
+	DECLARE STR VARCHAR(1000);
+ 	
+ 	--=========================================================================================================	
+	---- CREATING TEMP TABLE
+	--=========================================================================================================	
+ 	CREATE LOCAL TEMPORARY TABLE #Temp
+ 	( "DocEntry" INT, "Transid" INT, "LineNum" INT, "Invoice No." INT, "Invoice Date" DATETIME
+ 	, "VendorInvoiceNo/Date" VARCHAR(200) ,"PO No." INT, "PO Date" DATETIME,"DOCENTRY1" INT
+ 	, "Vendor Code" VARCHAR(100), "Vendor Name" VARCHAR(150), "Vendor TIN NO" VARCHAR(70)
+ 	, "Item Code" VARCHAR(100), "Item Name" VARCHAR(150), "Item GroupName" VARCHAR(150)
+ 	, "Quantity" DECIMAL(19, 6), "Unit Price(FC)" DECIMAL(19, 6), "Currrency Rate" decimal(19,6)
+	, "Doc Currency" varchar(100), "Unit Price(INR)" DECIMAL(19,6),"Receving Whse" VARCHAR(100)
+	, "Project" VARCHAR(100),"Total Amount" DECIMAL(19,6),"DisPercent" INT
+	, "PURCHASE GL" VARCHAR(100),"INVENTORY GL" VARCHAR(100), "BED@16" DECIMAL(19, 2),"CST" DECIMAL(19, 2),"Cess_ST" DECIMAL(19, 2)
+	, "HSC" DECIMAL(19, 2), "HSC_ST,Service" DECIMAL(19, 2), "VAT12.5" DECIMAL(19, 2), "VAT4" DECIMAL(19, 2)
+	, "eCess" DECIMAL(19, 2), "CGST0" DECIMAL(19, 2), "CGST14" DECIMAL(19, 2)
+	, "CGST2.5" DECIMAL(19, 2), "CGST6" DECIMAL(19, 2), "CGST9" DECIMAL(19, 2), "CGSTNI9" DECIMAL(19, 2), "RIGST28" DECIMAL(19, 2)
+    , "RSGST0"  DECIMAL(19, 2), "RSGST14"  DECIMAL(19, 2), "RSGST2.5"  DECIMAL(19, 2), "RSGST6"  DECIMAL(19, 2)
+    , "IGSTNI18" DECIMAL(19, 2), "IGSTNI5"  DECIMAL(19, 2), "RCGST0"  DECIMAL(19, 2), "RIGST5"  DECIMAL(19, 2)
+    , "RCGST14" DECIMAL(19, 2), "RCGST2.5"  DECIMAL(19, 2), "RCGST6"  DECIMAL(19, 2), "RCGST9"  DECIMAL(19, 2)
+    , "TCS" DECIMAL(19, 2), "CIGST12" DECIMAL(19, 2), "CIGST18" DECIMAL(19, 2), "RSGST9" DECIMAL(19, 2), "IGST0" DECIMAL(19, 2)
+    , "IGST12" DECIMAL(19, 2),"IGST18" DECIMAL(19, 2),"IGST28" DECIMAL(19, 2),"SGST0" DECIMAL(19, 2),"SGST14" DECIMAL(19, 2)
+    , "SGST2.5" DECIMAL(19, 2), "SGST6" DECIMAL(19, 2), "SGST9" DECIMAL(19, 2), "SGSTNI9" DECIMAL(19, 2), "UTGST0" DECIMAL(19, 2)
+    , "UTGST12" DECIMAL(19, 2), "UTGST18" DECIMAL(19, 2), "UTGST28" DECIMAL(19, 2), "UTGST5" DECIMAL(19, 2), "VAT0" DECIMAL(19, 2)
+    , "IGST5" DECIMAL(19, 2), "RIGST0" DECIMAL(19, 2), "RIGST12" DECIMAL(19, 2), "RIGST18" DECIMAL(19, 2)
+	,"Custom duty" DECIMAL(19, 2), "CHA Service Charges" DECIMAL(19, 2),"Shipping line Charges" DECIMAL(19, 2)
+	,"Freight Inward" DECIMAL(19, 2), "In transit Insurance" DECIMAL(19, 2),"Misc Charges" DECIMAL(19, 2)
+	, "Container handling Charges" DECIMAL(19, 2), "LC Issuance Charges" DECIMAL(19, 2),"IGST" DECIMAL(19, 2));
+ 	--==============================================================================================================================================
+ 
+ 	CREATE LOCAL TEMPORARY TABLE #Temp_TaxDetail ("SNo" INT, "DocEntry" INT, "LineNum" INT
+ 	, "StaCode" VARCHAR(100), "TaxSum" DECIMAL(19,6));
+ 	--==============================================================================================================================================
+
+ 	CREATE LOCAL TEMPORARY TABLE #Temp_Tax_Landed_Codes ("SNo" INT, "Tax_LandedCost" VARCHAR(100), "Type" VARCHAR(100));
+ 	--===============================================================================================================================================
+
+	CREATE LOCAL TEMPORARY TABLE #Temp_LCDETAILS ("SNo" INT, "DocEntry" INT, "AlcCode" INT
+	, "AlcName" VARCHAR(100), "CostSum" DECIMAL(19,6), "CostSumFC" DECIMAL (19,6), "ALLOC GL" VARCHAR(100)); 
+ 	--===========================================================================================================================================================
+ 	
+ 	--=============================================================================================	
+ 	---------------------------------------------------- INSERT DATA INTO TEMP TABLES
+	--=============================================================================================	
+	-- INSERTING DATA INTO #TEMP
+	INSERT INTO #Temp ("DocEntry", "Transid", "LineNum", "Invoice No.", "Invoice Date", "VendorInvoiceNo/Date","PO No.", "PO Date","DOCENTRY1"
+ 	, "Vendor Code", "Vendor Name", "Vendor TIN NO", "Item Code", "Item Name", "Item GroupName"
+ 	, "Quantity", "Unit Price(FC)", "Currrency Rate", "Doc Currency", "Unit Price(INR)","Receving Whse"
+	, "Project","Total Amount","DisPercent", "PURCHASE GL","INVENTORY GL")
+	SELECT T0."DocEntry", T0."TransId", T1."LineNum", T0."DocNum", T0."DocDate"
+	, T0."NumAtCard", T4."BaseDocNum" "PONO", T4."ShipDate" "PODate", T5."DocEntry" "DOCENTRY1"
+	, T0."CardCode", T0."CardName", T8."TaxId11", T1."ItemCode", T1."Dscription", T3."ItmsGrpNam"
+	, IFNULL(T1."Quantity", 0) "Qty", IFNULL(T1."Price", 0) "Unit Price(FC)"
+	, T0."DocRate" "Currrency Rate", T0."DocCur" "Doc Currency"
+	, (IFNULL(T1."Price", 0) * T0."DocRate") "Unit Price(INR)"
+	, T1."WhsCode", T1."Project", IFNULL(T1."LineTotal",0) "TotalAmount"
+	, T0."DiscPrcnt", T3."PurchaseAc" "PURCHASE GL"
+	, T3."BalInvntAc" "INVENTORY GL"
+	FROM "OPCH" T0
+	INNER JOIN "PCH1" T1 ON T0."DocEntry" = T1."DocEntry" 
+	LEFT JOIN "PDN1" T4 ON T1."BaseEntry" = T4."DocEntry" AND T1."BaseLine" = T4."LineNum"
+	LEFT JOIN "IPF1" T5 ON T4."DocEntry" = T5."BaseEntry"
+	INNER JOIN "CRD7" T8 ON T0."CardCode" = T8."CardCode" AND T8."Address" = ''
+	LEFT OUTER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode" 
+	LEFT JOIN "OITB" T3 ON T2."ItmsGrpCod" = T3."ItmsGrpCod"  
+	WHERE T0."DocDate" BETWEEN :FromDate AND :ToDate;
+    --==============================================================================================	
+
+    --==============================================================================================	
+    -- INSERTING DATA INTO #TEMP_TAXDETAIL	
+ 	--==============================================================================================	
+	INSERT INTO #Temp_TaxDetail SELECT ROW_NUMBER() OVER (ORDER BY T0."DocEntry") "SNo"
+								, "DocEntry", "LineNum", "StaCode", "TaxSum" 
+							    FROM "PCH4" T0
+								WHERE "DocEntry" IN (SELECT DISTINCT "DocEntry" FROM #Temp);
+ 	--==============================================================================================	
+
+    --==============================================================================================	
+    -- INSERTING DATA INTO LANDED COST DETAILS	
+ 	--============================================================================================== 	
+	INSERT INTO #Temp_LCDETAILS SELECT ROW_NUMBER() OVER (ORDER BY T0."DocEntry") "SNo" 
+								, T0."DocEntry", T0."AlcCode"
+								,(SELECT T1."AlcName" FROM "OALC" T1 WHERE T1."AlcCode" = T0."AlcCode") "AlcName"
+								, T0."CostSum", T0."CostSumFC", T0."LaCAllcAcc" "ALLOC GL"
+								 FROM "IPF2" T0 
+								 WHERE T0."DocEntry" IN (SELECT DISTINCT "DOCENTRY1" FROM #Temp);			 	
+ 	--============================================================================================== 
+ 
+ 	--====================================================================================================================== 
+ 	 INSERT INTO #Temp_Tax_Landed_Codes SELECT DISTINCT ROW_NUMBER() OVER (ORDER BY "Code"), "Code", "Type"
+ 	 							        FROM 	 							        
+	 	 							        (SELECT DISTINCT "StaCode" "Code", 'TaxCode' "Type"
+	 	 							         FROM #Temp_TaxDetail T0
+	 	 							        
+	 	 							         UNION ALL
+	 	 							        
+	 	 							         SELECT DISTINCT "AlcName" "Code", 'LandedCost' "Type"
+	 	 							         FROM #Temp_LCDETAILS) A;							        
+ 	--======================================================================================================================							        
+ 
+	 STR := ' ';
+ 	 SNo := 1;
+ 	 TNAME := '';
+ 	 TaxLCType := '';
+ 	 	 
+ 	 SELECT MAX("SNo") INTO MaxSNo FROM #Temp_Tax_Landed_Codes;
+ 	 
+ 	 WHILE SNo <= MaxSNo DO
+ 	 
+ 	 	SELECT "Tax_LandedCost", "Type" INTO TNAME, TaxLCType FROM #Temp_Tax_Landed_Codes WHERE "SNo" = :SNo; 
+ 	  	
+ 	  	IF :TaxLCType = 'TaxCode' THEN
+	 	 	STR := 'UPDATE T0 
+	 	 			SET "' || TNAME || '" =  "TaxSum"  
+	 	 		    FROM #Temp T0 
+	 	 		    INNER JOIN #Temp_TaxDetail T1 ON T0."DocEntry" = T1."DocEntry" AND T0."LineNum" = T1."LineNum" 
+	 	 		    WHERE "StaCode" = ''' || TNAME || ''''; 	 		    		
+	 	END IF;
+	 	
+ 	  	IF :TaxLCType = 'LandedCost' THEN
+	 	 	STR := 'UPDATE T0 
+	 	 			SET "' || TNAME || '" =  "CostSum" 
+	 	 		    FROM #Temp T0 
+	 	 		    INNER JOIN #Temp_LCDETAILS T1 ON T0."DOCENTRY1" = T1."DocEntry"
+	 	 		    WHERE "AlcName" = ''' || TNAME || ''''; 		    		
+	 	END IF;	 	
+	 	
+	 	--SELECT :STR, :TaxLCType, :TNAME FROM dummy;
+	   EXEC :STR; 	
+	    
+	 	SNo := SNo + 1;
+ 	 
+ 	 END WHILE;
+ 	 
+ 
+ 	--==============================================================================================	
+	---- Output
+	--==============================================================================================
+ 	SELECT * FROM #Temp;
+ 	SELECT * FROM #Temp_TaxDetail;
+ 	--==============================================================================================	
+
+ 	
+ 	--============================================================	
+	---- DROPPING TEMP TABLE
+	--============================================================
+	DROP TABLE #Temp;
+	DROP TABLE #Temp_TaxDetail;
+	DROP TABLE #Temp_LCDETAILS;
+	DROP TABLE #Temp_Tax_Landed_Codes;	
+	--============================================================
+ 
+ END;
+
+
+

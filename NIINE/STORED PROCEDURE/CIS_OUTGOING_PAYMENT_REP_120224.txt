@@ -1,0 +1,31 @@
+CREATE PROCEDURE CIS_OUTGOING_PAYMENT_REP_120224
+(
+	IN FromDate DATE,
+	IN ToDate DATE
+
+)
+AS
+BEGIN
+
+Select * From (SELECT 'Outgoing Payment' AS "Payment Type",T0."DocEntry" ,CONCAT(T0."DocNum",'') "Document Number", CASE when T0."DocType" = 'A' Then  T1."Account" else T0."CardCode" end "Vendor/Customer/Account Code",Case when T0."CardName" is null then ((Select kk."AcctName" from OACT kk where kk."AcctCode" = T1."Account"))  else t0."CardName" end   "Vendor/Customer/Account Name",t7."GroupName",T0."JrnlMemo" "Remark",
+t0."DocDate" "Posting Date",
+
+	
+(case when  t0."CashSum" <>0.00 then (select oact."AcctName" from OACT where t0."CashAcct"=oact."AcctCode") 
+ when  t0."CheckSum" <>0.00 then (select oact."AcctName" from OACT where t0."CheckAcct"=oact."AcctCode") 
+  when  t0."TrsfrSum" <>0.00 then (select oact."AcctName" from OACT where t0."TrsfrAcct"=oact."AcctCode") else '' end) "GL account of Payment name",
+
+T1."Debit",T1."Credit",T0."Comments" "Remarks"
+
+  
+
+ FROM OVPM T0
+  --LEFT OUTER JOIN OJDT t6 ON t6."BaseRef" = t0."DocNum" and t6."TransType"=46
+  LEFT JOIN JDT1 T1 ON T1."BaseRef"= t0."DocNum" AND  t1."TransType"='46' /*AND T1."ShortName"=T0."CardCode"*/ AND T0."DocEntry"=T1."CreatedBy"
+LEFT JOIN OACT T2 ON T1."Account" = T2."AcctCode"
+  LEFT OUTER JOIN OCRD T4 ON T4."CardCode" = T1."ShortName" 
+LEFT OUTER JOIN OCRD T5 ON T5."CardCode" = T0."CardCode"
+LEFT OUTER JOIN OCRG T7 ON T5."GroupCode" = T7."GroupCode"
+  where t0."Canceled"='N'  AND T1."Credit"='0' AND T0."DocDate" Between FromDate And ToDate)KD;
+  
+ END;

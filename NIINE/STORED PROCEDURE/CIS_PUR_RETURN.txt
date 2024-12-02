@@ -1,0 +1,82 @@
+CREATE PROCEDURE CIS_PUR_RETURN
+(
+	IN FromDate DATE,
+	IN ToDate DATE,
+	IN R_Type VARCHAR(25)
+
+)
+ AS
+ BEGIN	
+ 
+ IF R_Type = 'RETURN' THEN 
+	
+	SELECT A."DocEntry",A."TransId",A."DocNum", A."DocDate", A."CardCode",A."CardName",A."ItemCode", A."Dscription", 
+		A."Item Group",A."Quantity", A."Unit Price",A."Base Amount",A."Freight",
+		A."Item CGST",A."Item SGST",A."Item IGST",A."Freight CGST",A."Freight SGST",A."Freight IGST",
+		A."Freight"+A."Base Amount"+A."Item CGST"+A."Item SGST"+A."Item IGST"+A."Freight CGST"+A."Freight SGST"+A."Freight IGST" "Line Total",
+		SUM(A."Freight"+A."Base Amount"+A."Item CGST"+A."Item SGST"+A."Item IGST"+A."Freight CGST"+A."Freight SGST"+A."Freight IGST")
+		OVER (PARTITION BY A."DocEntry")"Document Total",
+		CASE WHEN ROW_NUMBER() OVER (PARTITION BY A."DocEntry")=1 THEN  A."Purchase Balance"  ELSE 0 END "Purchase Balance",
+		CASE WHEN A."100%">0 THEN 'Y' ELSE 'N' END "100% Deductable"
+FROM( 
+		SELECT T0."DocEntry",T0."DocNum",T0."DocDate", T0."CardCode", T0."CardName",T1."ItemCode", T1."Dscription", 
+		T5."ItmsGrpNam" "Item Group",T1."Quantity",T1."PriceBefDi" "Unit Price",T1."LineTotal" "Base Amount",T0."TransId",
+		
+		(T0."TotalExpns"/(SELECT SUM("Quantity") FROM RPC1 WHERE T0."DocEntry" = RPC1."DocEntry"))*T1."Quantity" "Freight",	
+		
+				IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -100 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "Item CGST",											
+																		
+				IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -110 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "Item SGST",											
+																		
+				IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -120 AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "Item IGST",
+																		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -100
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM RPC1 WHERE T0."DocEntry" = RPC1."DocEntry"))*T1."Quantity" AS "Freight CGST",											
+																		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -110 
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM RPC1 WHERE T0."DocEntry" = RPC1."DocEntry"))*T1."Quantity" AS "Freight SGST",											
+																		
+				(IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -120 
+								AND T00."RelateType" = 3), 0)/(SELECT SUM("Quantity") FROM RPC1 WHERE T0."DocEntry" = RPC1."DocEntry"))*T1."Quantity" AS "Freight IGST",
+				T3."Debit" "Purchase Balance",
+				
+				IFNULL((SELECT MAX(T00."NonDdctPrc") FROM RPC4 T00 														
+							WHERE T00."DocEntry" = T0."DocEntry" AND T00."LineNum" = T1."LineNum"
+								AND IFNULL(T00."ExpnsCode", -1) = -1), 0) "100%"
+				
+		
+		
+		FROM ORPC T0  
+		INNER JOIN RPC1 T1 ON T0."DocEntry" = T1."DocEntry"
+		LEFT JOIN OJDT T2 ON T0."TransId" = T2."TransId"	
+		LEFT JOIN JDT1 T3 ON T3."TransId" = T2."TransId" AND T3."Account" IN (
+		'5020102001','5020102002','5020102003','5020102004','5020102005','5020102006',
+		'5020102007','5020102008','5020102009','5020102010','5020102011','5020102012',
+		'5020102013','5020102014','5020102015'
+		
+																				 )	
+		INNER JOIN OITM T4 ON T4."ItemCode" = T1."ItemCode"
+		INNER JOIN OITB T5 ON T4."ItmsGrpCod" = T5."ItmsGrpCod"		
+		WHERE T0."DocType" = 'I' AND T0."CANCELED" = 'N' AND T0."DocDate" BETWEEN FromDate AND ToDate
+		--AND T0."DocEntry" = 1666---1652 --AND T0."DocNum" = 1500392
+		/*AND T3."Account" IN ('5020101001',	'5020101002',	'5020101003',	'5020101004',	'5020101005',	
+							 '5020101006',	'5020101007',	'5020101008',	'5020101009',	'5020101010',	
+							 '5020101011',	'5020101012',	'5020101013',	'5020101014',	'5020101015'
+							 )
+		*/
+	)A ORDER BY A."DocEntry";	
+	
+
+END IF;
+	
+	
+END;

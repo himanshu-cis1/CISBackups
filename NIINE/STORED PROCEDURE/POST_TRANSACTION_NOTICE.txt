@@ -1,0 +1,87 @@
+CREATE PROCEDURE SBO_SP_PostTransactionNotice
+(
+	in object_type nvarchar(30), 				-- SBO Object Type
+	in transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+	in num_of_cols_in_key int,
+	in list_of_key_cols_tab_del nvarchar(255),
+	in list_of_cols_val_tab_del nvarchar(255)
+)
+
+--Drop Procedure SBO_SP_PostTransactionNotice
+
+LANGUAGE SQLSCRIPT
+AS
+-- Return values
+error  int;				-- Result (0 for no error)
+error_message nvarchar (200); 		-- Error string to be displayed
+begin
+
+Declare vItemCode nVarchar(50);
+Declare vItemName nVarchar(100);
+Declare vQuantity Decimal(19,2);
+Declare vDocEntry nVarchar(50);
+
+error := 0;
+error_message := N'Ok';
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--------------Update RFP Item Code And Description-----------
+
+If  (:object_type='59') and (:transaction_type = 'A' or :transaction_type = 'U') then
+begin
+
+Select T0."ItemCode", T0."Dscription", T0."Quantity", T0."DocEntry" Into vItemCode, vItemName, vQuantity , vDocEntry From IGN1 T0 Where T0."BaseType" = 202 And T0."DocEntry" = :list_of_cols_val_tab_del;
+
+If vItemCode <> '' Then
+Update OIGN Set "U_ItemCD" = vItemCode || '-' || vItemName , "U_RFPQty" = vQuantity  Where "DocEntry" = :list_of_cols_val_tab_del;
+End If;
+
+End;
+End If;
+
+--------------Update RFP Item Code And Description-----------
+
+If  (:object_type='20') and (:transaction_type = 'A' or :transaction_type = 'U') then
+begin
+
+Select T0."ItemCode", T0."Dscription", T0."Quantity", T0."DocEntry" Into vItemCode, vItemName, vQuantity , vDocEntry From PDN1 T0 Where T0."DocEntry" = :list_of_cols_val_tab_del;
+
+If vItemCode <> '' Then
+Update OPDN Set "U_ItemCD" = vItemCode || '-' || vItemName , "U_RFPQty" = vQuantity  Where "DocEntry" = :list_of_cols_val_tab_del;
+End If;
+
+End;
+End If;
+----------------------------------------------Payment Term----------------------------------
+If  (:object_type='24') and (:transaction_type = 'A' or :transaction_type = 'U') then
+begin
+
+--Select t1."GroupNum" Into vPayment From ORCT T0 Inner Join OCRD T1 On t1."CardCode"=T0."CardCode" Where T0."DocEntry" = :list_of_cols_val_tab_del;
+
+--If vPayment <> '' Then
+Update T0 Set T0."U_Payment" =t1."GroupNum"  From ORCT T0 Inner Join OCRD T1 On t1."CardCode"=T0."CardCode" Where T0."DocEntry" = :list_of_cols_val_tab_del and T0."CreateDate"=Current_Date
+;
+--End If;
+
+End;
+End If;
+----------
+If  (:object_type='46') and (:transaction_type = 'A' or :transaction_type = 'U') then
+begin
+
+--Select t1."GroupNum" Into vPayment From ORCT T0 Inner Join OCRD T1 On t1."CardCode"=T0."CardCode" Where T0."DocEntry" = :list_of_cols_val_tab_del;
+
+--If vPayment <> '' Then
+Update T0 Set T0."U_Payment" =t1."GroupNum"  From OVPM T0 Inner Join OCRD T1 On t1."CardCode"=T0."CardCode" Where T0."DocEntry" = :list_of_cols_val_tab_del and T0."CreateDate"=Current_Date
+;
+--End If;
+
+End;
+End If;
+------------------------------------------------------------------------------------------------------------------------------
+
+-- Select the return values
+select :error, :error_message FROM dummy;
+
+end;

@@ -1,0 +1,103 @@
+CREATE PROCEDURE CIS_PROC_Validate_Batch_For_LandedCost_OpenGRPO (IN DocKey VARCHAR(100), IN ObjType VARCHAR(100)
+											                     ,IN TransType VARCHAR(100)
+											                     , OUT Error INT
+											                     , OUT Error_Message VARCHAR(100) 
+											                     )
+AS
+BEGIN
+
+	DECLARE Counter INTEGER;
+
+	 CREATE LOCAL TEMPORARY TABLE #Temp_BatchDetails 
+ 	  ("BatchNo" VARCHAR(100), "ItemCode" VARCHAR(100), "LastLogEntry" INT, "LastDocEntry" INT
+ 	  , "LastDocType" INT,"LastDocLine" INT, "IsLandedCostReq" VARCHAR(10), "IsOpenAP" VARCHAR(10)
+ 	  , "IsLandedCostAdded" VARCHAR(10)); 
+
+	IF ((:ObjType = '67' OR :ObjType = '60' OR :ObjType = '13' OR :ObjType = '17' )) THEN
+
+		INSERT INTO #Temp_BatchDetails ("BatchNo", "ItemCode", "LastLogEntry")
+		SELECT T2."DistNumber", T2."ItemCode"
+		,(SELECT  MAX(C0."LogEntry")
+		  FROM "OITL" C0
+		  INNER JOIN "ITL1" C1 ON C0."LogEntry" = C1."LogEntry" AND C0."ItemCode" = C1."ItemCode"
+		  WHERE C0."DocEntry" <> :DocKey AND C0."DocType" <> :ObjType
+		  AND C1."MdAbsEntry" = T2."AbsEntry" AND C1."ItemCode" = T2."ItemCode") "LastDocEntry"
+		FROM "OITL" T0
+		INNER JOIN "ITL1" T1 ON T0."LogEntry" = T1."LogEntry" AND T0."ItemCode" = T1."ItemCode"
+		INNER JOIN "OBTN" T2 ON T1."MdAbsEntry" = T2."AbsEntry" AND T1."ItemCode" = T2."ItemCode"
+		WHERE T0."DocEntry" = :DocKey AND T0."DocType" = :ObjType; 
+	
+	
+		UPDATE T0
+		SET "LastDocEntry" = T1."DocEntry", "LastDocType" = T1."DocType", "LastDocLine" = T1."DocLine"
+		FROM #Temp_BatchDetails T0
+		INNER JOIN "OITL" T1 ON T0."LastLogEntry" = T1."LogEntry";
+
+	--	SELECT * FROM #Temp_BatchDetails;
+
+	    DELETE FROM #Temp_BatchDetails WHERE "LastDocType" <> '20'; 
+	    
+	    UPDATE T0
+	    SET "IsLandedCostReq" = CASE WHEN IFNULL(T4."U_LandedCstReq", '') = 'Yes' THEN 'Y' ELSE 'N' END
+	    , "IsOpenAP" = CASE WHEN T2."LineStatus" = 'O' THEN 'Y' ELSE 'N' END
+	    FROM #Temp_BatchDetails T0
+	    INNER JOIN "OPDN" T1 ON T1."DocEntry" = T0."LastDocEntry"
+	    INNER JOIN "PDN1" T2 ON T2."DocEntry" = T1."DocEntry" AND T2."LineNum" = T0."LastDocLine"
+	    LEFT JOIN "PCH1" T3 ON T2."BaseEntry" = T3."DocEntry" AND T2."BaseLine" = T3."LineNum" AND T2."BaseType" = T3."ObjType"
+	    LEFT JOIN "OPCH" T4 ON T3."DocEntry" = T4."DocEntry";
+
+	    SELECT CASE WHEN (SELECT COUNT(C0."DocEntry")
+	    			      FROM "PCH1" C0
+	    				  INNER JOIN "IPF1" C1 ON C1."BaseEntry" = C0."DocEntry" AND C1."BaseType" = C0."ObjType"
+	    				  WHERE C0."BaseEntry" = T0."LastDocEntry" 
+	    				  AND C0."BaseLine" = T0."LastDocLine" AND C0."BaseType" = '20') > 0 
+	    							   THEN 'Y' ELSE 'N'
+	    						  END	   
+	    FROM #Temp_BatchDetails T0;
+	    
+	    UPDATE T0
+	    SET "IsLandedCostAdded" = CASE WHEN (SELECT COUNT(C0."DocEntry")
+	    									 FROM "PCH1" C0
+	    									 INNER JOIN "IPF1" C1 ON C1."BaseEntry" = C0."DocEntry" AND C1."BaseType" = C0."ObjType"
+	    									 WHERE C0."BaseEntry" = T0."LastDocEntry" 
+	    									 AND C0."BaseLine" = T0."LastDocLine" AND C0."BaseType" = '20') > 0 
+	    							   THEN 'Y' ELSE 'N'
+	    						  END	   
+	    FROM #Temp_BatchDetails T0;
+
+
+	    SELECT COUNT("BatchNo") INTO Counter
+	    FROM #Temp_BatchDetails T0
+	    WHERE IFNULL("IsOpenAP", '') = 'Y'; 
+
+	   IF IFNULL(:Counter, 0) > 0 THEN 
+	    
+	    	Error := 10000;
+	    	Error_Message := 'A/P Invoice is pending';
+	    
+	   END IF; 
+	     
+	    IF IFNULL(:Counter, 0) = 0 THEN
+
+		    SELECT COUNT("BatchNo") INTO Counter
+		    FROM #Temp_BatchDetails T0
+		    WHERE (IFNULL("IsOpenAP", '') = 'Y' 
+		    	   OR (IFNULL("IsLandedCostReq", '') = 'Y' AND IFNULL("IsLandedCostAdded", '') <> 'Y') ) ; 
+	    	
+		    IF IFNULL(:Counter, 0) > 0 THEN 
+		    
+		    	Error := 10001;
+		    	Error_Message := 'Landed cost is pending';
+		    
+		    END IF; 
+	    	   
+	    END IF;
+	     
+	END IF;
+	--SELECT * FROM #Temp_BatchDetails;
+	DROP TABLE #Temp_BatchDetails;
+
+END;
+
+
+

@@ -1,0 +1,82 @@
+CREATE PROCEDURE "CIS_PROC_GoodsIssue_Document_Details"
+LANGUAGE SQLSCRIPT
+AS
+BEGIN 
+
+	SELECT  T0."DocEntry", T0."DocNum", T0."DocType", T0."CANCELED", T0."Printed", T0."ObjType", T0."CurSource"
+	, TO_VARCHAR(T0."DocDate", 'yyyyMMdd') "DocDate", T1."BPLName"
+	, TO_VARCHAR(T0."DocDueDate", 'yyyyMMdd') "DocDueDate"
+	, T0."ExpAppl", T0."TaxOnExAp", T0."Ref2"
+	, TO_VARCHAR(T0."TaxDate", 'yyyyMMdd') "TaxDate", T0."Segment"
+	, T0."CardCode", T0."CardName", T0."Address", T0."Address2"
+	, T0."NumAtCard", T0."DiscPrcnt", T0."DocCur", T0."DocRate"
+	, T0."Comments", T0."Indicator" 
+	, CASE WHEN T2."BaseType" = '202' THEN 144 ELSE 196 END "Series"
+	,	 T0."Project", T0."BPLId", T0."RevRefNo"
+	, TO_VARCHAR(T0."RevRefDate", 'yyyyMMdd') "RevRefDate"
+	, T0."TaxInvNo", T0."SlpCode"
+	, CASE WHEN IFNULL(T0."RoundDif", 0.00) <> 0.00 THEN 'Y' ELSE 'N' END "Rounding"
+	, TO_VARCHAR(T0."FrmBpDate", 'yyyyMMdd') "FrmBpDate"
+	, T0."GSTTranTyp", T0."OwnerCode", T0."TrnspCode"
+	, T0."Confirmed", T0."LangCode", T0."RevisionPo", T0."Revision", -1 "GroupNum", T0."PeyMethod"
+	, TO_VARCHAR(T0."CancelDate", 'yyyyMMdd') "CancelDate"
+	, TO_VARCHAR(T0."ReqDate", 'yyyyMMdd') "ReqDate"
+	, T0."ImportEnt", T0."PayDuMonth", T0."ExtraMonth", T0."ExtraDays"
+	, T0."CdcOffset", T0."ImportEnt", T0."DutyStatus"
+	, T0."U_HSN",T0."U_FgtChOwn",T0."U_IsInsp",T0."U_TransType",T0."U_BDocE",T0."U_InspDocE"
+	,T0."U_Shift",T0."U_AccQty",T0."U_RejQty",T0."U_RewQty",T0."U_Rtng",T0."U_Location",T0."U_Plant"
+	,T0."U_Division",T0."U_PrdLine",T0."U_DivisnC",T0."U_PrdLneC",T0."U_PlantC",T0."U_LocatnC"
+	,T0."U_PSDate",T0."U_PSTime",T0."U_PEDate",T0."U_PETime",T0."U_CrBPRtng",T0."U_PRName"
+	,T0."U_IssueQty",T0."U_RecAplb",T0."U_RecType",T0."U_AmtRec",T0."U_TrInvBil",T0."U_Trnsprt"
+	,T0."U_TruckNo",T0."U_TruckSz",T0."U_IncTrm",T0."U_GatEntNo",T0."U_InvType",T0."U_MEISAmt"
+	,T0."U_PortName",T0."U_PayLock",T0."U_Declaration",T0."U_DeliveryPeriod",T0."U_PaymentMode"
+	,T0."U_DispatchedThrough",T0."U_TermsofDelivery",T0."U_RFPQty",T0."U_ItemCD",T0."U_IsInvTrn"
+	FROM "OIGE" T0
+	INNER JOIN "OBPL" T1 ON T0."BPLId" = T1."BPLId"
+	INNER JOIN "IGE1" T2 ON T0."DocEntry" = T2."DocEntry" AND T2."VisOrder" = 0 
+	WHERE T0."DocDate" > '20190331' 
+	AND T2."DocEntry" NOT IN (SELECT IFNULL("U_OldDBDE", '0') FROM "SPHP_LIVE"."IGE1" C0)
+	AND T2."BaseType" <> '202'
+	--AND T2."BaseEntry" IN (SELECT C0."DocEntry" FROM "ExcludeProd" C0)					
+	ORDER BY T0."DocEntry" ASC;
+
+	SELECT T1."DocEntry", T1."LineNum", T1."BaseEntry", T1."BaseRef", T1."BaseType", T1."BaseLine", T1."LineStatus"
+	, T1."VisOrder" + 1 , T1."ItemCode", T1."Dscription", T1."Quantity", T1."Currency"
+	, TO_VARCHAR(T1."ShipDate", 'yyyyMMdd') "ShipDate", T1."SacEntry", T2."ChapterID"
+	, T1."Price", T1."PriceBefDi", T1."Currency", T1."TaxStatus", T1."WtLiable"
+	, CASE WHEN T0."CurSource" = 'L' THEN IFNULL(T1."LineTotal", 0.00) ELSE "TotalFrgn" END "LineTotal"
+	, T1."DiscPrcnt", T1."SlpCode"
+	, CASE WHEN T1."AcctCode" LIKE '%10202010%' THEN '3090909003' ELSE T1."AcctCode" END AcctCode
+	, T1."TaxCode", T1."Project", T1."OcrCode", T1."FreeTxt"
+	, T1."LineType", T1."TranType", T1."Text", T1."TaxOnly", T1."OcrCode2", T1."OcrCode3"
+	, T1."OcrCode4", T1."OcrCode5", T1."WhsCode", T1."LocCode", T1."unitMsr2", T1."unitMsr", T1."UomEntry"
+	, T1."U_AdItmDsc",T1."U_AccQty",T1."U_RejQty",T1."U_QCClear",T1."U_RCClear",T1."U_In_DocNum"
+	,T1."U_Rc_DocNum",T1."U_IsReqrd",T1."U_IsInsp",T1."U_TransType",T1."U_BDocE",T1."U_BDocL"
+	,T1."U_Dci_DocNum",T1."U_InspDocE",T1."U_TotBdgt",T1."U_ConsBdgt",T1."U_AvlBdgt",T1."U_SpclInst"
+	,T1."U_PropQty",T1."U_Machine",T1."U_RateRec",T1."U_AmtRec",T1."U_BOENo",T1."U_DBKAmt",T1."U_DBKRt"
+	,T1."U_ExpenseAC",T1."U_FromDate",T1."U_ToDate"
+	FROM "OIGE" T0
+	INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+	LEFT JOIN "OCHP" T2 ON T1."HsnEntry" = T2."AbsEntry"
+	WHERE T0."DocDate" > '20190331'
+	ORDER BY T0."DocEntry", T1."VisOrder" ASC;
+
+	SELECT T2."DistNumber" "BatchNo", T2."ItemCode", T1."Quantity", T0."DocEntry", T0."DocLine"
+	FROM "OIGE" T
+	INNER JOIN "OITL" T0 ON T."DocEntry" = T0."DocEntry" AND T0."DocType" = T."ObjType"
+	INNER JOIN "ITL1" T1 ON T0."LogEntry" = T1."LogEntry" AND T0."ItemCode" = T1."ItemCode"
+	INNER JOIN "OBTN" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."MdAbsEntry" = T2."AbsEntry" 
+	WHERE T."DocDate" > '20190331'
+	ORDER BY T."DocEntry" ASC;
+
+	
+END;
+
+
+
+
+
+
+
+
+

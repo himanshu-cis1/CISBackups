@@ -1,0 +1,1363 @@
+CREATE PROCEDURE SBO_SP_TransactionNotification
+(
+	in object_type nvarchar(30), 				-- SBO Object Type
+	in transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+	in num_of_cols_in_key int,
+	in list_of_key_cols_tab_del nvarchar(255),
+	in list_of_cols_val_tab_del nvarchar(255)
+)
+
+--Drop Procedure "SPHP_LIVE".SBO_SP_TransactionNotification
+LANGUAGE SQLSCRIPT
+AS
+-- Return values
+error  int;				-- Result (0 for no error)
+error_message nvarchar (200); 		-- Error string to be displayed
+
+/*vSDate Date;
+vEDate Date;
+vSTime Int;
+vETime int;*/
+ /*vavvvvv nvarchar(255);
+ vb nvarchar(255);
+ vc nvarchar(255);
+ vd nvarchar(255);*/
+
+cnt int;
+vIsQualityNeeded nVarchar(5);
+vGRPOType nVarchar(5);
+vWhseSubType nVarchar(10);
+vInvoiceType nVarchar(5);
+vVisOrder Int;
+vRQCClear nVarchar(5);
+vInvBaseEntry nVarchar(10);
+vInvBaseLine Int;
+vBaseType Int;
+
+begin
+
+error := 0;
+error_message := N'Ok';
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+/*If :object_type = '59' And (:transaction_type = 'A' or :transaction_type = 'U') Then
+Begin
+
+-------------Date And Time Validation
+Select top 1 T1."BaseType" Into vBaseType
+From "SPHP_LIVE".OIGN T0 Inner Join "SPHP_LIVE".IGN1 T1 on T0."DocEntry" = T1."DocEntry"
+Where T0."DocEntry" = :list_of_cols_val_tab_del;
+IF  vBaseType=202 then
+Select Ifnull(T0."U_PSDate", ''),Ifnull(T0."U_PEDate", ''),Ifnull(T0."U_PSTime", 0),Ifnull(T0."U_PETime", 0) Into vSDate,vEDate,vSTime,vETime 
+From "SPHP_LIVE".OIGN T0 Inner Join "SPHP_LIVE".IGN1 T1 on T0."DocEntry" = T1."DocEntry"
+Where T0."DocEntry" = :list_of_cols_val_tab_del And T1."BaseType" = '202';
+
+If vSDate= '' Then
+error := -1001001;
+error_message := 'Please select Start Date';
+End If;
+If vEDate= '' Then
+error := -1001001;
+error_message := 'Please select End Date';
+End If;
+If vSTime= 0 Then
+error := -1001001;
+error_message := 'Please select Start Time';
+End If;
+If vETime= 0 Then
+error := -1001001;
+error_message := 'Please select End Time';
+End If;
+
+
+End If;
+
+End;
+End If;
+*/
+--------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------
+-- VALIDATION FOR GRPO
+--------------------------------------------------------------------------------------------------------------------------------
+/*If :object_type='20' And (:transaction_type='A' or :transaction_type ='U') Then
+
+Select T0."DocType" Into vGRPOType From "SPHP_LIVE".OPDN T0 Where T0."DocEntry" = :list_of_cols_val_tab_del;
+
+If vGRPOType = 'I' Then
+	Select IfNull(T2."U_IsReqrd",'N'),IfNull(T3."U_TypeWH",''),T1."VisOrder"
+	Into vIsQualityNeeded,vWhseSubType,vVisOrder
+	From "SPHP_LIVE".OPDN T0 Inner Join "SPHP_LIVE".PDN1 T1 On T0."DocEntry" = T1."DocEntry" 
+	Inner Join "SPHP_LIVE".OITM T2 On T1."ItemCode" = T2."ItemCode"
+	Inner Join "SPHP_LIVE".OWHS T3 On T1."WhsCode" = T3."WhsCode"
+	Where T0."DocEntry" = :list_of_cols_val_tab_del;
+
+	If vWhseSubType <> 'QC' And vIsQualityNeeded = 'Y' Then
+		error := -1001001;
+		error_message := '[Row No. -> '|| Cast((vVisOrder+1)As Char)||'] The Selected ItemCode is Needed Quality Check, Please Select QC Warehouse';
+	End If;
+End If;
+
+End If;*/
+------------------------------------------------------------
+----------AP Invoice
+-----------------------------------------------------------------
+If  (:object_type='18') and (:transaction_type='A' OR :transaction_type = 'U') then
+Begin
+declare vPIBaseType int;
+declare vPIBaseEntry int ;
+declare vPIQtyCheck nVarchar(10);
+declare vPILineId int ;
+declare vPIItemCode nVarchar(50);
+declare vPIBLineId int ;
+declare vGRPQCheck nVarchar(10);
+declare vGRPClrd nVarchar(10);
+declare vDocCurrency nVarchar(3);
+declare vDocRate Integer;
+declare vLocation nVarchar(50);
+declare vDivision nVarchar(50);
+declare vPlant nVarchar(50);
+declare vProductLine nVarchar(50);
+Declare vCount Integer;
+
+--- QC Clearance Validation ---
+Select T0."DocType",IfNull(T0."DocCur",''),T0."DocRate" Into vInvoiceType,vDocCurrency,vDocRate From "SPHP_LIVE".OPCH T0 Where T0."DocEntry" = :list_of_cols_val_tab_del;
+If vInvoiceType = 'I' Then
+
+Declare Cursor GRPOMand For 
+Select T1."BaseType",ifnull(T1."BaseEntry",0) BaseEntry,T1."LineNum",T1."ItemCode",T1."BaseLine",T0."U_LocatnC" ,T0."U_PlantC" ,T0."U_DivisnC" ,T0."U_PrdLneC"
+From "SPHP_LIVE".PCH1 T1 Inner Join "SPHP_LIVE".OPCH T0 On T1."DocEntry" = T0."DocEntry" Where T0."DocEntry" = :list_of_cols_val_tab_del;
+Begin
+Open GRPOMand; 
+Fetch GRPOMand Into vPIBaseType,vPIBaseEntry,vPILineId,vPIItemCode,vPIBLineId,vLocation,vPlant,vDivision,vProductLine;
+While not GRPOMand::NOTFOUND 
+Do
+Select IfNull("U_IsReqrd",'N') U_IsReqrd into vPIQtyCheck from "SPHP_LIVE".OITM where "ItemCode" = :vPIItemCode;
+--If :vPIQtyCheck = 'Y' and :vPIBaseType = -1 and :vPIBaseEntry = 0 Then
+--error := -1001001;
+--error_message := '[Row No. -> '|| Cast((vPILineId+1)As Char)||'] The Selected ItemCode Should have GRPO';
+--End If;
+If :vPIQtyCheck = 'Y' And :vPIBaseType = '20' And :vPIBaseEntry <> 0 Then
+Select Count(*) "Count" Into vCount From "SPHP_LIVE"."@IK_QLTP"
+Where "U_MacCode" = :vPIItemCode And "U_LocatnC" = :vLocation And "U_PlantC" = :vPlant And "U_DivisnC" = :vDivision And "U_PrdLneC" = :vProductLine;
+If :vCount = 1 Then
+select IfNull(T2."U_QCClear",'N') U_QCClear ,IfNull(T2."U_RCClear",'N') U_RCClear Into vGRPQCheck,vGRPClrd from "SPHP_LIVE".PDN1 T2
+Where T2."DocEntry" = :vPIBaseEntry and T2."LineNum" = :vPIBLineId and T2."ItemCode" = :vPIItemCode; 
+If (:vGRPQCheck = 'N') Then
+error := -1001001;
+error_message := '[Row No. -> '|| Cast((vPILineId+1)As Char)||'] The Selected GRPO has been not yet Inspected';
+End If;
+If (:vGRPClrd = 'N')Then
+error := -1001001;
+error_message := '[Row No. -> '|| Cast((vPILineId+1)As Char)||'] The Selected GRPO has been not yet Inspected';
+End If;
+End if;
+End If;
+Fetch GRPOMand Into vPIBaseType,vPIBaseEntry,vPILineId,vPIItemCode,vPIBLineId,vLocation,vPlant,vDivision,vProductLine;
+End While; 
+Close GRPOMand; 
+End;
+End If;
+
+End;
+End If;
+--------------------------------------------------------------------------------------------------------------------------------
+
+	IF IFNULL(:error, 0) = 0 THEN
+		CALL CIS_PROC_DocumentValidations (list_of_cols_val_tab_del, object_type, transaction_type, :error, :error_message);
+	END IF;
+--------------------------------------------------------------------------------------------------------------------------------	
+IF  (:object_type='18') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	
+	SELECT Count(*)INTO cnt FROM OPCH T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND IFNULL(T0."U_GSTINPUT",'')='';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Please select the GST INPUT Type';
+	END IF;				
+	
+END IF;
+--------------------------------------------------------------------------------------------------------------------------------	
+
+
+IF  (:object_type='13') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	
+	/*SELECT Count(*)INTO cnt FROM OINV T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" >= '20211201';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;	*/
+	
+	SELECT COUNT(*) INTO cnt FROM OINV T0 INNER JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+		WHERE T0."DocTotal" > 0 AND T1."CreditLine" >0 AND T1."Balance" > T1."CreditLine" AND T0."DocEntry" = :list_of_cols_val_tab_del ;
+	
+		IF cnt > 0 THEN
+			error := 1001;
+			error_message := 'Credit Limit has exceeded';
+		END IF;		
+END IF;
+--------------------------------block bACK Date Entry---AR Invoice------------------------------------
+IF  (:object_type='13') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OINV T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	
+----------------------------Sales Order---------------------------------------------
+IF  (:object_type='17') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM ORDR T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	
+----------------------------AR Credit Note---------------------------------------------
+IF  (:object_type='14') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM ORIN T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;
+	
+----------------------------Purchase Order---------------------------------------------
+IF  (:object_type='22') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OPOR T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	
+----------------------------GRPO---------------------------------------------
+IF  (:object_type='20') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OPDN T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;		
+	
+----------------------------AP Invoice---------------------------------------------
+IF  (:object_type='18') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OPCH T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	
+----------------------------AP Credit Note---------------------------------------------	
+IF  (:object_type='19') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM ORPC T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	
+	
+---------------------------Ptoduction Order---------------------------------------------	
+IF  (:object_type='202') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OWOR T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."PostDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;		
+---------------------------Good Reciept---------------------------------------------	
+IF  (:object_type='59') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OIGN T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	
+	
+---------------------------Good Issue---------------------------------------------	
+/*IF  (:object_type='60') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OIGE T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	*/	
+---------------------------Invetory Tranfer---------------------------------------------	
+IF  (:object_type='67') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OWTR T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."DocDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	
+---------------------------JE---------------------------------------------	
+/*IF  (:object_type='30') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OJDT T0 
+		WHERE T0."TransId" = :list_of_cols_val_tab_del AND T0."RefDate" <= '20210811';
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Posting peroiod blocked';
+	END IF;
+	END IF;	*/
+----------------------------------Document numbering series------------------------------------------
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+LEFT JOIN OINV T1 ON T1."DocEntry"=T0."DocEntry"
+LEFT JOIN NNM1 T2 ON T2."Series" = T1."Series"
+WHERE  T0."DocEntry"=:list_of_cols_val_tab_del
+AND T2."Remark"='GK' AND  T0."LocCode"='15'
+
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select Kanpur Location Series';
+          End If;
+          cnt := 0;
+         
+End IF;  
+-----------------------------------------------------------------------------------------
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+INNER JOIN OINV T1 ON T1."DocEntry"= T0."DocEntry"
+INNER JOIN NNM1 T2 ON T2."Series" = T1."Series"
+Where T0."WhsCode" = 'Bhiwandi' And T1."DocStatus" = 'O' And T1."Series" not in ('841','863','1038','1039','991','1196','1221','1243','1197','1228','1830','1850','1849','1825','1864')
+AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select MHBW-2425 Series';
+          End If;
+          cnt := 0;
+         
+End IF; 
+----------------------------------Document numbering series------------------------------------------
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+LEFT JOIN OINV T1 ON T1."DocEntry"=T0."DocEntry"
+LEFT JOIN NNM1 T2 ON T2."Series" = T1."Series"
+WHERE  T0."DocEntry"=:list_of_cols_val_tab_del
+AND T2."Remark"<>'SL' AND  T0."LocCode"='14'
+
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select Siliguri Location Series';
+          End If;
+          cnt := 0;
+         
+End IF;  
+-----------------------------------------
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+LEFT JOIN OINV T1 ON T1."DocEntry"=T0."DocEntry"
+LEFT JOIN NNM1 T2 ON T2."Series" = T1."Series"
+WHERE  T0."DocEntry"=:list_of_cols_val_tab_del
+AND T2."Remark"<>'WB' AND  T0."LocCode"='4'
+
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select WB Location Series';
+          End If;
+          cnt := 0;
+         
+End IF;
+------------------------------
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+INNER JOIN OINV T1 ON T1."DocEntry"= T0."DocEntry"
+INNER JOIN NNM1 T2 ON T2."Series" = T1."Series"
+Where /*T2."Remark"='Bh' and*/ T0."WhsCode" ='NP-FG' And T1."Series" not in ('840','862','1195','1220','1196','1221','1243','1824','1848','2298')
+AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select MH-2425 Series';
+          End If;
+          cnt := 0;
+         
+End IF;  
+
+----------------------------------Invoice series for SL------------------------------------------
+/*IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+INNER JOIN OINV T1 ON T1."DocEntry"= T0."DocEntry"
+INNER JOIN NNM1 T2 ON T2."Series" = T1."Series"
+Where T0."WhsCode" = 'SL-FG' And T1."Series" NOT IN ('781', '783', '784')
+AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select SL-2122 Series';
+          End If;
+          cnt := 0;
+         
+End IF;*/
+
+/*----------------------------------Invoice series for KP------------------------------------------
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+INNER JOIN OINV T1 ON T1."DocEntry"= T0."DocEntry"
+INNER JOIN NNM1 T2 ON T2."Series" = T1."Series"
+Where T0."WhsCode" = 'KN-FG' And T1."Series" NOT IN ('776', '778', '779')
+AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select KP-2122 Series';
+          End If;
+          cnt := 0;
+         
+End IF;
+*/
+-----------------------------------Credit Limit on AR Invoice---------------------
+IF :object_type = '13' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+Select (select count(*)  From OINV T0
+INNER JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+WhERE T1."U_CreditLimit" = 'Yes' AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 6;
+                error_message := 'Credit Limit Has Been Blocked';
+          End If;
+          cnt := 0;
+         
+End IF;   
+--------------------------------------------------- SO Order status Mandatory--------------------------------------------------
+
+IF  (:object_type='17') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM ORDR T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND IFNull(T0."U_SoOrderStatus",'')=''; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'You cannot ammend Sales Order without selecting SO Order Status Field';
+	END IF;
+END IF;	
+   
+	------------Ar Invoice Gst Type-----
+/*
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+INNER JOIN OINV T1 ON T1."DocEntry"= T0."DocEntry"
+
+Where T1."GSTTranTyp"='GA' AND T0."TaxCode" IN ('IGST0','CGSG0')
+--and T0."TaxCode"='CGSG0'
+AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'You are not allow to amend this invoice because you are selecting IGST0 or CGST0 ';
+          End If;
+          cnt := 0;
+         
+End IF;	*/
+------------------------------------------------------------------------------------------
+	IF (:object_type = '59') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+	SELECT COUNT(*)INTO cnt FROM OIGN T0 
+	Inner JOIN IGN1 T1 ON T1."DocEntry"=T0."DocEntry"
+	Inner JOIN OWOR T2 ON T2."DocNum"=T1."BaseRef" 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del  And T1."BaseType"='202'  AND IFNull(T0."U_PSDate",'')=''; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF :cnt > 0 THEN
+		error := 1002;
+		error_message := 'Please Select Production Start Date';
+	END IF;
+END IF;	
+   IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+	SELECT COUNT(*)INTO cnt FROM OIGN T0 
+	Inner JOIN IGN1 T1 ON T1."DocEntry"=T0."DocEntry"
+	Inner JOIN OWOR T2 ON T2."DocNum"=T1."BaseRef" 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del  And T1."BaseType"='202'  AND IFNull(T0."U_PEDate",'')=''; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF cnt > 0 THEN
+		error := 1002;
+		error_message := 'Please Select Production End Date';
+	END IF;
+END IF;	
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+	SELECT COUNT(*)INTO cnt FROM OIGN T0 
+	Inner JOIN IGN1 T1 ON T1."DocEntry"=T0."DocEntry"
+	Inner JOIN OWOR T2 ON T2."DocNum"=T1."BaseRef" 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del  And T1."BaseType"='202'  AND T0."U_PS_Time" =''; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF :cnt > 0 THEN
+		error := 1002;
+		error_message := 'Please Select Production Start Time';
+	END IF;
+END IF;	
+-------------------------------
+IF  (:object_type='60') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OIGE T0 
+	INNER JOIN IGE1 t1 ON T1."DocEntry"=T0."DocEntry"
+	Inner Join OWOR T2 ON T1."BaseEntry"=T2."DocEntry"
+	
+	WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T1."BaseType"='202' AND (T2."Type")='D' And T1."WhsCode"='GKP-RJW'; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Please Select GKFGREJ';
+	END IF;
+END IF;
+-------------------------------------------
+/*IF  (:object_type='60') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+SELECT Count(*)INTO cnt FROM OIGE T0 
+	INNER JOIN IGE1 t1 ON T1."DocEntry"=T0."DocEntry"
+	Inner Join OWOR T3 ON T1."BaseEntry"=T3."DocEntry"
+Inner Join  IBT1 T4 ON T4."BaseEntry" =T1."DocEntry" and t4."BaseType"='60' and t4."BaseLinNum"=T1."LineNum"
+Inner Join OBTN T2 On T2."DistNumber"=T4."BatchNum" And T2."ItemCode"=T4."ItemCode"	
+	WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T1."BaseType"='202' AND T2."InDate">T3."PostDate"; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'Please Select same posting date from batch Date';
+	END IF;
+END IF;*/
+------------------------------------------------------------------------------
+/*
+IF  (:object_type='14') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+SELECT Count(*)INTO cnt FROM ORIN T0 
+	INNER JOIN RIN1 t1 ON T1."DocEntry"=T0."DocEntry"
+	Inner Join OITM T31 On T1."ItemCode"=T31."ItemCode"
+	Inner JOIN INV1 T3 ON T3."DocEntry"=T1."BaseEntry" And T3."ItemCode"=T1."ItemCode"
+	--Inner Join OWOR T3 ON T1."BaseEntry"=T3."DocEntry"
+Inner Join  IBT1 T5 ON T5."BaseEntry" =T3."DocEntry" and t5."BaseType"='13' and t5."BaseLinNum"=T3."LineNum"
+Inner Join OBTN T6 On T6."DistNumber"=T5."BatchNum" And T6."ItemCode"=T5."ItemCode"
+Inner Join  IBT1 T4 ON T4."BaseEntry" =T1."DocEntry" and t4."BaseType"='14' and t4."BaseLinNum"=T1."LineNum"
+Inner Join OBTN T2 On T2."DistNumber"=T4."BatchNum" And T2."ItemCode"=T4."ItemCode"	
+	WHERE T0."DocEntry" = :list_of_cols_val_tab_del and T31."ItmsGrpCod"='115' AND T1."BaseType"='13' AND T2."DistNumber"<>T6."DistNumber"; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF cnt > 0 THEN
+		error := 1006;
+		error_message := 'Please Select same batch of AR Invoice';
+	END IF;
+END IF;*/
+----------------------------------------------------------------------------------------------
+IF :object_type='202' AND (  :transaction_type = 'U')    
+Then
+Begin
+declare va nvarchar(255);
+declare vb nvarchar(255);
+declare vc nvarchar(255);
+declare vd nvarchar(255);
+
+SELECT SUM("PlannedQty") into va FROM OWOR Where "DocEntry" = :list_of_cols_val_tab_del;
+Select  SUM("CmpltQty") into vb FROM OWOR  Where "DocEntry" = :list_of_cols_val_tab_del;
+Select  SUM("IssuedQty") into vc From Wor1 Where "DocEntry"= :list_of_cols_val_tab_del;
+Select SUM("PlannedQty") into vd From WOR1 Where "DocEntry"=:list_of_cols_val_tab_del;
+If (vc = vd) and (va =vb)
+THEN
+update OWOR set "Status" = 'L' Where "DocEntry" = :list_of_cols_val_tab_del;
+END IF;
+END ;
+End If;
+
+-------------------------------------------------------
+IF :object_type='202' AND (  :transaction_type = 'U')
+THEN Begin
+declare va nvarchar(255);
+declare vb nvarchar(255);
+declare vc nvarchar(255);
+declare vd nvarchar(255);
+Select  SUM("IssuedQty")into vc From Wor1 Where "DocEntry"=:list_of_cols_val_tab_del;
+Select  SUM("PlannedQty")into vd From WOR1 Where "DocEntry"=:list_of_cols_val_tab_del;
+
+If (vC!= vD) THEN
+ 
+ update OWOR set "Status"='R' Where "DocEntry" = :list_of_cols_val_tab_del;
+END IF;
+END ;
+End If;
+ 
+-----------------------------------------------------------------------------
+/*IF :object_type = '202' and (:transaction_type='A' OR :transaction_type = 'U' ) THEN
+
+
+
+Select (Select Count(*) From OWOR T0
+Left JOIN WOR1 T1 ON T0."DocEntry" = T1."DocEntry"
+--Left Join OITT T2 ON T2."Code" = T0."ItemCode"
+--Left Join ITT1 T3 ON T3."Father" = T2."Code" And T1."ItemCode" = T3."Code"
+WHERE T0."U_ProductionType"='_' AND T0."DocEntry" = :list_of_cols_val_tab_del)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 8;
+                error_message := 'Please Select Production Type';
+          End If;
+          cnt := 0;
+      
+End IF;*/
+------------------------------------------------------------
+IF :object_type = '13' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+Select (select count(*)  From OINV T0
+INNER JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+WhERE T1."U_HOLD" = 'YES' AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 7;
+                error_message := 'Customer Status is "Hold" Please contact Administrator';
+          End If;
+          cnt := 0;
+         
+End IF;  
+-----------
+IF :object_type = '17' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+Select (select count(*)  From ORDR T0
+INNER JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+WhERE T1."U_HOLD" = 'YES' AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 7;
+                error_message := 'Customer Status is "Hold" Please contact Administrator';
+          End If;
+          cnt := 0;
+         
+End IF;  
+------------------------------------------------------------------------------
+IF :object_type = '13' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+Select (select count(*)  From OINV T0
+INNER JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+WhERE T1."U_Credit" = 'YES' AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 10;
+                error_message := 'Credit Has Been Blocked';
+          End If;
+          cnt := 0;
+         
+End IF; 
+
+----------------------------------
+/*
+IF :object_type = '13' and (:transaction_type='A'  ) THEN
+
+
+
+Select (select count(*)  From OINV T0
+INNER JOIN INV1 T2 ON T2."DocEntry"=T0."DocEntry"
+INNER JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+WhERE T1."GroupNum" = '7' AND T2."DiscPrcnt"=0.00  AND  T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 7;
+                error_message := 'Discount % must be greater than Zero on 100% Advance Customer';
+          End If;
+          cnt := 0;
+         
+End IF; 
+*/
+-----------------------------------------------------
+IF :object_type = '17' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+Select (select count(*)  From ORDR T0
+INNER JOIN RDR1 T2 ON T2."DocEntry"=T0."DocEntry"
+INNER JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+WhERE T1."GroupNum" = '7' AND T2."DiscPrcnt"=0.00  AND  T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 7;
+                error_message := 'Discount % must be greater than Zero on 100% Advance Customer';
+          End If;
+          cnt := 0;
+         
+End IF; 
+-------------------------------------------------------------------------------------------------------------------
+/*IF :object_type = '202' and (:transaction_type='A' OR :transaction_type = 'U' ) THEN
+
+
+
+Select (Select Count(*) From OWOR T0
+Left JOIN WOR1 T1 ON T0."DocEntry" = T1."DocEntry"
+Left Join OITT T2 ON T2."Code" = T0."ItemCode"
+Left Join ITT1 T3 ON T3."Father" = T2."Code" And T1."ItemCode" = T3."Code"
+WHERE T1."BaseQty" != IFNULL(Round((T3."Quantity"/T2."Qauntity"),2),0) AND T0."DocEntry" = :list_of_cols_val_tab_del)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 8;
+                error_message := ' Planned qty at row level should not be updated from BOM planned qty';
+          End If;
+          cnt := 0;
+      
+End IF;*/
+--------------------
+-------------------------------------------
+/*IF :object_type = '202' and (:transaction_type='A' OR :transaction_type = 'U' ) THEN
+
+
+
+Select (Select Count(*) From OWOR T0
+Left JOIN WOR1 T1 ON T0."DocEntry" = T1."DocEntry"
+--Left Join OITT T2 ON T2."Code" = T0."ItemCode"
+--Left Join ITT1 T3 ON T3."Father" = T2."Code" And T1."ItemCode" = T3."Code"
+WHERE T0."U_ProductionType"='_' AND T0."DocEntry" = :list_of_cols_val_tab_del)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 8;
+                error_message := 'Please Select Production Type';
+          End If;
+          cnt := 0;
+      
+End IF;*/
+------------NEW SERIES FOR AR INVOICE BASED ON DELIVERY------------------------------------
+/*IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+INNER JOIN OINV T1 ON T1."DocEntry"= T0."DocEntry"
+INNER JOIN NNM1 T2 ON T2."Series" = T1."Series"
+--INNER JOIN DLN1 T3 ON T3."DocEntry"= T0."BaseEntry"
+--INNER JOIN RDR1 T4 ON T4."DocEntry"= T3."BaseEntry"
+--INNER JOIN ODLN T5 ON T5."DocEntry"= T3."DocEntry
+Where T0."BaseType" ='15' And T1."Series" NOT IN ('813','811','815','809','816','818') --IN ('KT/2122', 'WB/2122', 'DL/2122')
+AND T0."DocEntry"=:list_of_cols_val_tab_deL
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select Series KT/2122 WB/2122 DL/2122 only for delivery base invoice ';
+          End If;
+          cnt := 0;
+         
+End IF;*/
+
+
+------------------------Sales Order Status--------------------
+IF  (:object_type='13') and (:transaction_type='A' OR :transaction_type = 'U') THEN
+	SELECT Count(*)INTO cnt FROM OINV T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND IFNull(T0."U_SoOrderStatus",'')='Hold'; --NOT IN ('Ok', 'Hold', '-');
+	
+	IF cnt > 0 THEN
+		error := 1001;
+		error_message := 'You cannot ammend Sales Order without selecting SO Order Status Field';
+	END IF;
+END IF;
+-------For Lucknow series------------------
+/*IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+LEFT JOIN OINV T1 ON T1."DocEntry"=T0."DocEntry"
+LEFT JOIN NNM1 T2 ON T2."Series" = T1."Series"
+WHERE  T0."DocEntry"=:list_of_cols_val_tab_del
+AND T2."Remark" NOT IN ('GK','KP') AND  T0."LocCode"='21'
+
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select Lucknow Location Series';
+          End If;
+          cnt := 0;
+         
+End IF;   */
+--------------------
+IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+INNER JOIN OINV T1 ON T1."DocEntry"= T0."DocEntry"
+INNER JOIN NNM1 T2 ON T2."Series" = T1."Series"
+Where T0."WhsCode" = 'LK-FG' And T1."Series" not in ('1177','1176','1229','1226','1242','1842','1841','1829','1831','1863')and T1."CANCELED"= 'N'
+AND T0."DocEntry"=:list_of_cols_val_tab_del
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select Lucknow  Series';
+          End If;
+          cnt := 0;
+         
+End IF; 
+------------------------
+/*IF (:object_type = '13') and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+SELECT (SELECT Count(*)  FROM INV1 T0
+LEFT JOIN OINV T1 ON T1."DocEntry"=T0."DocEntry"
+LEFT JOIN NNM1 T2 ON T2."Series" = T1."Series"
+WHERE  T0."DocEntry"=:list_of_cols_val_tab_del
+AND T2."Remark"='SL' AND  T0."LocCode"<>'14'
+
+)
+into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := 3;
+                error_message := 'Please select Siliguri Location Series';
+          End If;
+          cnt := 0;
+         
+End IF;  */
+--------------------------------
+IF (:object_type = '18' AND (:transaction_type='A' OR :transaction_type='U' ))
+THEN
+Declare VendorRef nvarchar(20);
+Declare PIInd nvarchar(200);
+Declare CARDCODE nvarchar(200);
+Declare EntryCount INT;
+DECLARE CAN nvarchar(200);
+    
+ (SELECT  A."NumAtCard",A."PIndicator",A."CardCode",A."CANCELED" INTO VendorRef,PIInd,CARDCODE,CAN
+ FROM OPCH A WHERE A."DocEntry" = :list_of_cols_val_tab_del  );
+ 
+(SELECT COUNT(T0."DocEntry") INTO EntryCount
+FROM OPCH T0
+WHERE T0."NumAtCard" = VendorRef
+and T0."PIndicator" = PIInd
+and T0."CardCode" = CARDCODE );
+
+ If EntryCount != '1' AND (VendorRef IS NOT NULL OR VendorRef <> '') and CAN = 'N'
+ 
+Then
+
+SELECT  28, 'This Vendor Refrence No. Already Exists' 
+INTO error,error_message from Dummy;
+END IF;
+end IF;
+--------------------------Sandeep-------------------------
+IF  (:object_type='13') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(Select Count(*)INTO cnt
+From OINV t0 
+Inner Join INV1 t1 on T1."DocEntry" =  T0."DocEntry"
+Left Join RDR1 t3 On t3."DocEntry" = T1."BaseEntry" and T3."LineNum" = T1."BaseLine" and T3."ItemCode" = t1."ItemCode"
+
+Left join
+(Select Sum(INV1."Quantity") AS "Qty",INV1."BaseEntry",INV1."ItemCode",INV1."BaseLine"
+From OINV
+Left join INV1 ON INV1."DocEntry" = OINV."DocEntry" 
+Where OINV."CANCELED" = 'N'
+Group by INV1."BaseEntry",INV1."ItemCode" ,INV1."BaseLine")m on M."BaseEntry" = t3."DocEntry" and M."ItemCode" = t3."ItemCode" and M."BaseLine" = t3."LineNum"
+
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del and M."Qty" > T3."Quantity" 
+ and t1."BaseType" <> '-1'
+ and t0."GSTTranTyp" NOt IN ('GD')
+  );			
+ 
+ IF cnt > 0 THEN
+		error := 108651;
+		error_message := 'Invoice Quantity can not be grater then sales Order Quantity';
+	END IF;
+END IF;
+---------------------------------------------------
+IF  (:object_type='13') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(Select Count(*)INTO cnt
+From OINV t0 
+Inner Join INV1 t1 on T1."DocEntry" =  T0."DocEntry"
+Left Join DLN1 T2 ON t2."DocEntry" = T1."BaseEntry" and T2."LineNum" = T1."BaseLine" and t2."ItemCode" = t1."ItemCode"
+Left Join RDR1 t3 On t3."DocEntry" = T2."BaseEntry" and T3."LineNum" = T2."BaseLine" and T3."ItemCode" = t2."ItemCode"
+
+Left join
+(Select Sum(INV1."Quantity") AS "Qty",INV1."BaseEntry",INV1."ItemCode",INV1."BaseLine"
+From OINV
+Left join INV1 ON INV1."DocEntry" = OINV."DocEntry" 
+Where OINV."CANCELED" = 'N'
+Group by INV1."BaseEntry",INV1."ItemCode" ,INV1."BaseLine")m on M."BaseEntry" = t2."DocEntry" and M."ItemCode" = t2."ItemCode" and M."BaseLine" = t3."LineNum"
+
+WHERE T0."DocEntry" =  :list_of_cols_val_tab_del  and M."Qty"  > T3."Quantity"  
+ and t1."BaseType" <> '-1'
+ and t0."GSTTranTyp" NOt IN ('GD')
+ );
+ 
+IF cnt > 0 THEN
+		error := 108651;
+		error_message := 'Invoice Quantity can not be grater then sales Order Quantity';
+	END IF;
+END IF;
+--------------------------------------------------------
+IF  (:object_type='13') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(Select  Count(*)INTO cnt
+From OINV t0 
+Inner Join INV1 t1 on T1."DocEntry" =  T0."DocEntry"
+Left Join OBPL t2 On T2."BPLId" = t0."BPLId"
+WHERE T0."DocEntry" =   :list_of_cols_val_tab_del  and t1."BaseType" = '-1' and t0."GSTTranTyp" NOt IN ('GD') and t1."ItemCode" Not In ('901400038','901400039','901400040')
+and t2."BPLId" Not In ('5','21'));
+
+IF cnt > 0 THEN
+		error := 108651;
+                error_message := 'You can not add this Document Beacuse Item Code Should not be same as sales Order';
+	END IF;
+END IF;
+------------------------------Sandeep---------------------------------------------
+/*IF  (:object_type='15') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(Select  Count(*)INTO cnt 
+From ODLN t0
+left join(
+Select Distinct t3."BinCode",t1."DocEntry"
+From ODLN t0 
+Inner JOIN DLN1 T1 on T1."DocEntry" = t0."DocEntry"
+INNER JOIN OIBQ T2 ON T2."ItemCode" = T1."ItemCode" AND T2."WhsCode" = T1."WhsCode"
+INNER JOIN OBIN T3 ON T3."AbsEntry" = T2."BinAbs"
+Where t0."DocEntry" = :list_of_cols_val_tab_del)M On M."DocEntry" = t0."DocEntry"
+Where t0."DocEntry" = :list_of_cols_val_tab_del and (M."BinCode" Like '%REWORK%' OR M."BinCode"  Like '%REJECTED%'));
+
+IF cnt > 0 THEN
+		error := 15551;
+                error_message := 'You can not add this Document, Please check BIN Location.........! ';
+	END IF;
+END IF;*/
+----------------------------------------------------------------------------
+/*IF  (:object_type='13') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(Select  Count(*)INTO cnt 
+From OINV t0
+left join(
+Select Distinct t3."BinCode",t1."DocEntry"
+From OINV t0 
+Inner JOIN INV1 T1 on T1."DocEntry" = t0."DocEntry"
+INNER JOIN OIBQ T2 ON T2."ItemCode" = T1."ItemCode" AND T2."WhsCode" = T1."WhsCode"
+INNER JOIN OBIN T3 ON T3."AbsEntry" = T2."BinAbs"
+Where t0."DocEntry" = :list_of_cols_val_tab_del)M On M."DocEntry" = t0."DocEntry"
+
+Where t0."DocEntry" = :list_of_cols_val_tab_del and (M."BinCode" Like '%REWORK%' OR M."BinCode"  Like '%REJECTED%'));
+
+IF cnt > 0 THEN
+		error := 15552;
+                error_message := 'You can not add this Document, Please check BIN Location.........! ';
+	END IF;
+END IF;*/
+
+
+-----------------------------------------------------------------------------------------------
+IF  (:object_type='13') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(Select  Count(*)INTO cnt 
+ From OINV T0  
+Inner Join INV1 T1 On T1."DocEntry"=T0."DocEntry"
+Left Join "B1_OinmWithBinTransfer" t2 On T1."DocEntry"=T2."CreatedBy" and T2."TransType"=13 and T2."DocLineNum"=T1."LineNum" 
+LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+--t3."AbsEntry"=T2."CreatedBy"
+ LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+Where t0."DocEntry" = :list_of_cols_val_tab_del and (T4."BinCode"  Like '%REWORK%' OR T4."BinCode"  Like '%REJECTED%'));
+
+IF cnt > 0 THEN
+		error := 15551;
+                error_message := 'You can not add this Document, Please check BIN Location.........! ';
+	END IF;
+END IF;
+----------------------------------------------------------------------------
+IF  (:object_type='15') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(Select Count(*)INTO cnt 
+From ODLN T6 
+Inner Join DLN1 T7 On T6."DocEntry"=T7."DocEntry"
+Left join(
+Select  
+T0."DocEntry",t4."BinCode",t1."ItemCode"
+From ODLN T0  
+Inner Join DLN1 T1 On T1."DocEntry"=T0."DocEntry"
+Left Join "B1_OinmWithBinTransfer" t2 On T1."DocEntry"=T2."CreatedBy" and T2."TransType"=15 and T2."DocLineNum"=T1."LineNum"
+and t2."ItemCode" = t1."ItemCode" and t1."WhsCode" = t2."Warehouse"
+LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+--t3."AbsEntry"=T2."CreatedBy"
+ LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+Where t0."DocEntry" = :list_of_cols_val_tab_del
+Group By T0."DocEntry",t4."BinCode",t1."ItemCode")KK on kk."DocEntry" = t7."DocEntry" and kk."ItemCode" = t7."ItemCode"
+Where t6."DocEntry" = :list_of_cols_val_tab_del and (kk."BinCode" Like '%REWORK%' OR kk."BinCode"  Like '%REJECTED%'));
+
+IF cnt > 0 THEN
+		error := 15552;
+                error_message := 'You can not add this Document, Please check BIN Location.........! ';
+	END IF;
+END IF;
+---------------------------------------------------------------------------
+IF  (:object_type='18') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(
+Select Count(*) INTO cnt
+From OPCH t0
+Where t0."DocEntry" = :list_of_cols_val_tab_del and IFNULL(t0."U_Act",'') = '' );
+
+IF cnt > 0 THEN
+error :=176867;
+error_message := 'Please Select Actual Exp Month in Header' ;
+	END IF;
+	END IF;
+	
+IF  (:object_type='19') and (:transaction_type='A' OR :transaction_type = 'U')
+Then
+(
+Select Count(*) INTO cnt
+From ORPC t0
+Where t0."DocEntry" = :list_of_cols_val_tab_del and IFNULL(t0."U_Act",'') = '' );
+
+IF cnt > 0 THEN
+error :=176869;
+error_message := 'Please Select Actual Exp Month in Header' ;
+	END IF;
+	END IF;
+
+IF  (:object_type='67') and (:transaction_type='A' OR :transaction_type = 'U')
+Then 
+(Select Count(*)INTO cnt 
+From OWTR T6 
+Inner Join WTR1 T7 On T6."DocEntry"=T7."DocEntry"
+Left join(
+Select  
+T0."DocEntry",t4."BinCode",t1."ItemCode"
+From OWTR T0  
+Inner Join WTR1 T1 On T1."DocEntry"=T0."DocEntry"
+Left Join "B1_OinmWithBinTransfer" t2 On T1."DocEntry"=T2."CreatedBy" and T2."TransType"=67 and T2."DocLineNum"=T1."LineNum"
+and t2."ItemCode" = t1."ItemCode" and t1."FromWhsCod" = t2."Warehouse"
+LEFT JOIN "OBTL" T3 ON T2."InvPLMessageID" = T3."MessageID"
+--t3."AbsEntry"=T2."CreatedBy"
+ LEFT JOIN "OBIN" T4 ON T3."BinAbs" = T4."AbsEntry"
+Where t0."DocEntry" = :list_of_cols_val_tab_del
+Group By T0."DocEntry",t4."BinCode",t1."ItemCode")KK on kk."DocEntry" = t7."DocEntry" and kk."ItemCode" = t7."ItemCode"
+Where t6."DocEntry" = :list_of_cols_val_tab_del and (kk."BinCode" Like '%REWORK%' OR kk."BinCode"  Like '%REJECTED%')
+and T6."UserSign" not in (51,7,10)) ;
+
+
+
+
+IF cnt > 0 THEN
+		error :=15267 ;
+        error_message := 'You can not add this Document, Please check BIN Location.........! ';
+	END IF;
+END IF;
+
+
+--------------------------------------------------------------------
+/*IF  (:object_type='17') and (:transaction_type= 'L')
+THEN 
+(Select count(*) Into cnt
+from ORDR t0
+Inner Join RDR1 t1 on t0."DocEntry" = t1."DocEntry"
+Where t0."DocEntry" = :list_of_cols_val_tab_del and t0."U_SalesOrderClose" = 'Manual'
+and IFNULL(t1."U_SOCloseReason" ,'') = '' );
+
+IF cnt > 0 Then
+		error := 17865;
+		error_message := 'Please slect closing reason on the row';
+		END IF ;
+END IF;
+
+*/
+----------------------------------------------------------------------------
+-----whscode barrier on id niine06
+---FG warehouse 
+IF  (:object_type='67') and (:transaction_type = 'A' or :transaction_type = 'U')
+Then
+(Select Count(t0."DocEntry") Into cnt 
+from WTR1 t0
+inner Join OWTR t1 on t0."DocEntry" = t1."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."UserSign" = 7 and t0."FromWhsCod" = 'GK-QC-FG'
+and t0."WhsCode" in('GK-QC-PM','GK-PM','GK-QC-RM','GK-RM','GK-QC-RT')
+);
+
+IF cnt > 0 Then
+		error := 99001;
+		error_message := 'Please Select FG warehouse';
+		END IF ;
+END IF;
+
+IF  (:object_type='67') and (:transaction_type = 'A' or :transaction_type = 'U')
+Then
+(Select Count(t0."DocEntry") Into cnt 
+from WTR1 t0
+inner Join OWTR t1 on t0."DocEntry" = t1."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."UserSign" = 7 and t0."FromWhsCod" = 'GK-FG'
+and t0."WhsCode" in('GK-QC-PM','GK-PM','GK-QC-RM','GK-RM')
+);
+
+IF cnt > 0 Then
+		error := 99002;
+		error_message := 'Please Select FG warehouse';
+		END IF ;
+END IF;
+
+---PM warehouse
+IF  (:object_type='67') and (:transaction_type = 'A' or :transaction_type = 'U')
+Then
+(Select Count(t0."DocEntry") Into cnt 
+from WTR1 t0
+inner Join OWTR t1 on t0."DocEntry" = t1."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."UserSign" = 7 and t0."FromWhsCod" = 'GK-QC-PM'
+and t0."WhsCode" in('GK-QC-FG','GK-FG','GK-QC-RM','GK-RM','GK-QC-RT')
+);
+
+IF cnt > 0 Then
+		error := 99003;
+		error_message := 'Please Select PM warehouse';
+		END IF ;
+END IF;
+
+IF  (:object_type='67') and (:transaction_type = 'A' or :transaction_type = 'U')
+Then
+(Select Count(t0."DocEntry") Into cnt 
+from WTR1 t0
+inner Join OWTR t1 on t0."DocEntry" = t1."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."UserSign" = 7 and t0."FromWhsCod" = 'GK-PM'
+and t0."WhsCode" in('GK-QC-FG','GK-FG','GK-QC-RM','GK-RM','GK-QC-RT')
+);
+
+IF cnt > 0 Then
+		error := 99004;
+		error_message := 'Please Select PM warehouse';
+		END IF ;
+END IF;
+----RM Warehouse
+IF  (:object_type='67') and (:transaction_type = 'A' or :transaction_type = 'U')
+Then
+(Select Count(t0."DocEntry") Into cnt 
+from WTR1 t0
+inner Join OWTR t1 on t0."DocEntry" = t1."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."UserSign" = 7 and t0."FromWhsCod" = 'GK-QC-RM'
+and t0."WhsCode" in('GK-QC-FG','GK-FG','GK-QC-PM','GK-PM','GK-QC-RT')
+);
+
+IF cnt > 0 Then
+		error := 99005;
+		error_message := 'Please Select RM warehouse';
+		END IF ;
+END IF;
+
+IF  (:object_type='67') and (:transaction_type = 'A' or :transaction_type = 'U')
+Then
+(Select Count(t0."DocEntry") Into cnt 
+from WTR1 t0
+inner Join OWTR t1 on t0."DocEntry" = t1."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."UserSign" = 7 and t0."FromWhsCod" = 'GK-RM'
+and t0."WhsCode" in('GK-QC-FG','GK-FG','GK-QC-PM','GK-PM','GK-QC-RT')
+);
+
+IF cnt > 0 Then
+		error := 99006;
+		error_message := 'Please Select RM warehouse';
+		END IF ;
+END IF;
+--GK-QC-RT
+IF  (:object_type='67') and (:transaction_type = 'A' or :transaction_type = 'U')
+Then
+(Select Count(t0."DocEntry") Into cnt 
+from WTR1 t0
+inner Join OWTR t1 on t0."DocEntry" = t1."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."UserSign" = 7 and t0."FromWhsCod" = 'GK-QC-RT'
+and t0."WhsCode" in('GK-QC-FG','GK-QC-RM','GK-RM','GK-QC-PM','GK-PM','GK-QC-RT')
+);
+
+IF cnt > 0 Then
+		error := 99007;
+		error_message := 'Please Select RT warehouse';
+		END IF ;
+END IF;
+----------------------------------------------------------------------------------------------------
+IF  (:object_type='2') and (:transaction_type = 'A')
+THEN
+(Select Count(t0."CardCode") Into cnt
+from CRD1 t0 
+Left Join OCRD t1 on t0."CardCode" = t1."CardCode"
+where ifnull(t0."GSTRegnNo",'') = '' and t1."CardType" = 'S' and t0."CardCode" = :list_of_cols_val_tab_del  
+);
+IF 
+ cnt > 0 Then
+		error := 2001;
+		error_message := 'Please Enter GST Number';
+		END IF ;
+		
+END IF;
+
+-----------------------------------------------------------------------------
+IF  (:object_type='2') and (:transaction_type = 'A')
+THEN
+(Select Count(t0."CardCode") Into cnt
+from CRD1 t0 
+Left Join OCRD t1 on t0."CardCode" = t1."CardCode"
+where ifnull(t1."U_VTYPE",'') = '' and t1."CardType" = 'S' and t1."CardCode" = :list_of_cols_val_tab_del  
+);
+IF 
+ cnt > 0 Then
+		error := 2002;
+		error_message := 'Please Select Vendor Type';
+		END IF ;
+		
+END IF;
+---------------------------------------------------------------
+IF  (:object_type='2') and (:transaction_type = 'A')
+THEN
+(Select Count(t0."CardCode") Into cnt
+from CRD1 t0 
+Left Join OCRD t1 on t0."CardCode" = t1."CardCode"
+where ifnull(t1."U_VCAT",'') = '' and t1."CardType" = 'S' and t1."CardCode" = :list_of_cols_val_tab_del  
+);
+IF 
+ cnt > 0 Then
+		error := 2002;
+		error_message := 'Please Select Vendor Category';
+		END IF ;
+		
+END IF;
+----------------------------------------------------------------
+IF  (:object_type='2') and (:transaction_type = 'A')
+THEN
+(Select Count(t0."CardCode") Into cnt
+from CRD1 t0 
+Left Join OCRD t1 on t0."CardCode" = t1."CardCode"
+where  ifnull(t1."U_VTYPE",'') = 'MSME' and ifnull(t1."U_UAAD",'') = '' and t1."CardType" = 'S' and t1."CardCode" = :list_of_cols_val_tab_del  
+);
+IF 
+ cnt > 0 Then
+		error := 2003;
+		error_message := 'Please Select UDYOG AADHAR NUMBER';
+		END IF ;
+		
+END IF;
+---------------------------
+IF :Object_type = '2' And (:transaction_type= 'A') 
+Then
+ 
+(SELECT Count (T0."CardCode") Into cnt
+FROM OCRD T0 
+Left Join CRD7 T1 ON T1."CardCode" = t0."CardCode" and t0."CardType" = t1."AddrType"
+WHERE T0."CardCode" = :list_of_cols_val_tab_del and  IfNull(T1."TaxId0",'') = '' and T0."CardType" = 'S');
+IF 
+ cnt > 0 Then
+		error := 2004;
+		error_message := 'Please Select PAN NO....!!!';
+End if ;
+End if;
+-----------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Select the return values
+select :error, :error_message FROM dummy;
+
+end;

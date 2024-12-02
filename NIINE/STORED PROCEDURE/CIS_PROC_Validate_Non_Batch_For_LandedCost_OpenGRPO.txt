@@ -1,0 +1,112 @@
+CREATE PROCEDURE CIS_PROC_Validate_Non_Batch_For_LandedCost_OpenGRPO (IN DocKey VARCHAR(100), IN ObjType VARCHAR(100)
+											                     ,IN TransType VARCHAR(100)
+											                     , OUT Error INT
+											                     , OUT Error_Message VARCHAR(100)
+											                     )
+AS
+BEGIN
+
+	DECLARE Counter INTEGER;
+	DECLARE ItemCode VARCHAR(500);
+
+	 CREATE LOCAL TEMPORARY TABLE #Temp_CurDocItemDetails 
+ 	  ("ItemCode" VARCHAR(100), "WhsCode" VARCHAR(100), "DocQty" DECIMAL(19, 2), "OnHand" DECIMAL(19, 2)
+ 	   ,"OpenGRPOQty" DECIMAL(19, 2), "QtyPenForLandedCost" DECIMAL(19, 2)); 
+
+	IF (:TransType = 'A' AND (:ObjType = '67' OR :ObjType = '60' OR :ObjType = '13' OR :ObjType = '17' )) THEN
+
+		IF (:ObjType = '67') THEN
+			INSERT INTO #Temp_CurDocItemDetails ("ItemCode", "WhsCode", "DocQty", "OnHand")
+			SELECT T1."ItemCode", T1."FromWhsCod", SUM(IFNULL(T1."Quantity", 0.00)) "Quantity", T2."OnHand"
+			FROM "OWTR" T0
+			INNER JOIN "WTR1" T1 ON T0."DocEntry" = T1."DocEntry"
+			INNER JOIN "OITW" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."FromWhsCod" = T2."WhsCode"
+			INNER JOIN "OITM" T3 ON T1."ItemCode" = T3."ItemCode"
+			WHERE T0."DocEntry" = :DocKey AND IFNULL(T3."ManBtchNum", '') <> 'Y'
+			GROUP BY T1."ItemCode", T1."FromWhsCod", T2."OnHand";
+	    END IF;	
+
+		IF (:ObjType = '60') THEN
+			INSERT INTO #Temp_CurDocItemDetails ("ItemCode", "WhsCode", "DocQty", "OnHand")
+			SELECT T1."ItemCode", T1."WhsCode", SUM(IFNULL(T1."Quantity", 0.00)) "Quantity", T2."OnHand"
+			FROM "OIGE" T0
+			INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+			INNER JOIN "OITW" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."WhsCode" = T2."WhsCode"
+			INNER JOIN "OITM" T3 ON T1."ItemCode" = T3."ItemCode"			
+			WHERE T0."DocEntry" = :DocKey AND IFNULL(T3."ManBtchNum", '') <> 'Y'
+			GROUP BY T1."ItemCode", T1."WhsCode", T2."OnHand";			
+	   END IF;	
+	
+	  IF (:ObjType = '13') THEN
+			INSERT INTO #Temp_CurDocItemDetails ("ItemCode", "WhsCode", "DocQty", "OnHand")
+			SELECT T1."ItemCode", T1."WhsCode", SUM(IFNULL(T1."Quantity", 0.00)) "Quantity", T2."OnHand"
+			FROM "OINV" T0
+			INNER JOIN "INV1" T1 ON T0."DocEntry" = T1."DocEntry"
+			INNER JOIN "OITW" T2 ON T1."ItemCode" = T2."ItemCode" AND T1."WhsCode" = T2."WhsCode"
+			INNER JOIN "OITM" T3 ON T1."ItemCode" = T3."ItemCode"						
+			WHERE T0."DocEntry" = :DocKey AND IFNULL(T3."ManBtchNum", '') <> 'Y'
+			GROUP BY T1."ItemCode", T1."WhsCode", T2."OnHand";			
+	   END IF;		
+	   	
+	   UPDATE T0
+	   SET "OpenGRPOQty" = IFNULL((SELECT SUM(IFNULL(C0."Quantity", 0.00))
+	   					           FROM "PDN1" C0 
+     	   					       WHERE C0."LineStatus" = 'O' AND C0."ItemCode" = T0."ItemCode" AND C0."WhsCode" = T0."WhsCode"), 0.00)
+	   , "QtyPenForLandedCost" =  IFNULL((SELECT SUM(IFNULL(C0."Quantity", 0.00))
+	   					           FROM "OPDN" C
+	   					           INNER JOIN "PDN1" C0 ON C."DocEntry" = C0."DocEntry" 
+	   					           INNER JOIN "PCH1" C1 ON C1."BaseEntry" = C0."DocEntry" AND C1."BaseLine" = C0."LineNum" AND C1."BaseType" = C0."ObjType"
+	   					           INNER JOIN "OPCH" C3 ON C1."DocEntry" = C3."DocEntry"
+	   					           LEFT JOIN "IPF1" C2 ON C2."BaseEntry" = C1."DocEntry" AND C2."BaseType" = C1."ObjType"
+      	   					       WHERE C0."ItemCode" = T0."ItemCode" AND C0."WhsCode" = T0."WhsCode"  AND IFNULL(C3."U_LandedCstReq", '') = 'Yes' AND IFNULL(C2."DocEntry", 0) = 0), 0.00)      	   					       
+	   FROM #Temp_CurDocItemDetails T0;
+         
+	   SELECT COUNT("ItemCode") INTO Counter
+	   FROM #Temp_CurDocItemDetails T0
+		   WHERE "DocQty" > (IFNULL("DocQty", 0.00) + IFNULL("OnHand", 0.00)) - IFNULL("OpenGRPOQty", 0.00);
+
+	   IF IFNULL(:Counter, 0) > 0 THEN 
+	    
+		   SELECT STRING_AGG(T0."ItemCode", ',') INTO ItemCode
+		   FROM #Temp_CurDocItemDetails T0
+		   WHERE "DocQty" > (IFNULL("DocQty", 0.00) + IFNULL("OnHand", 0.00)) - IFNULL("OpenGRPOQty", 0.00);
+
+/*		  SELECT CAST(IFNULL("OnHand", 0.00) - IFNULL("OpenGRPOQty", 0.00) AS VARCHAR) INTO ItemCode
+		  FROM 	#Temp_CurDocItemDetails; */
+
+	       Error := 10001;
+	       Error_Message := 'A/P Invoice is pending. Item Code: ' || :ItemCode;	   
+
+	   END IF;
+
+	    
+	  IF IFNULL(:Counter, 0) = 0 THEN
+
+
+	     SELECT COUNT("ItemCode") INTO Counter
+		 FROM #Temp_CurDocItemDetails T
+		 WHERE "DocQty" > (IFNULL("DocQty", 0.00) + IFNULL("OnHand", 0.00)) - (IFNULL("OpenGRPOQty", 0.00) + IFNULL("QtyPenForLandedCost", 0.00));
+	    
+
+		 	IF IFNULL(:Counter, 0) > 0 THEN
+
+			   SELECT STRING_AGG(T0."ItemCode", ',') INTO ItemCode
+			   FROM #Temp_CurDocItemDetails T0
+	 		   WHERE "DocQty" > (IFNULL("DocQty", 0.00) + IFNULL("OnHand", 0.00)) - (IFNULL("OpenGRPOQty", 0.00) + IFNULL("QtyPenForLandedCost", 0.00));
+			   
+		       Error := 10002;
+		       Error_Message := 'Landed cost is pending. Item Code1111: ' || :ItemCode; 
+
+		    END IF;
+
+	   END IF;
+
+
+	END IF;
+
+	SELECT * FROM #Temp_CurDocItemDetails;
+
+	DROP TABLE #Temp_CurDocItemDetails;
+
+
+END;

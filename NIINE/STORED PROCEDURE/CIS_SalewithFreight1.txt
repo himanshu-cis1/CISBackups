@@ -1,0 +1,67 @@
+CREATE Procedure CIS_SalewithFreight1
+(	IN FromDate DATE,
+	IN ToDate DATE,
+	IN Branch NVARCHAR(500))
+AS BEGIN
+
+SELECT 
+T1."WhsCode" "WhsCode" ,'ARCreditInvoice' As "Transaction Type",
+T0."CardCode" as "Customer Code",
+T0."CardName" as "Customer Name",
+T0."PayToCode" as "Bill To",
+T0."DocNum" as "Document No",
+T0."DocDate" as "Posting Date",
+(Select P1."City" From CRD1 P1 Where P1."Address" = T0."PayToCode" And P1."CardCode" = T0."CardCode" And P1."AdresType"='B') as "Customer City Name",
+(Select P2."Name" From CRD1 P1 Inner Join OCST P2 On P1."State"= P2."Code" And P2."Country" = P1."Country" Where P1."Address" = T0."PayToCode" And P1."CardCode" = T0."CardCode" And P1."AdresType"='B') as "Customer State Name",
+T3."GroupName",
+Sum(T1."Quantity")as "Quantity",
+Sum(T1."LineTotal")as "Invoice  Taxable Amt.",
+T0."VatSumSy" as "Tax Amount",
+T0."DocTotal",
+T0."U_ActualDispatchDate", T0."U_UnloadingDate",T0."U_Trnsprt" ,T0."U_LRNo",
+T0."U_TruckNo"  ,T0."U_TruckSz" , T0."U_Freight", 
+T0."U_LoadingCharges", T0."U_UnloadingCharges", T0."U_HaltingCharges",
+(T0."U_Freight" + T0."U_LoadingCharges" + T0."U_UnloadingCharges" + T0."U_HaltingCharges")as "TOtal Freight",
+T0."Comments" 
+FROM OINV T0
+LEFT Join INV1 T1 on T1."DocEntry"=T0."DocEntry"
+LEFT JOIN OCRD T2 on T2."CardCode"=T0."CardCode"
+LEFT Join OCRG T3 On T3."GroupCode"=T2."GroupCode"
+Where T0."DocDate" between FromDate and ToDate And T0."BPLName" = Branch
+Group BY T0."DocNum",T0."GSTTranTyp",T0."PayToCode",T0."DocDate",T0."CardCode",T0."CardName",
+T3."GroupName" ,T0."VatSumSy",T0."DocTotal",T0."U_ActualDispatchDate", T0."U_UnloadingDate",T0."U_Trnsprt",
+T0."U_LRNo", T0."U_TruckNo"  ,T0."U_TruckSz" , T0."U_Freight", 
+T0."U_LoadingCharges", T0."U_UnloadingCharges", T0."U_HaltingCharges",T0."Comments",T1."WhsCode"
+
+Union All
+
+SELECT 
+T1."WhsCode" "WhsCode" ,'ARCreditInvoice' As "Transaction Type",
+T0."CardCode" as "Customer Code",
+T0."CardName" as "Customer Name",
+T0."PayToCode" as "Bill To",
+T0."DocNum" as "Document No",
+T0."DocDate" as "Posting Date",
+(Select P1."City" From CRD1 P1 Where P1."Address" = T0."PayToCode" And P1."CardCode" = T0."CardCode" And P1."AdresType"='B') as "Customer City Name",
+(Select P2."Name" From CRD1 P1 Inner Join OCST P2 On P1."State"= P2."Code" And P2."Country" = P1."Country" Where P1."Address" = T0."PayToCode" And P1."CardCode" = T0."CardCode" And P1."AdresType"='B') as "Customer State Name",
+T3."GroupName",
+Sum(T1."Quantity")as "Quantity",
+Sum(T1."LineTotal")as "Invoice  Taxable Amt.",
+T0."VatSumSy" as "Tax Amount",
+T0."DocTotal",
+T0."U_ActualDispatchDate", T0."U_UnloadingDate",T0."U_Trnsprt" ,T0."U_LRNo",
+T0."U_TruckNo"  ,T0."U_TruckSz" , T0."U_Freight", 
+T0."U_LoadingCharges", T0."U_UnloadingCharges", T0."U_HaltingCharges",
+(T0."U_Freight" + T0."U_LoadingCharges" + T0."U_UnloadingCharges" + T0."U_HaltingCharges")as "TOtal Freight",
+T0."Comments" 
+FROM ORIN T0
+LEFT Join RIN1 T1 on T1."DocEntry"=T0."DocEntry"
+LEFT JOIN OCRD T2 on T2."CardCode"=T0."CardCode"
+LEFT Join OCRG T3 On T3."GroupCode"=T2."GroupCode"
+Where T0."DocDate" between FromDate AND ToDate And T0."BPLName" = Branch
+Group BY T0."DocNum",T0."GSTTranTyp",T0."PayToCode",T0."DocDate",T0."CardCode",T0."CardName",
+T3."GroupName" ,T0."VatSumSy",T0."DocTotal",T0."U_ActualDispatchDate", T0."U_UnloadingDate",T0."U_Trnsprt",
+T0."U_LRNo", T0."U_TruckNo"  ,T0."U_TruckSz" , T0."U_Freight", 
+T0."U_LoadingCharges", T0."U_UnloadingCharges", T0."U_HaltingCharges",T0."Comments",T1."WhsCode";
+
+End

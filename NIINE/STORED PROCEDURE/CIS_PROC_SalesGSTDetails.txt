@@ -1,0 +1,361 @@
+CREATE PROCEDURE CIS_PROC_SalesGSTDetails 
+	(IN FromDate DATE
+	, IN ToDate DATE
+	, IN RptTyp VARCHAR(10))
+ LANGUAGE SQLSCRIPT
+ AS
+ BEGIN
+ 
+ 	CREATE LOCAL TEMPORARY TABLE #Temp_GSTDetails 
+ 	("DocumentType" VARCHAR(20), "BpGSTN" VARCHAR(100), "CardName" VARCHAR(200), "DocEntry" INT
+ 	, "DocNum" INT, "DocDate" DATE, "DocType" VARCHAR(10), "GSTTranTyp" VARCHAR(10)
+ 	, "DiscSum" DECIMAL(19, 2), "Freight" DECIMAL(19, 2), "BpStateCod" VARCHAR(20), "BPStateName" VARCHAR(250) 
+ 	, "BPStatGSTN" VARCHAR(30), "VisOrder" INT, "ItemCode" VARCHAR(60), "ItemName" VARCHAR(200)
+ 	, "ChapterID" VARCHAR(80), "ServCode" VARCHAR(80), "Quantity" DECIMAL(19, 2), "LineTotal" DECIMAL(19, 2)
+	, "TaxCode" VARCHAR(80), "TaxRate" DECIMAL(19, 2), "TaxAmt" DECIMAL(19, 2)
+ 	, "RvsCrgPrc" DECIMAL(19, 2), "OriginalNo" VARCHAR(400), "OriginalDate" DATE
+ 	, "UomCode" VARCHAR(100), "UomName" VARCHAR(200), "HRowDisc" DECIMAL(19, 2), "HRowFrght" DECIMAL(19, 2)
+ 	, "LocState" VARCHAR(40), "IGST_TaxAmt" DECIMAL(19, 2), "CGST_TaxAmt" DECIMAL(19, 2)
+ 	, "SGST_TaxAmt" DECIMAL(19, 2), "UTGST_TaxAmt" DECIMAL(19, 2), "Series" INT, "SeriesName" VARCHAR(200)
+ 	, "Cancel" VARCHAR(10),"DocTotal" DECIMAL (19,2),"Branch" VARCHAR(50));
+
+ 	INSERT INTO #Temp_GSTDetails ("DocumentType", "BpGSTN", "CardName", "DocEntry", "DocNum", "DocDate", "DocType"
+	,"GSTTranTyp", "DiscSum", "Freight", "BpStateCod", "BPStateName", "BPStatGSTN", "VisOrder", "ItemCode"
+	,"ItemName", "ChapterID", "ServCode", "Quantity", "LineTotal"
+	, "TaxCode", "TaxRate", "TaxAmt", "RvsCrgPrc","OriginalNo", "OriginalDate", "UomCode", "UomName"
+	, "HRowDisc", "HRowFrght", "LocState", "IGST_TaxAmt", "CGST_TaxAmt", "SGST_TaxAmt"
+	, "UTGST_TaxAmt", "Series", "SeriesName", "Cancel","DocTotal","Branch") 
+ 	SELECT 'Invoice' "DocumentType", NV12."BpGSTN", NV."CardName", NV."DocEntry", NV."DocNum"
+ 	, NV."DocDate", NV."DocType", NV."GSTTranTyp", NV."DiscSum", NV."TotalExpns" "Freight"
+ 	, NV12."BpStateCod", POS_STATE."Name", NV12."BPStatGSTN"
+ 	, NV1."VisOrder", NV1."ItemCode", NV1."Dscription" "ItemName"
+	, CHP."ChapterID", SAC."ServCode", NV1."Quantity", NV1."LineTotal" 
+	, NV1."TaxCode", NV1."VatPrcnt" "TaxRate", NV1."VatSum" "TaxAmt", NV4."RvsChrgPrc"
+	, NV."RevRefNo" "OriginalNo", NV."RevRefDate" "OriginalDate", NV1."UomCode", UOM."UomName" 
+	, IFNULL(NV."DiscSum", 0.00) / IFNULL((SELECT COUNT(C0."DocEntry") 
+								 	       FROM "INV1" C0 
+										   WHERE C0."DocEntry" = NV."DocEntry"), 0.00) "HRowDisc"
+	, IFNULL(NV."TotalExpns", 0.00) / IFNULL((SELECT COUNT(C0."DocEntry") 
+								 	       FROM "INV1" C0 
+								WHERE C0."DocEntry" = NV."DocEntry"), 0.00) "HRowFrght"										   
+	, NV12."LocStatCod"
+	, IGST_TAX."TaxSum", CGST_TAX."TaxSum", SGST_TAX."TaxSum", UGST_TAX."TaxSum"							
+	, NV."Series", SER."SeriesName", NV."CANCELED",NV."DocTotal",BPL."BPLName"
+	FROM "OINV" NV
+	INNER JOIN "INV1" NV1 ON NV."DocEntry" = NV1."DocEntry"
+	LEFT JOIN "INV12" NV12 ON NV."DocEntry" = NV12."DocEntry"
+	LEFT JOIN "OCHP" CHP ON CHP."AbsEntry" = NV1."HsnEntry" 
+	LEFT JOIN "OSAC" SAC ON NV1."SacEntry" = SAC."AbsEntry"
+	LEFT JOIN "OCST" POS_STATE ON NV12."BpStateCod"  = POS_STATE."Code" AND NV12."BpCountry" = POS_STATE."Country"
+	LEFT JOIN "INV4" NV4 ON NV1."DocEntry" = NV4."DocEntry" AND NV1."LineNum" = NV4."LineNum" AND NV4."LineSeq" = 0 AND NV4."RelateType" = 1
+	LEFT JOIN "OUOM" UOM ON NV1."UomCode" = UOM."UomCode" 
+	LEFT JOIN "INV4" IGST_TAX ON NV1."DocEntry" = IGST_TAX."DocEntry" AND  NV1."LineNum" = IGST_TAX."LineNum"  AND IGST_TAX."RelateType" = 1  AND IGST_TAX."staType" = -120 
+	LEFT JOIN "INV4" CGST_TAX ON NV1."DocEntry" = CGST_TAX."DocEntry" AND  NV1."LineNum" = CGST_TAX."LineNum"  AND CGST_TAX."RelateType" = 1  AND CGST_TAX."staType" = -100	
+	LEFT JOIN "INV4" SGST_TAX ON NV1."DocEntry" = SGST_TAX."DocEntry" AND  NV1."LineNum" = SGST_TAX."LineNum"  AND SGST_TAX."RelateType" = 1  AND SGST_TAX."staType" = -110		
+	LEFT JOIN "INV4" UGST_TAX ON NV1."DocEntry" = UGST_TAX."DocEntry" AND  NV1."LineNum" = UGST_TAX."LineNum"  AND UGST_TAX."RelateType" = 1  AND UGST_TAX."staType" = -150			
+	LEFT JOIN "NNM1" SER ON SER."Series" = NV."Series" AND NV."ObjType" = SER."ObjectCode"
+	LEFT JOIN "OBPL" BPL ON NV."BPLId" = BPL."BPLId"
+	LEFT JOIN "OSTC" TAXT ON NV1."TaxCode" = TAXT."Code"
+	WHERE TO_VARCHAR(NV."DocDate", 'yyyyMMdd') BETWEEN TO_VARCHAR(:FromDate, 'yyyyMMdd') AND TO_VARCHAR(:ToDate, 'yyyyMMdd')
+	
+	UNION ALL
+	
+	SELECT 'CreditNote' "DocumentType", NV12."BpGSTN", NV."CardName", NV."DocEntry", NV."DocNum", NV."DocDate"
+	, NV."DocType", NV."GSTTranTyp", NV."DiscSum", NV."TotalExpns" "Freight", NV12."BpStateCod", POS_STATE."Name"
+	, NV12."BPStatGSTN", NV1."VisOrder", NV1."ItemCode", NV1."Dscription" "ItemName"
+	, CHP."ChapterID", SAC."ServCode", NV1."Quantity", NV1."LineTotal"
+	, NV1."TaxCode", NV1."VatPrcnt" "TaxRate", NV1."VatSum" "TaxAmt", NV4."RvsChrgPrc"
+	, NV."RevRefNo" "OriginalNo", NV."RevRefDate" "OriginalDate", NV1."UomCode", UOM."UomName"
+	, IFNULL(NV."DiscSum", 0.00) / IFNULL((SELECT COUNT(C0."DocEntry") 
+								 	       FROM "RIN1" C0 
+										   WHERE C0."DocEntry" = NV."DocEntry"), 0.00) "HRowDisc"
+	, IFNULL(NV."TotalExpns", 0.00) / IFNULL((SELECT COUNT(C0."DocEntry") 
+								 	       FROM "RIN1" C0 
+										   WHERE C0."DocEntry" = NV."DocEntry"), 0.00) "HRowFrght"										    
+	, NV12."LocStatCod"	
+	, IGST_TAX."TaxSum", CGST_TAX."TaxSum", SGST_TAX."TaxSum", UGST_TAX."TaxSum"																	   
+	, NV."Series", SER."SeriesName", NV."CANCELED",NV."DocTotal",BPL."BPLName"
+	FROM "ORIN" NV
+	INNER JOIN "RIN1" NV1 ON NV."DocEntry" = NV1."DocEntry"
+	LEFT JOIN "RIN12" NV12 ON NV."DocEntry" = NV12."DocEntry"
+	LEFT JOIN "OCHP" CHP ON CHP."AbsEntry" = NV1."HsnEntry" 
+	LEFT JOIN "OSAC" SAC ON NV1."SacEntry" = SAC."AbsEntry"
+	LEFT JOIN "OCST" POS_STATE ON NV1."TaxCode"  = POS_STATE."Code" AND NV12."BpCountry" = POS_STATE."Country"
+	LEFT JOIN "RIN4" NV4 ON NV1."DocEntry" = NV4."DocEntry" AND NV1."LineNum" = NV4."LineNum" AND NV4."LineSeq" = 0 AND NV4."RelateType" = 1
+	LEFT JOIN "OUOM" UOM ON NV1."UomCode" = UOM."UomCode" 
+	LEFT JOIN "RIN4" IGST_TAX ON NV1."DocEntry" = IGST_TAX."DocEntry" AND  NV1."LineNum" = IGST_TAX."LineNum"  AND IGST_TAX."RelateType" = 1  AND IGST_TAX."staType" = -120 
+	LEFT JOIN "RIN4" CGST_TAX ON NV1."DocEntry" = CGST_TAX."DocEntry" AND  NV1."LineNum" = CGST_TAX."LineNum"  AND CGST_TAX."RelateType" = 1  AND CGST_TAX."staType" = -100	
+	LEFT JOIN "RIN4" SGST_TAX ON NV1."DocEntry" = SGST_TAX."DocEntry" AND  NV1."LineNum" = SGST_TAX."LineNum"  AND SGST_TAX."RelateType" = 1  AND SGST_TAX."staType" = -110		
+	LEFT JOIN "RIN4" UGST_TAX ON NV1."DocEntry" = UGST_TAX."DocEntry" AND  NV1."LineNum" = UGST_TAX."LineNum"  AND UGST_TAX."RelateType" = 1  AND UGST_TAX."staType" = -150				
+	LEFT JOIN "NNM1" SER ON SER."Series" = NV."Series" AND NV."ObjType" = SER."ObjectCode"
+	LEFT JOIN "OBPL" BPL ON NV."BPLId" = BPL."BPLId"
+	LEFT JOIN "OSTC" TAXT ON NV1."TaxCode" = TAXT."Code"
+	WHERE TO_VARCHAR(NV."DocDate", 'yyyyMMdd') BETWEEN TO_VARCHAR(:FromDate, 'yyyyMMdd') AND TO_VARCHAR(:ToDate, 'yyyyMMdd');
+
+
+	--------------------------------------------------------------------------------------------------------------
+	-- INSERTING FREIGHT DETAILS
+	--------------------------------------------------------------------------------------------------------------
+	---------- A/R INVOICE FREIGHT DETAILS
+ 	 INSERT INTO #Temp_GSTDetails ("DocumentType", "BpGSTN", "CardName", "DocEntry"
+ 	 , "DocNum", "DocDate", "DocType" ,"GSTTranTyp", "DiscSum", "Freight", "BpStateCod", "BPStateName"
+ 	 , "BPStatGSTN", "ItemCode" ,"ItemName", "ChapterID", "ServCode", "Quantity", "LineTotal", "TaxCode"
+ 	 , "TaxRate", "TaxAmt", "RvsCrgPrc", "OriginalNo", "OriginalDate", "UomCode", "UomName") 
+ 	 SELECT T0."DocumentType", T0."BpGSTN", T0."CardName", T0."DocEntry", T0."DocNum", T0."DocDate", T0."DocType"
+	 , T0."GSTTranTyp", T0."DiscSum", T0."Freight", T0."BpStateCod", T0."BPStateName", T0."BPStatGSTN"
+	 , 'T@FREIGHT' "ItemCode",'T@FREIGHT' "ItemName", null "ChapterID", null "ServCode", 0 "Quantity"
+	 , T1."LineTotal", T1."TaxCode", T1."VatPrcnt" "TaxRate", T1."VatSum" "TaxAmt", NV4."RvsChrgPrc"
+	 , T0."OriginalNo", T0."OriginalDate", null "UomCode", null "UomName"
+ 	 FROM #Temp_GSTDetails T0
+ 	 INNER JOIN "INV3" T1 ON T0."DocEntry" = T1."DocEntry" 
+	 LEFT JOIN "INV4" NV4 ON T1."DocEntry" = NV4."DocEntry" AND T1."LineNum" = NV4."LineNum" AND NV4."LineSeq" = 0 AND NV4."RelateType" = 3
+ 	 WHERE "DocumentType" = 'Invoice' AND T0."VisOrder" = 0 
+ 	 -- *********************************************************************************************************
+	 UNION ALL
+	--------- A/R CREDIT NOTE FREIGHT DETAILS
+	 SELECT T0."DocumentType", T0."BpGSTN", T0."CardName", T0."DocEntry", T0."DocNum", T0."DocDate", T0."DocType"
+	 , T0."GSTTranTyp", T0."DiscSum", T0."Freight", T0."BpStateCod", T0."BPStateName", T0."BPStatGSTN"
+	 , 'T@FREIGHT' "ItemCode",'T@FREIGHT' "ItemName", null "ChapterID", null "ServCode", 0 "Quantity"
+	 , T1."LineTotal", T1."TaxCode", T1."VatPrcnt" "TaxRate", T1."VatSum" "TaxAmt", NV4."RvsChrgPrc"
+	 , T0."OriginalNo", T0."OriginalDate", null "UomCode", null "UomName"
+ 	 FROM #Temp_GSTDetails T0
+ 	 INNER JOIN "RIN3" T1 ON T0."DocEntry" = T1."DocEntry" 
+	 LEFT JOIN "RIN4" NV4 ON T1."DocEntry" = NV4."DocEntry" AND T1."LineNum" = NV4."LineNum" AND NV4."LineSeq" = 0 AND NV4."RelateType" = 3
+ 	 WHERE "DocumentType" = 'CreditNote' AND T0."VisOrder" = 0; 
+	--------------------------------------------------------------------------------------------------------------
+	-- END OF INSERTING FREIGHT DETAILS
+	--------------------------------------------------------------------------------------------------------------
+IF :RptTyp = 'B2B' THEN 
+ 	SELECT B."DocEntry",B."BPStatGSTN",B."BpStateCod", B."BpGSTN", B."CardName", B."DocNum", B."DocDate", 
+		 		B."InvValue" AS "InvValue", B."BPStateName", B."TaxRate", B."RevChrApp",
+		 		SUM((CASE WHEN B."TaxRate" > 40 THEN (SUM(IFNULL(B."TaxableValue", 0.00))*12)/100 ELSE 0 END +
+		 		CASE WHEN B."TaxRate" > 40 THEN (SUM(IFNULL(B."TaxableValue", 0.00))*12)/100 ELSE (SUM(IFNULL(B."TaxableValue", 0.00))*B."TaxRate")/100  END)
+		 		+ SUM(IFNULL(B."TaxableValue", 0.00)))  OVER (PARTITION BY B."DocEntry" ORDER BY B."DocEntry") "Invoice  Amount",
+		 		SUM(IFNULL(B."TaxableValue", 0.00)) "TaxableValue","Branch"
+ 	
+ 		FROM (
+		 		SELECT A."DocEntry",A."BPStatGSTN",A."BpStateCod", A."BpGSTN", A."CardName", A."DocNum", A."DocDate", 
+		 		SUM(SUM(A."InvValue")) OVER (PARTITION BY A."DocEntry" ORDER BY A."DocEntry") AS "InvValue", 
+		 		A."BPStateName", A."TaxRate", A."RevChrApp",SUM(IFNULL(A."TaxableValue", 0.00)) "TaxableValue","Branch"
+		 		FROM 
+		 		(
+					SELECT "DocEntry","BPStatGSTN","BpStateCod","BpGSTN", "CardName", "DocNum", "DocDate"
+					, SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) "InvValue"
+					--,"DocTotal" "InvValue"
+					, "BPStateName",
+					CASE 
+						WHEN "TaxRate" > 5 AND "TaxRate" < 12 THEN 5
+						WHEN "TaxRate" > 12 AND "TaxRate" < 18 THEN 12
+						WHEN "TaxRate" > 18 AND "TaxRate" < 28 THEN 18
+						WHEN "TaxRate" > 28 THEN 28
+						ELSE "TaxRate"
+					END "TaxRate"
+				    , CASE WHEN IFNULL("RvsCrgPrc", 0.00) = 0 THEN 'N' ELSE 'Y' END "RevChrApp"
+					,SUM(IFNULL("LineTotal", 0.00)) "TaxableValue","Branch"
+				 	FROM #Temp_GSTDetails T0
+				 	WHERE "GSTTranTyp" = 'GA' AND "Cancel" = 'N' AND IFNULL("BpGSTN", '') <> '' AND IFNULL("BpGSTN", '')<> '06NOTAP2222M2Z1'
+				 	AND "TaxRate" <> 0 
+				 	AND "DocumentType" = 'Invoice' --AND T0."DocNum" = 117858		
+				 	GROUP BY "DocEntry","BPStatGSTN","BpStateCod", "BpGSTN", "CardName", "DocNum", "DocDate"
+							,"BPStatGSTN", "BPStateName", "TaxRate"
+				    		,"RvsCrgPrc","DocTotal","Branch"
+					
+				 	HAVING SUM(IFNULL("LineTotal", 0.00))<>0
+				 )A
+				 GROUP BY A."DocEntry" ,A."BPStatGSTN",A."BpStateCod", A."BpGSTN", A."CardName", A."DocNum", A."DocDate",  		
+				 A."BPStateName", A."TaxRate", A."RevChrApp",A."InvValue",A."Branch"
+			 )B GROUP BY B."DocEntry" ,B."BPStatGSTN",B."BpStateCod", B."BpGSTN", B."CardName", B."DocNum", B."DocDate",  		
+				 B."BPStateName", B."TaxRate", B."RevChrApp",B."InvValue",B."Branch"
+			 	ORDER BY B."DocNum", B."DocDate"; 
+	
+ 		
+	 	
+	ELSEIF :RptTyp = 'B2BSM' THEN 	     		 	    
+		SELECT COUNT(DISTINCT "BpGSTN") "NoofRecep"
+		, COUNT(DISTINCT "DocEntry") "NoofInv"
+		, SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) "TotalInvValue" 	        		 	    
+	    , SUM(IFNULL("LineTotal", 0.00)) "TotalTaxableValue","Branch"
+		FROM #Temp_GSTDetails T0
+  	 	WHERE "GSTTranTyp" = 'GA' AND IFNULL("BpGSTN", '') <> ''
+		AND "DocumentType" = 'Invoice'
+		GROUP BY "Branch";
+		
+	ELSEIF :RptTyp = 'B2BS' THEN 	     		 	    
+		SELECT "BPStatGSTN", "BPStateName", "TaxRate"	        		 	    
+	    , SUM(IFNULL("LineTotal", 0.00)) "TotalTaxableValue","Branch" 
+		FROM #Temp_GSTDetails T0
+  	 	WHERE "GSTTranTyp" = '--' 
+		AND "DocumentType" = 'Invoice'
+		GROUP BY "BPStatGSTN", "BPStateName", "TaxRate","Branch";		
+		
+	ELSEIF :RptTyp = 'CDNR' THEN 
+	     		 	    
+		SELECT "BPStatGSTN", "BpGSTN", "CardName", "DocNum", "DocDate"
+		, "OriginalNo", "OriginalDate"
+		, SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) "InvValue"
+		, "BPStatGSTN", "BPStateName", "TaxRate"
+	    , CASE WHEN IFNULL("RvsCrgPrc", 0.00) = 0 THEN 'N' ELSE 'Y' END "RevChrApp"
+		,  SUM(IFNULL("LineTotal", 0.00)) "TaxableValue" 
+		, CASE T0."GSTTranTyp" WHEN 'GD' THEN 'D' ELSE 'C' END "DocumentType","Branch"
+	 	FROM #Temp_GSTDetails T0
+	 	WHERE (("DocumentType" = 'Invoice' AND "GSTTranTyp" = 'GD') 
+	 		   OR ("DocumentType" = 'CreditNote' AND "GSTTranTyp" <> '--'))
+	 	AND IFNULL("BpGSTN", '') <> ''
+	 	GROUP BY "BPStatGSTN", "CardName", "DocNum", "DocDate", "BPStatGSTN", "GSTTranTyp"
+	 	, "BPStateName", "RvsCrgPrc", "TaxRate", "BpGSTN", "OriginalNo", "OriginalDate"
+	 	, "TaxRate","Branch"
+	 	ORDER BY "DocNum", "DocDate"; 
+
+	ELSEIF :RptTyp = 'CDNRS' THEN 
+	
+		SELECT COUNT(DISTINCT "BpGSTN") "NoOfReceipt", COUNT(DISTINCT "DocNum") "NoOfInv"
+		, SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) "TotalInvValue" 	        		 	    
+	    , SUM(IFNULL("LineTotal", 0.00)) "TotalTaxableValue","Branch" 		
+		FROM #Temp_GSTDetails T0
+	 	WHERE (("DocumentType" = 'Invoice' AND "GSTTranTyp" = 'GD') 
+	 		   OR ("DocumentType" = 'CreditNote' AND "GSTTranTyp" <> '--'))
+	 	AND IFNULL("BpGSTN", '') <> ''
+	 	GROUP BY "Branch";
+	 	
+	ELSEIF :RptTyp = 'CDNUR' THEN 
+	     		 	    
+		SELECT "BPStatGSTN", "BpGSTN", "CardName", "DocNum", "DocDate"
+		, "OriginalNo", "OriginalDate", "TaxRate"
+		, SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) "InvValue"
+		, "BPStatGSTN", "BPStateName"
+	    , CASE WHEN IFNULL("RvsCrgPrc", 0.00) = 0 THEN 'N' ELSE 'Y' END "RevChrApp"
+		,  SUM(IFNULL("LineTotal", 0.00)) "TaxableValue" 
+		, CASE T0."GSTTranTyp" WHEN 'GD' THEN 'D' ELSE 'C' END "DocumentType","Branch"		
+	 	FROM #Temp_GSTDetails T0
+	 	WHERE  ("DocumentType" = 'CreditNote' AND "GSTTranTyp" = '--')
+	 	GROUP BY "BPStatGSTN", "CardName", "DocNum", "DocDate", "BPStatGSTN", "GSTTranTyp"
+	 	, "BPStateName", "RvsCrgPrc", "TaxRate", "BpGSTN", "OriginalNo", "OriginalDate", "TaxRate","Branch"
+	 	ORDER BY "DocNum", "DocDate"; 	 	
+
+
+	ELSEIF :RptTyp = 'CDNURS' THEN 
+	
+		SELECT COUNT(DISTINCT "BpGSTN") "NoOfReceipt", COUNT(DISTINCT "DocNum") "NoOfInv"
+		, SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) "TotalInvValue" 	        		 	    
+	    , SUM(IFNULL("LineTotal", 0.00)) "TotalTaxableValue","Branch" 		
+		FROM #Temp_GSTDetails T0
+	 	WHERE  ("DocumentType" = 'CreditNote' AND "GSTTranTyp" = '--')
+		GROUP BY "Branch";
+	
+	ELSEIF :RptTyp = 'EXEMP' THEN 
+		
+		/*CREATE LOCAL TEMPORARY TABLE #Temp_ExempDes ("Description" VARCHAR(100));
+		
+		CREATE LOCAL TEMPORARY TABLE #Temp_ExempDetails ("Description" VARCHAR(100)
+		, "NilRatedSupplies" DECIMAL(19, 2), "ExemptedSupplies" DECIMAL(19, 2), "NonGSTSupplies" DECIMAL(19, 2)); 
+		
+		INSERT INTO #Temp_ExempDes ("Description")
+		SELECT 'Inter-State supplies to registered persons' FROM Dummy
+		UNION ALL
+		SELECT 'Intra-State supplies to registered persons' FROM Dummy
+		UNION ALL
+		SELECT 'Inter-State supplies to unregistered persons' FROM Dummy
+		UNION ALL
+		SELECT 'Intra-State supplies to unregistered persons' FROM Dummy;		
+		
+		INSERT INTO #Temp_ExempDetails ("Description", "NilRatedSupplies", "ExemptedSupplies", "NonGSTSupplies")*/
+		SELECT 
+		CASE WHEN IFNULL("BpGSTN", '') <> '' THEN
+				 CASE WHEN IFNULL("BpStateCod", '') <> IFNULL("LocState", '') THEN 
+				     	'Inter-State supplies to registered persons'
+				     ELSE
+				      	'Intra-State supplies to registered persons'
+				  END     	
+			  WHEN IFNULL("BpGSTN", '') = '' THEN   	
+			       CASE WHEN IFNULL("BpStateCod", '') <> IFNULL("LocState", '') THEN 
+				     	'Inter-State supplies to unregistered persons'
+				     ELSE
+				      	'Intra-State supplies to unregistered persons'
+				   END 	
+		  END	"Description"
+		, CASE T1."GstTaxCtg" WHEN 'N' THEN 
+			   SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) 
+			   ELSE 0.00
+		  END "NilRatedSupplies"
+		, CASE T1."GstTaxCtg" WHEN 'E' THEN 
+			   SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) 
+			   ELSE 0.00
+		  END "ExemptedSupplies"
+	   , CASE WHEN IFNULL(T1."GstTaxCtg", '') = '' THEN 
+			   SUM((IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) 
+			   ELSE 0.00
+		  END "NonGSTSupplies"
+		  	  	   			   
+		FROM #Temp_GSTDetails T0
+		INNER JOIN "OITM" T1 ON T0."ItemCode" = T1."ItemCode"
+		WHERE IFNULL("BpStateCod", '') <> IFNULL("LocState", '')
+		AND IFNULL("BpGSTN", '') <> '' AND T1."GstTaxCtg" <> 'R'
+		AND "DocumentType" = 'Invoice'
+		GROUP BY T1."GstTaxCtg", "BpGSTN", "BpStateCod", "LocState";
+
+		/*INSERT INTO #Temp_ExempDetails ("Description")
+		SELECT "Description"
+		FROM #Temp_ExempDes T0
+		WHERE T0."Description" NOT IN (SELECT "Description" FROM #Temp_ExempDetails); 
+
+		SELECT * FROM #Temp_ExempDetails;
+		*/
+	ELSEIF :RptTyp = 'HSN' THEN 		
+		
+		SELECT REPLACE("ChapterID", ':', '') "HSN", "ItemName", "UomCode" || '-' || "UomName" "UQC"
+		, SUM(IFNULL("Quantity", 0.00)) "Quantity"
+		, CASE WHEN "DocType" = 'CreditNote' AND "GSTTranTyp" <> 'D' 
+				    OR "DocType" = 'Invoice' AND "GSTTranTyp" = 'D' THEN 
+				    -1 
+	  		   ELSE 1	
+		  END "Multiplier"
+  		, SUM( (IFNULL("LineTotal", 0.00) - IFNULL("HRowDisc", 0.00)) + IFNULL("TaxAmt", 0.00) + IFNULL("HRowFrght", 0.00)) "TotalValue"				    
+		, SUM(IFNULL("LineTotal", 0.00)) "TaxableValue"
+		, SUM(IFNULL("IGST_TaxAmt", 0.00)) "IGST_TaxAmt", SUM(IFNULL("CGST_TaxAmt", 0.00)) "CGST_TaxAmt"
+		, SUM(IFNULL("SGST_TaxAmt", 0.00)) + SUM(IFNULL("UTGST_TaxAmt", 0.00)) "SGUTGST_TaxAmt","Branch"		
+		FROM #Temp_GSTDetails T0
+		WHERE IFNULL("ChapterID", '') <> ''
+		GROUP BY T0."ChapterID", T0."DocType", "UomCode", "UomName", "GSTTranTyp", "ItemName","Branch";
+
+	ELSEIF :RptTyp = 'HSNS' THEN 		
+		
+		SELECT COUNT(DISTINCT "ChapterID") 	"HSNCOUNT","Branch"
+		FROM #Temp_GSTDetails T0
+		WHERE IFNULL("ChapterID", '') <> ''
+		GROUP BY "Branch";
+
+	ELSEIF :RptTyp = 'DOCS' THEN 		
+		 
+		SELECT "DocumentType", "GSTTranTyp"
+		,CASE WHEN "DocumentType" = 'Invoice' AND "GSTTranTyp" IN ('GA', '--') THEN 
+						'Invoices for outward supply'
+					WHEN "GSTTranTyp" IN ('GD') THEN
+						'Debit Note'
+					WHEN "DocumentType" IN ('CreditNote') AND "GSTTranTyp" IN ('GA', '--') THEN
+						'Credit Note'		
+				END "NatureOfDoc"											
+		, "SeriesName", MIN("DocNum") "FromNo",  MAX("DocNum") "ToNo" 
+		, COUNT("DocNum") "TotalNumber"
+		, (SELECT COUNT(C0."DocNum") 
+		   FROM #Temp_GSTDetails C0 
+		   WHERE C0."SeriesName" = T0."SeriesName"
+		   AND "Cancel" IN ('Y', 'C')) "Cancelled","Branch"
+		FROM #Temp_GSTDetails T0
+		GROUP BY "SeriesName", "DocumentType", "GSTTranTyp","Branch"; 
+		
+	ELSE 
+		SELECT * FROM #Temp_GSTDetails T0;	 	
+ 	END IF;  
+ 	
+ 	
+ 	
+
+
+	--============================================================	
+	---- DROPPING TEMP TABLE
+	--============================================================
+	--DROP TABLE #TEMP_EXEMPDES;
+	--DROP TABLE #TEMP_EXEMPDETAILS;	
+	DROP TABLE #Temp_GSTDetails;
+	--============================================================
+END;

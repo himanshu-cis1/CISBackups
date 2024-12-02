@@ -1,0 +1,110 @@
+CREATE PROCEDURE CIS_StockInword_OutwordReport_Backup_14062021
+( 
+	In FromDate 	DATE,
+	   ToDate	DATE
+	   --,Branch 	Nvarchar(100)
+ )
+LANGUAGE SQLSCRIPT SQL SECURITY INVOKER 
+AS
+ 
+	--Branch1 nvarchar(100);
+	--VENDOR1 nvarchar(100);
+BEGIN
+
+	--Branch1:=:Branch;
+	--IF :Branch1='' OR :Branch1='ALL'
+	--Then Branch1:=Null;
+
+--END IF
+--;
+
+
+CREATE LOCAL TEMPORARY TABLE #TEMP
+(
+
+
+"ItemCode" NVARCHAR(200),
+"ItemName" NVARCHAR(200),
+"ItmsGrpNam" NVARCHAR(200),
+"InvntryUom" NVARCHAR(200),
+"LastPurPrc" NUMERIC(19,6),
+"Opening_Stock" NUMERIC(19,6),
+"Opening_Value"NUMERIC(19,6), 
+"Inward_Stock" NUMERIC(19,6),
+"Inward_Value" NUMERIC(19,6),
+"Outward_Stock" NUMERIC(19,6),
+"Outward_Value" NUMERIC(19,6),
+"Closing_Stock" NUMERIC(19,6),
+"Closing_Value" NUMERIC(19,6)
+);
+
+INSERT INTO #TEMP
+(
+"ItemCode",
+	"ItemName",
+	"ItmsGrpNam",
+	"InvntryUom",
+	"LastPurPrc" 
+	)
+	
+SELECT t0."ItemCode", t0."ItemName",T1."ItmsGrpNam", t0."InvntryUom", t0."LastPurPrc"
+FROM OITM t0 
+INNER JOIN OITB t1 ON t0."ItmsGrpCod" = t1."ItmsGrpCod" 
+LEFT OUTER JOIN OMRC t2 ON t0."FirmCode" = t2."FirmCode"
+;
+UPDATE #TEMP
+SET    #TEMP."Opening_Stock"= 	IFNULL((SELECT SUM(IFNULL(t00."InQty", 0) - IFNULL(t00."OutQty", 0))FROM OINM t00 
+			WHERE t00."ItemCode" = #TEMP."ItemCode" AND t00."DocDate" < FromDate), 0)  ;
+			
+			
+UPDATE #TEMP
+SET    #TEMP."Opening_Value"= 	IFNULL((SELECT SUM(IFNULL(t00."TransValue", 0)) FROM OINM t00 
+WHERE t00."ItemCode" = #TEMP."ItemCode" 
+			AND t00."DocDate" < FromDate), 0)	;	
+			
+UPDATE #TEMP
+SET    #TEMP."Inward_Stock"=IFNULL((SELECT SUM(IFNULL(t00."InQty", 0)) FROM OINM t00 
+WHERE t00."ItemCode" = #TEMP."ItemCode" AND 
+			IFNULL(T00."InQty", 0) > 0 AND t00."DocDate" >= FromDate
+			AND t00."DocDate" <= ToDate and  ( (t00."TransType" IN ('59') AND "ApplObj" = 202) 
+		OR (t00."TransType" NOT IN ('67','59', '60') AND t00."ApplObj" <> 202))  ), 0) ;
+	
+			
+UPDATE #TEMP
+SET    #TEMP."Inward_Value"=IFNULL((SELECT SUM(IFNULL(t00."TransValue", 0)) 
+FROM OINM t00 WHERE t00."ItemCode" = #TEMP."ItemCode" 
+AND IFNULL(T00."InQty", 0) > 0
+			 AND t00."DocDate" >= FromDate
+			AND t00."DocDate" <= ToDate and  ( (t00."TransType" IN ('59') AND "ApplObj" = 202) 
+		OR (t00."TransType" NOT IN ('67','59', '60') AND t00."ApplObj" <> 202))  ), 0) ;
+					
+UPDATE #TEMP
+SET    #TEMP."Outward_Stock"=IFNULL((SELECT (SUM(IFNULL(t00."OutQty", 0))) 
+FROM OINM t00 WHERE t00."ItemCode" = #TEMP."ItemCode" AND 
+			IFNULL(t00."OutQty", 0) > 0 AND t00."DocDate" >= FromDate
+			AND t00."DocDate" <= ToDate and ( (t00."TransType" IN ('59') AND "ApplObj" = 202) 
+		OR (t00."TransType" NOT IN ('67','59', '60') AND t00."ApplObj" <> 202)) ), 0) ;	
+			
+UPDATE #TEMP
+SET    #TEMP."Outward_Value"=IFNULL((SELECT ((-1) * SUM(IFNULL(t00."TransValue", 0))) 
+FROM OINM t00 WHERE t00."ItemCode" = #TEMP."ItemCode" AND 
+			IFNULL(t00."OutQty", 0) > 0 AND t00."DocDate" >= FromDate
+			 AND t00."DocDate" <= ToDate and  ( (t00."TransType" IN ('59') AND "ApplObj" = 202) 
+		OR (t00."TransType" NOT IN ('67','59', '60') AND t00."ApplObj" <> 202)) ), 0) ;
+
+UPDATE #TEMP
+SET    #TEMP."Closing_Stock"=IFNULL((SELECT SUM(IFNULL(t00."InQty", 0) - IFNULL(t00."OutQty", 0)) 
+FROM OINM t00 WHERE t00."ItemCode" = #TEMP."ItemCode" 
+			AND t00."DocDate" <= ToDate), 0) ;		
+			
+	UPDATE #TEMP
+SET    #TEMP."Closing_Value" =IFNULL((SELECT SUM(IFNULL(t00."TransValue", 0))
+ FROM OINM t00 WHERE t00."ItemCode" = #TEMP."ItemCode" 
+			AND t00."DocDate" <= ToDate), 0) ;
+			 	
+
+SELECT * FROM #TEMP
+;
+DROP TABLE #TEMP
+;
+END

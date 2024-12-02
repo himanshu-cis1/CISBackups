@@ -1,0 +1,64 @@
+CREATE PROCEDURE CIS_PROC_ProdConsumption_Calc_Validation (IN DocKey VARCHAR(100), IN ObjType VARCHAR(100)
+											               ,IN TransType VARCHAR(100)
+											               ,OUT Error INT
+											               ,OUT Error_Message VARCHAR(100) 
+											               )
+AS
+BEGIN
+
+	DECLARE ProdNo INTEGER;
+	DECLARE Counter INTEGER;
+
+	CREATE LOCAL TEMPORARY TABLE #Temp_ProdNo ("ProdNo" INT); 
+
+	CREATE LOCAL TEMPORARY TABLE #Temp_CalcDetails 
+ 	("PrdNo" INT, "PrdDE" INT, "FG_ItemCode" VARCHAR(100), "FG_ItemName" VARCHAR(500)
+ 	, "FG_PlanQty" DECIMAL(19, 6), "FG_CompletedQty" DECIMAL(19, 6), "FG_RejectedQty" DECIMAL(19, 6)
+ 	, "FG_TotalRvdQty"  DECIMAL(19, 6), "RM_ItemCode" VARCHAR(100), "RM_ItemName" VARCHAR(500)
+ 	, "RM_BaseQty" DECIMAL(19, 3), "RM_PlanQty" DECIMAL(19, 3), "RM_IssuedQty" DECIMAL(19, 3)
+ 	, "RBQ" DECIMAL(19, 3), "CBQ" DECIMAL(19, 3), "FQ" DECIMAL(19, 3), "FAQ" DECIMAL(19, 3)
+ 	, "FCR" DECIMAL(19, 3), "CCR" DECIMAL(19, 3), "SCR" DECIMAL(19, 3), "RAQ" DECIMAL(19, 3)
+ 	, "CAQ" DECIMAL(19, 3), "CQ" DECIMAL(19, 3), "SQ" DECIMAL(19, 3), "RQ" DECIMAL(19, 3));
+	
+	IF :TransType = '60' THEN
+		INSERT INTO #Temp_ProdNo ("ProdNo")  
+		SELECT DISTINCT T1."BaseEntry"
+	    FROM "OIGE" T0
+	    INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+		WHERE T0."DocEntry" = :DocKey;
+	END IF;
+
+	IF :TransType = '59' THEN
+		INSERT INTO #Temp_ProdNo ("ProdNo")  
+		SELECT DISTINCT T1."BaseEntry"
+	    FROM "OIGN" T0
+	    INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+		WHERE T0."DocEntry" = :DocKey;
+	END IF;
+
+	INSERT INTO #Temp_CalcDetails ("PrdNo", "PrdDE", "FG_ItemCode", "FG_ItemName"
+	, "FG_PlanQty", "FG_CompletedQty", "FG_RejectedQty", "FG_TotalRvdQty"
+	, "RM_ItemCode", "RM_ItemName", "RM_BaseQty", "RM_PlanQty", "RM_IssuedQty")  
+	SELECT T0."DocNum", T0."DocEntry", T0."ItemCode", FGITM."ItemName"
+	, T0."PlannedQty", T0."CmpltQty", T0."RjctQty"
+	, IFNULL(T0."CmpltQty", 0.00) + IFNULL(T0."RjctQty", 0.00) "FG_TotalRvdQty"
+	, T1."ItemCode" "RM_ItemCode", RMITM."ItemName", T1."BaseQty"
+	, T1."PlannedQty" "RM_PlanQty", T1."IssuedQty" "RM_IssuedQty"
+	FROM "OWOR" T0
+	INNER JOIN "WOR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	INNER JOIN "OITM" FGITM ON T0."ItemCode" = FGItm."ItemCode"
+	INNER JOIN "OITM" RMITM ON T1."ItemCode" = RMITM."ItemCode"	
+	WHERE T0."DocEntry" IN (SELECT C0."ProdNo" FROM #Temp_ProdNo C0);	
+	
+	/*================================*/
+	SELECT * FROM #Temp_CalcDetails;
+	/*================================*/
+	
+	/*================================*/
+	DROP TABLE #Temp_ProdNo;
+	DROP TABLE #Temp_CalcDetails;
+	/*================================*/
+END;
+
+
+

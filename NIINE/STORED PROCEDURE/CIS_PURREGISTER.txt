@@ -1,0 +1,460 @@
+CREATE PROCEDURE CIS_PURREGISTER
+	(IN FromDate VARCHAR(20)
+	, IN ToDate VARCHAR(20)
+	, out result "@CIS_PURREG"
+)
+ LANGUAGE SQLSCRIPT
+ AS
+ BEGIN
+ 
+ 
+ 	DECLARE U_SNo INT;
+ 	DECLARE MinSNo INT;
+ 	DECLARE MaxSNo INT;
+	DECLARE STR NVARCHAR(5000);
+
+ 	DECLARE U_DocEntry INT;
+ 	DECLARE U_LandDocEntry INT;
+ 	DECLARE U_LineNum INT;
+ 	DECLARE Cnt INT;
+ 	DECLARE Qty DECIMAL(19, 6);
+ 	DECLARE BasicAmt DECIMAL(19, 6);
+ 
+ 	DECLARE	I INT;
+	DECLARE	J INT;
+	DECLARE	NewLandDocEntry INT;	
+
+ 	DECLARE Cnt1 INT;
+	DECLARE	TempLandDocEntry NVARCHAR(5000);	
+ 	--=========================================================================================================	
+	---- CREATING TEMP TABLE
+	--=========================================================================================================	
+ 	CREATE LOCAL TEMPORARY TABLE #Temp
+ 	("U_SNo" INT, "U_TransactionType" VARCHAR(50), "U_DocEntry" INT, "U_LineNum" INT, "U_LandDocEntry" INT, "U_DocDate" DATETIME, 
+ 	"U_TaxDate" DATETIME, "U_DocDueDate" DATETIME, "U_PostingMonth" VARCHAR(100), 
+ 	"U_CardCode" VARCHAR(100), "U_CardName" VARCHAR(100), "U_GSTIN" VARCHAR(100), "U_DocNum" INT, "U_ItmsGrpNam" VARCHAR(100), 
+ 	"U_ItemCode" VARCHAR(100), "U_Dscription" VARCHAR(100), "U_UomCode" VARCHAR(100), "U_Quantity" DECIMAL(19, 6), "U_Price" DECIMAL(19, 6), 
+ 	"U_BasicAmt" DECIMAL(19, 6), "U_Freight" DECIMAL(19, 6), "U_OtherCharges" DECIMAL(19, 6), "U_GSTOnFreight" DECIMAL(19, 6), "U_CGST" DECIMAL(19, 6), 
+ 	"U_SGST" DECIMAL(19, 6), 
+ 	"U_IGST" DECIMAL(19, 6), "U_DocumentTotal" DECIMAL(19, 6), "U_CustomDuty" DECIMAL(19, 6), "U_CHAServiceCharges" DECIMAL(19, 6), 
+ 	"U_ShippinglineCharges" DECIMAL(19, 6), "U_FreightInward" DECIMAL(19, 6), "U_IntransitInsurance" DECIMAL(19, 6), "U_MiscCharges" DECIMAL(19, 6), 
+ 	"U_ContainerhandlingCharges" DECIMAL(19, 6), "U_LCIssuanceCharges" DECIMAL(19, 6), 
+ 	"U_TotalPurchase" DECIMAL(19, 6), "U_Warehouse" VARCHAR(100), "U_Remarks" VARCHAR(254), "U_LandedCostIGST" DECIMAL(19, 6),
+ 	"U_OtherTax" DECIMAL(19, 6), "U_LandTrgDocEntry" INT, "U_NumAtCard" VARCHAR(100));
+ 	--==============================================================================================================================================
+ 
+ 	
+ 	--=============================================================================================	
+ 	---------------------------------------------------- INSERT DATA INTO TEMP TABLES
+	--=============================================================================================	
+	-- INSERTING DATA INTO #TEMP
+	INSERT INTO #Temp ("U_SNo", "U_TransactionType", "U_DocEntry", "U_LineNum", "U_LandDocEntry", "U_LandTrgDocEntry", "U_DocDate", "U_TaxDate", 
+	"U_DocDueDate", "U_PostingMonth", "U_CardCode", "U_CardName", "U_GSTIN", "U_DocNum", "U_ItmsGrpNam", "U_ItemCode", "U_Dscription", "U_UomCode", 
+	"U_Quantity", "U_Price", "U_BasicAmt", "U_Freight", "U_OtherCharges", "U_GSTOnFreight", "U_CGST", "U_SGST", "U_IGST", "U_OtherTax", 
+	"U_DocumentTotal", "U_Warehouse", "U_Remarks", "U_NumAtCard")
+	
+	SELECT ROW_NUMBER() OVER (ORDER BY A."DocEntry") "U_SNo", "U_TransactionType", "DocEntry", "LineNum", "U_LandDocEntry", "U_LandTrgDocEntry", 
+	"DocDate", "TaxDate", "DocDueDate", "MonthName", "CardCode", "CardName", "GSTIN", "DocNum", "ItmsGrpNam", "ItemCode", "Dscription", "UomCode", 
+	"Quantity", "Price", "BasicAmt", "Freight", "OtherCharges", "GSTOnFreight", "CGST", "SGST", "IGST", "U_OtherTax",
+	("BasicAmt" + "Freight" + "OtherCharges" + "GSTOnFreight" + "CGST" + "SGST" + "IGST" + "U_OtherTax"),
+	"WhsCode", "Comments", "NumAtCard"
+	
+	
+	FROM 
+	(
+	SELECT 'A/P Invoice' AS "U_TransactionType", T0."DocEntry", T1."LineNum", T4."DocEntry" AS "U_LandDocEntry", T4."TargetDoc" AS "U_LandTrgDocEntry",
+	T0."DocDate", T0."TaxDate", T0."DocDueDate", MONTH(T0."DocDate") AS "MonthName", T0."CardCode", T0."CardName",
+	(SELECT T00."GSTRegnNo" FROM CRD1 T00 WHERE T00."Address" =  T0."PayToCode" AND T00."CardCode" = T0."CardCode" AND T00."AdresType" = 'B') AS "GSTIN",
+	T0."DocNum", T3."ItmsGrpNam", T1."ItemCode", T1."Dscription", T1."UomCode", IFNULL(T1."Quantity", 0) AS "Quantity", IFNULL(T1."Price", 0) AS "Price", 														
+
+	CASE WHEN IFNULL(T0."DiscSum", 0) <> 0 AND T0."DocType" = 'I' THEN 
+		(IFNULL(T1."LineTotal", 0) - ((IFNULL(T1."Quantity", 0) * IFNULL(T0."DiscSum", 0))
+			/ (SELECT SUM(T01."Quantity") FROM PCH1 T01 WHERE T01."DocEntry" = T0."DocEntry")))
+	ELSE
+		IFNULL(T1."LineTotal", 0)
+	END AS "BasicAmt", 														
+															
+	IFNULL((SELECT CASE WHEN T00."DistrbMthd" = 'Q' THEN 														
+				((SUM(T00."LineTotal") / (SELECT SUM(T01."Quantity") FROM PCH1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."Quantity")											
+			ELSE												
+				((SUM(T00."LineTotal") / (SELECT SUM(T01."LineTotal") FROM PCH1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."LineTotal")											
+			END												
+		FROM PCH3 T00 													
+		WHERE T00."DocEntry" = T0."DocEntry" AND T00."ExpnsCode" IN (1, 4)													
+		GROUP BY T00."DistrbMthd"), 0) AS "Freight",
+															
+	IFNULL((SELECT CASE WHEN T00."DistrbMthd" = 'Q' THEN 														
+				((SUM(T00."LineTotal") / (SELECT SUM(T01."Quantity") FROM PCH1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."Quantity")											
+			ELSE												
+				((SUM(T00."LineTotal") / (SELECT SUM(T01."LineTotal") FROM PCH1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."LineTotal")											
+			END												
+			FROM PCH3 T00 													
+--			WHERE T00."DocEntry" = T0."DocEntry" AND T00."ExpnsCode" IN (2, 3)													
+			WHERE T00."DocEntry" = T0."DocEntry" AND T00."ExpnsCode" NOT IN (1, 4)													
+			GROUP BY T00."DistrbMthd"), 0) AS "OtherCharges",													
+															
+	IFNULL((SELECT ((SUM(T00."TaxSum") / (SELECT CASE WHEN IFNULL(SUM(T01."Quantity"),0) = 0 THEN 1 ELSE IFNULL(SUM(T01."Quantity"),0)END FROM PCH1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."Quantity") 														
+				FROM PCH4 T00 											
+				WHERE T00."DocEntry" = T0."DocEntry" 											
+					AND IFNULL(T00."ExpnsCode", -1) <> -1), 0) AS "GSTOnFreight",										
+															
+	IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+				WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -100 AND T00."LineNum" = T1."LineNum"
+					AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "CGST",											
+															
+	IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+				WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -110 AND T00."LineNum" = T1."LineNum"
+					AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "SGST",											
+															
+	IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+				WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -120 AND T00."LineNum" = T1."LineNum"
+					AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "IGST",
+															
+	IFNULL((SELECT SUM(T00."TaxSum") FROM PCH4 T00 														
+				WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" NOT IN (-100, -110, -120) AND T00."LineNum" = T1."LineNum"
+					AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "U_OtherTax",
+
+	T1."WhsCode", T0."Comments", T0."NumAtCard"
+	FROM "OPCH" T0														
+	INNER JOIN "PCH1" T1 ON T0."DocEntry" = T1."DocEntry" 														
+	LEFT OUTER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode" 														
+	LEFT OUTER JOIN "OITB" T3 ON T2."ItmsGrpCod" = T3."ItmsGrpCod"														
+	LEFT OUTER JOIN "IPF1" T4 ON T4."BaseEntry" = T1."DocEntry" AND T4."BaseType" = T1."ObjType" AND T4."OriBLinNum" = T1."LineNum"	
+	--INNER JOIN "OIPF" T5 ON T5."DocEntry" = T4."DocEntry"
+	WHERE IFNULL(T0."CANCELED", 'N') = 'N' 
+	--AND T0."DocType" =  'I'
+	AND T0."DocDate" >= :FromDate AND T0."DocDate" <= :ToDate
+	--AND T5."DocDate" >= :FromDate AND T5."DocDate" <= :ToDate
+	
+	UNION
+	
+	SELECT 'A/P Credit Memo' AS "U_TransactionType", T0."DocEntry", T1."LineNum", 0 AS "U_LandDocEntry", 0 AS "U_LandTrgDocEntry",
+	T0."DocDate", T0."TaxDate", T0."DocDueDate", MONTH(T0."DocDate") AS "MonthName", T0."CardCode", T0."CardName",
+	(SELECT T00."GSTRegnNo" FROM CRD1 T00 WHERE T00."Address" =  T0."PayToCode" AND T00."CardCode" = T0."CardCode" AND T00."AdresType" = 'B') AS "GSTIN",
+	T0."DocNum", T3."ItmsGrpNam", T1."ItemCode", T1."Dscription", T1."UomCode", (-1)*IFNULL(T1."Quantity", 0) AS "Quantity", 
+	(-1) * IFNULL(T1."Price", 0) AS "Price", 
+	
+--	(-1) * IFNULL(T1."LineTotal", 0) AS "BasicAmt", 														
+	
+	CASE WHEN IFNULL(T0."DiscSum", 0) <> 0 AND T0."DocType" = 'I' THEN 
+		(-1) * (IFNULL(T1."LineTotal", 0) - ((IFNULL(T1."Quantity", 0) * IFNULL(T0."DiscSum", 0))
+				/ (SELECT SUM(T01."Quantity") FROM RPC1 T01 WHERE T01."DocEntry" = T0."DocEntry")))
+	ELSE
+		(-1) * IFNULL(T1."LineTotal", 0)
+	END AS "BasicAmt", 														
+															
+	(-1) * IFNULL((SELECT CASE WHEN T00."DistrbMthd" = 'Q' THEN 														
+				((SUM(T00."LineTotal") / (SELECT SUM(T01."Quantity") FROM RPC1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."Quantity")											
+			ELSE												
+				((SUM(T00."LineTotal") / (SELECT SUM(T01."LineTotal") FROM RPC1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."LineTotal")											
+			END												
+		FROM RPC3 T00 													
+		WHERE T00."DocEntry" = T0."DocEntry" AND T00."ExpnsCode" IN (1, 4)													
+		GROUP BY T00."DistrbMthd"), 0) AS "Freight",
+															
+	(-1) * IFNULL((SELECT CASE WHEN T00."DistrbMthd" = 'Q' THEN 														
+				((SUM(T00."LineTotal") / (SELECT SUM(T01."Quantity") FROM RPC1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."Quantity")											
+			ELSE												
+				((SUM(T00."LineTotal") / (SELECT SUM(T01."LineTotal") FROM RPC1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."LineTotal")											
+			END												
+		FROM RPC3 T00 													
+		WHERE T00."DocEntry" = T0."DocEntry" AND T00."ExpnsCode" IN (2, 3)													
+		GROUP BY T00."DistrbMthd"), 0) AS "OtherCharges",													
+															
+	(-1) * IFNULL((SELECT ((SUM(T00."TaxSum") / (SELECT CASE WHEN IFNULL(SUM(T01."Quantity"),0) = 0 THEN 1 ELSE IFNULL(SUM(T01."Quantity"),0)END FROM RPC1 T01 WHERE T01."DocEntry" = T0."DocEntry")) * T1."Quantity") 														
+				FROM RPC4 T00 											
+				WHERE T00."DocEntry" = T0."DocEntry" 											
+					AND IFNULL(T00."ExpnsCode", -1) <> -1), 0) AS "GSTOnFreight",										
+															
+	(-1) * IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+				WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -100 AND T00."LineNum" = T1."LineNum"
+					AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "CGST",											
+															
+	(-1) * IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+				WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -110 AND T00."LineNum" = T1."LineNum"
+					AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "SGST",											
+															
+	(-1) * IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+				WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" = -120 AND T00."LineNum" = T1."LineNum"
+					AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "IGST",
+															
+	(-1) * IFNULL((SELECT SUM(T00."TaxSum") FROM RPC4 T00 														
+				WHERE T00."DocEntry" = T0."DocEntry" AND T00."staType" NOT IN (-100, -110, -120) AND T00."LineNum" = T1."LineNum"
+					AND IFNULL(T00."ExpnsCode", -1) = -1), 0) AS "U_OtherTax",
+
+	T1."WhsCode", T0."Comments", T0."NumAtCard"
+	FROM "ORPC" T0														
+	INNER JOIN "RPC1" T1 ON T0."DocEntry" = T1."DocEntry" 														
+	LEFT OUTER JOIN "OITM" T2 ON T1."ItemCode" = T2."ItemCode" 														
+	LEFT OUTER JOIN "OITB" T3 ON T2."ItmsGrpCod" = T3."ItmsGrpCod"														
+	WHERE IFNULL(T0."CANCELED", 'N') = 'N'
+	--AND T0."DocType" =  'I'
+	AND T0."DocDate" >= :FromDate AND T0."DocDate" <= :ToDate
+	) A;
+	
+    --==============================================================================================	
+	 STR := ' ';
+ 	 U_SNo := 1;
+ 	 	 
+ 	 SELECT MIN("U_SNo") INTO MinSNo FROM #Temp WHERE "U_TransactionType" = 'A/P Invoice';
+ 	 SELECT MAX("U_SNo") INTO MaxSNo FROM #Temp WHERE "U_TransactionType" = 'A/P Invoice';
+ 	 
+ 	 WHILE MinSNo <= MaxSNo DO
+ 	 
+ 	 	Cnt := 0;
+		
+ 	 	SELECT COUNT(*) INTO Cnt FROM #Temp WHERE "U_SNo" = :MinSNo AND IFNULL("U_LandDocEntry", 0) <> 0; 
+ 	 	
+ 	 	IF :Cnt <> 0 THEN
+ 	 	
+			Qty := 0;
+			U_LandDocEntry := 0;
+			U_DocEntry := 0;
+			U_LineNum := 0;
+			
+	 	 	SELECT CASE WHEN IFNULL("U_LandTrgDocEntry", 0) <> 0 THEN "U_LandTrgDocEntry" ELSE "U_LandDocEntry" END,
+	 	 	"U_DocEntry", "U_LineNum", "U_Quantity", "U_BasicAmt"
+	 	 	INTO U_LandDocEntry, U_DocEntry, U_LineNum, Qty, BasicAmt
+	 	 	FROM #Temp WHERE "U_SNo" = :MinSNo 
+	 	 	AND IFNULL("U_LandDocEntry", 0) <> 0; 
+	 	 	
+	 	 	I := 1;
+	 	 	J := 20;
+	 	 	--NewLandDocEntry := 0;
+ 	 	
+	 	 	WHILE I <= J DO
+	 	 		Cnt1 := 0;
+	 	 		TempLandDocEntry := 0;
+				TempLandDocEntry := U_LandDocEntry;
+
+				SELECT COUNT(*) INTO Cnt1
+				FROM "IPF1" T0 
+				WHERE T0."DocEntry" = :TempLandDocEntry 
+				AND IFNULL(T0."TargetDoc", 0) <> 0
+		 	 	AND T0."BaseType" = '69'; 
+				
+				IF :Cnt1 <> 0 THEN
+	 	 			U_LandDocEntry := 0;
+		 	 		NewLandDocEntry := 0;
+
+			 	 	SELECT TOP 1 T0."DocEntry", IFNULL(T0."TargetDoc", 0)
+			 	 	INTO U_LandDocEntry, NewLandDocEntry
+			 	 	FROM "IPF1" T0
+			 	 	WHERE T0."DocEntry" = :TempLandDocEntry 
+			 	 	AND T0."BaseType" = '69'; 
+		 	 					
+		 	 		IF IFNULL(:NewLandDocEntry, 0) <> 0 THEN
+		 	 			U_LandDocEntry := NewLandDocEntry;
+		 	 		ELSE
+		 	 			I := 20;
+		 	 		END IF;
+	 	 		ELSE
+	 	 			I := 20;
+	 	 		END IF;
+					 	 	
+	 	 		I := I + 1;
+
+-- U_LandDocEntry := 1212;
+	 	 	END WHILE;
+
+
+-- CustomDuty	 	  	
+	 	  	UPDATE #TEMP
+	 	  	SET "U_CustomDuty" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)											
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)											
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '01')
+
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+
+-- CHAServiceCharges	  	
+	 	  	UPDATE #TEMP
+	 	  	SET "U_CHAServiceCharges" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)											
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '02')
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+
+-- ShippinglineCharges
+	 	  	UPDATE #TEMP
+	 	  	SET "U_ShippinglineCharges" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)											
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '03')
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+
+-- FreightInward
+	 	  	UPDATE #TEMP
+	 	  	SET "U_FreightInward" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '04')
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+
+-- IntransitInsurance
+	 	  	UPDATE #TEMP
+	 	  	SET "U_IntransitInsurance" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '05')
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+
+-- MiscCharges
+	 	  	UPDATE #TEMP
+	 	  	SET "U_MiscCharges" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '06')
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+
+-- ContainerhandlingCharges
+	 	  	UPDATE #TEMP
+	 	  	SET "U_ContainerhandlingCharges" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '07')
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+
+-- LCIssuanceCharges
+	 	  	UPDATE #TEMP
+	 	  	SET "U_LCIssuanceCharges" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '08')
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+
+-- IGST
+	 	  	UPDATE #TEMP
+	 	  	SET "U_LandedCostIGST" = (SELECT CASE WHEN "OhType" = 'Q' THEN														
+									((IFNULL(T00."CostSum", 0) 
+										/ (SELECT SUM(T03."Quantity") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)										
+									 ) * :Qty)
+								ELSE	 											
+									 ((IFNULL(T00."CostSum", 0) 									 	
+										/ (SELECT SUM(T03."FobValue") FROM IPF1 T03 WHERE T03."DocEntry" = :U_LandDocEntry)
+										--(SELECT SUM(T03."LineTotal") FROM PCH1 T03 WHERE T03."DocEntry" = :U_DocEntry)										
+										 ) * :BasicAmt)
+								END												
+								FROM IPF2 T00 
+								WHERE T00."DocEntry" = :U_LandDocEntry AND T00."AlcCode" = '09')
+			WHERE "U_DocEntry" = :U_DocEntry
+			AND "U_LineNum" = :U_LineNum
+			AND "U_SNo" = :MinSNo;
+			 
+		END IF;
+	    
+	    UPDATE #TEMP
+		SET "U_TotalPurchase" = (IFNULL("U_DocumentTotal", 0) + IFNULL("U_CustomDuty", 0) + IFNULL("U_CHAServiceCharges", 0) 
+								+ IFNULL("U_ShippinglineCharges", 0) + IFNULL("U_FreightInward", 0) + IFNULL("U_IntransitInsurance", 0)
+								+ IFNULL("U_MiscCharges", 0) + IFNULL("U_ContainerhandlingCharges", 0) + IFNULL("U_LCIssuanceCharges", 0)
+								+ IFNULL("U_LandedCostIGST", 0)
+							)
+ 		WHERE "U_SNo" = :MinSNo;
+	    
+		MinSNo := MinSNo + 1;
+ 	 
+ 	END WHILE;
+	 
+	    
+    UPDATE #TEMP
+	SET "U_TotalPurchase" = (IFNULL("U_DocumentTotal", 0) + IFNULL("U_CustomDuty", 0) + IFNULL("U_CHAServiceCharges", 0) 
+							+ IFNULL("U_ShippinglineCharges", 0) + IFNULL("U_FreightInward", 0) + IFNULL("U_IntransitInsurance", 0)
+							+ IFNULL("U_MiscCharges", 0) + IFNULL("U_ContainerhandlingCharges", 0) + IFNULL("U_LCIssuanceCharges", 0)
+							+ IFNULL("U_LandedCostIGST", 0)
+						)
+	WHERE IFNULL("U_TotalPurchase", 0) = 0;
+ 
+ 	--==============================================================================================	
+	---- Output
+	--==============================================================================================
+ 	result = SELECT 'Code' AS "Code", 'Name' AS "Name", T0.* FROM #Temp T0;
+ 	--==============================================================================================	
+
+ 	
+ 	--============================================================	
+	---- DROPPING TEMP TABLE
+	--============================================================
+	DROP TABLE #Temp;
+	--============================================================
+ 
+ END;

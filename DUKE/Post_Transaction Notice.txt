@@ -1,0 +1,583 @@
+USE [DukeLiveNew]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_PostTransactionNotice]    Script Date: 29-11-2024 16:09:49 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[SBO_SP_PostTransactionNotice]
+
+@object_type nvarchar(30), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+select @error_message = N'Ok'
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--	ADD	YOUR	CODE	HERE
+if @object_type='17' and (@transaction_type in ('A','U') )
+BEGIN
+UPDATE T0 SET T0.U_PartyCode = T2.U_PartyCode
+
+FROM ordr T0
+
+INNER JOIN RDR1 T1 ON T0."DocEntry" = T1."DocEntry"
+Inner Join OQUT T2 On T2.DocEntry=T1.BaseEntry
+
+WHERE T0."DocEntry" = @list_of_cols_val_tab_del
+END
+-----------------------------------------------------------------------Branch Transfer-------------------------------------------------------
+if @object_type='17' and (@transaction_type in ('A','U') )
+BEGIN
+UPDATE T2 SET T2.AcctCode =410101006
+
+from RDR1 T2
+Inner Join RDR12 T1 on T2.DocEntry = T1.DocEntry
+Inner Join ORDR T0 on T2.DocEntry = T0.DocEntry
+Inner Join OCRD T3 on T3.cardCode = T0.CardCode
+Inner Join OITM T4 on T4.ItemCode = T2.ItemCode
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN  and T4.ItmsGrpCod in ( '101','102') and 
+ T1.StateB = 'PB' and T0.CardCode <> 'WART0001RX'
+ END
+------------------------QR CODE------------------------
+/*
+if @object_type='13' and (@transaction_type in ('A','U') )
+BEGIN
+
+UPDATE OQRC SET OQRC."FileContnt" = Cast(t0.QRCodeSrc as xml).value('.','varbinary(max)')
+
+FROM OINV T0
+
+Left Join OQRC on OQRC."SrcObjAbs"=@list_of_cols_val_tab_del and OQRC."SrcObjType" = 13
+
+WHERE T0."DocEntry" = @list_of_cols_val_tab_del
+END*/
+------------------------------Invoice no In Deleivery-------------
+if @object_type='13' and (@transaction_type in ('A','U') )
+BEGIN
+
+UPDATE t3 SET T3.U_Invoice = Right(T0.DocNum,5)--Cast(t0.QRCodeSrc as xml).value('.','varbinary(max)')
+
+FROM OINV T0
+Inner Join INV1 T1 On t1.DocEntry=T0.DocEntry
+--Left Join OQRC on OQRC."SrcObjAbs"=@list_of_cols_val_tab_del and OQRC."SrcObjType" = 13
+Inner Join DLN1 T2 On t2.DocEntry=T1.BaseEntry and t2.LineNum=T1.BaseLine
+Inner Join ODLN T3 On T3.DocEntry=T2.DocEntry
+
+WHERE T0."DocEntry" = @list_of_cols_val_tab_del
+END
+----------------------------------------------------------------------
+if @object_type='24' and (@transaction_type in ('A','U') )
+BEGIN
+
+UPDATE t0 SET t0.Comments=t0.JrnlMemo
+FROM ORCT T0
+
+
+WHERE T0."DocEntry" = @list_of_cols_val_tab_del and T0.Canceled='N'
+END
+-----------------------------------------------------------
+if @object_type='13' and (@transaction_type in ('A','U') )
+BEGIN
+UPDATE a SET a.Comments = Cast((Case When Isnull(g.U_SD,0)<>0 Then ((Select Sum(LineTotal) From INV1 T0 Where T0.DocEntry=B.DocEntry and Left(T0.U_Article,3) Not IN ('MIX','LSS','MXG','MXS'))*G.U_SD)/100 Else 0 End)as dec(15,0))--,a.DocDueDate=DateAdd(DAY,datediff(day,a.U_GRDate,a.DocDate),a.DocDate),a.TaxDate=a.U_GRDate
+from OINV a 
+	Inner Join INV1 b on b.DocEntry = a.DocEntry
+Left join OCRD g on g.CardCode = a.CardCode
+ Left Join OITM l on l.ItemCode = b.ItemCode
+WHERE a."DocEntry" = @list_of_cols_val_tab_del
+END
+--------------------------------------------------------------------------------------------------------------------------------
+If @object_type = 'BRCH' and (@transaction_type in ('A','U'))
+BEGIN
+UPDATE a SET a.U_BOXIDDD = Concat('BOX',day(a.U_date),'-',MONTH(a.U_date),'-',Year(a.U_DATE),a.DocNum)
+From "@BRCH" a
+where a."DocEntry" = @list_of_cols_val_tab_del and U_SCANTP = 1
+END
+----------------------------------------------------------------------
+If @object_type = 'BRCH' and (@transaction_type in ('A','U'))
+BEGIN
+UPDATE a SET a.U_FORNM = Upper(a.U_fornm)
+From "@BRCD" a
+Inner join "@BRCH" b on a.DocEntry = b.DocEntry
+where a."DocEntry" = @list_of_cols_val_tab_del and U_SCANTP = 2 and U_FORNM like 'bxs%'
+END
+---------------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------------
+
+IF @object_type = 'PODH' and (@transaction_type in ('A','U'))
+BEGIN
+
+Create table #TEMP ( Temp_data int,Lineid int,docentry int)
+Insert into #TEMP (Temp_data,Lineid,docentry)
+ (Select ROW_NUMBER()OVER(Order by LineId)'linenum',LineId,docentry from "@PODD"
+where DocEntry = @list_of_cols_val_tab_del)
+
+UPDate a
+SET a.LineID = #TEMP.Temp_data
+from "@PODD" a
+Inner Join #TEMP on A.Docentry = #TEMP.Docentry and A.LineId = #Temp.LineID
+where  a.Docentry  = @list_of_cols_val_tab_del 
+
+Drop Table #TEMP
+END
+-------------------------------------------------------------------------------PODH----------------------------------------
+
+IF @object_type = 'PODH' and (@transaction_type in ('A','U'))
+BEGIN
+UPDATE b SET b.U_PODVALUES='Y',b.U_Transdocno=c.U_TINV,b.U_TransdocDt=c.U_TIDT
+From [@PODD] a
+Inner join OINV b on a.U_INVN = b.DocNum
+Inner Join [@PODH] c on c.DocEntry=A.DocEntry
+where a."DocEntry" = @list_of_cols_val_tab_del and c.U_Type='1' and a.U_SELECT='Y' and a.U_INVN = b.DocNum
+END
+-----------------------PODH Gate----------------------------
+IF @object_type = 'PODH' and (@transaction_type in ('A','U'))
+BEGIN
+UPDATE b SET b.U_PODVALUES='Y'--,b.U_Transdocno=c.U_TINV,b.U_TransdocDt=c.U_TIDT
+From [@PODD] a
+Inner join [@GATEENTRYH] b on a.U_INVN = b.DocNum
+Inner Join [@PODH] c on c.DocEntry=A.DocEntry
+where a."DocEntry" = @list_of_cols_val_tab_del and c.U_Type='2' and a.U_SELECT='Y' and a.U_INVN = b.DocNum
+END
+----------------------------------------------------------------------------------------------------------------------
+-------------------------GR No ------------------------------------------------------------------------
+IF @object_type = '234000031' and (@transaction_type in ('A','U'))
+BEGIN
+UPDATE a SET a.U_GrNo=b.U_DocketNo ,a.U_GRDate=cast(b.U_Docket as date),a.U_TN=b.U_Transporter--,b.U_Transdocno=c.U_TINV,b.U_TransdocDt=c.U_TIDT
+From ORRR a
+Inner join [@GATEENTRYH] b on a.U_GENO = b.DocEntry
+--Inner Join [@PODH] c on c.DocEntry=A.DocEntry
+where a."DocEntry" = @list_of_cols_val_tab_del  and a.U_GENO = b.DocEntry
+END
+---------------------------------------------------------------------------------
+IF @object_type = '14' and (@transaction_type in ('A','U'))
+BEGIN
+UPDATE a SET a.U_GrNo=b.U_DocketNo ,a.U_GRDate=cast(b.U_Docket as date),a.U_TN=b.U_Transporter--,b.U_Transdocno=c.U_TINV,b.U_TransdocDt=c.U_TIDT
+From ORRR a
+Inner join [@GATEENTRYH] b on a.U_GENO = b.DocEntry
+--Inner Join [@PODH] c on c.DocEntry=A.DocEntry
+where a."DocEntry" = @list_of_cols_val_tab_del  and a.U_GENO = b.DocEntry
+END
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+IF @object_type = '13' and (@transaction_type in ('A','U'))
+BEGIN
+UPDATE a SET a.U_Mrp=b.U_MRP--,b.U_Transdocno=c.U_TINV,b.U_TransdocDt=c.U_TIDT
+From INV1 a
+Inner join oitm b on a.ItemCode = b.ItemCode
+--Inner Join [@PODH] c on c.DocEntry=A.DocEntry
+where a."DocEntry" = @list_of_cols_val_tab_del
+  and a.ItemCode = b.ItemCode
+  END
+--------------------------------------------------------------------------------------------------------------------
+
+IF (@object_type in ('66')  AND @transaction_type IN ('A','U'))
+BEGIN
+DECLARE @ITEM nvarchar(255)
+Declare @whs nvarchar(15)
+Declare @loc int
+Declare @COUt nvarchar(1)
+SET @ITEM = (Select Code from dbo.OITT t0 where t0.Code = @list_of_cols_val_tab_del)
+SET @whs = (Select k.towh from dbo.OITT k where k.code = @item)
+SET @loc = (Select location from dbo.OWHS k1 where k1.Whscode =@whs)
+SET @cout = (Select t0.U_CTYPE from dbo.OITT t0 where t0.Code = @list_of_cols_val_tab_del)
+
+IF @loc = 4 
+
+BEGIN
+
+
+IF @cout = 'C'
+BEGIN
+    CREATE TABLE #TEMP22 (
+        Father nvarchar(255),
+        CHILD nvarchar(255),
+        REQ float,
+        Num int,
+		WAS FLOAT,
+		TOT Float,
+		STAGE int
+    )
+
+    INSERT INTO #TEMP22(Father, CHILD, REQ, Num,WAS,TOT,STAGE)
+     SELECT 
+     T0.Code, 
+        T1.Code AS CHISDD,  
+        ROUND(((T1.U_Course / CAST (NM.TCOU AS FLOAT)) * 100) / 100, 3) AS REQ ,
+		T1.ChildNum AS NUM,
+		ROUND((((T1.U_Course /CAST (NM.TCOU AS FLOAT)) ) * T0.U_WasteP/100),3) AS WAST,
+
+		(ROUND(((T1.U_Course / CAST (NM.TCOU AS FLOAT)) * 100) / 100, 3)) + ROUND((((T1.U_Course /CAST (NM.TCOU AS FLOAT)) ) * T0.U_WasteP/100),3)
+		AS TOT,t1.StageId
+    FROM OITT T0  
+    INNER JOIN ITT1 T1 
+        ON T0.[Code] = T1.[Father]
+		INNER JOIN (	
+		Select FAther,StageId,SUM(U_Course) AS TCOU from ITT1
+		where ITT1.father =   @ITEM
+		GROUP BY FAther,StageId
+		) NM ON T1.Father = NM.Father and t1.StageId = NM.StageId
+    WHERE t0.Code =  @ITEM   --T0.UpdateDate = CAST(GETDATE() AS date)
+
+    --SELECT * from #TEMP22
+
+    UPDATE T1
+    SET T1.U_REQQ = k.REQ ,t1.U_Waste = k.WAS,t1.Quantity = k.TOT
+	
+    FROM ITT1 T1
+    INNER JOIN OITT T2 
+        ON T1.Father = T2.Code
+    INNER JOIN #TEMP22 k 
+        ON T1.Father = k.Father COLLATE DATABASE_DEFAULT 
+        AND T1.Code = k.CHILD COLLATE DATABASE_DEFAULT 
+		--AND T1.StageId = k.STAGE COLLATE DATABASE_DEFAULT
+        AND T1.ChildNum = k.Num  
+		INNER JOIN OITM L on t1.Code = L.ItemCode
+		
+		where T1.Father =  @ITEM 
+
+
+
+
+    DROP TABLE #TEMP22
+	END
+
+IF @cout = 'G'
+BEGIN 
+
+ CREATE TABLE #TEMP42 (
+        Father nvarchar(255),
+        CHILD nvarchar(255),
+        REQ float,
+        Num int,
+		WAS FLOAT,
+		TOT Float,
+		STAGE int
+    )
+INSERT INTO #TEMP42(Father, CHILD, REQ, Num,WAS,TOT,STAGE)
+SELECT 
+     T0.Code, 
+        T1.Code AS CHISDD,  
+        ROUND((t1.U_grams * t1.U_PCSQ) /1000, 3) AS REQ ,
+		T1.ChildNum AS NUM,
+		ROUND((( (t1.U_grams * t1.U_PCSQ) /1000) * T0.U_WasteP/100),3) AS WAST,
+
+		ROUND((t1.U_grams * t1.U_PCSQ) /1000, 3) + ROUND((( (t1.U_grams * t1.U_PCSQ) /1000) * T0.U_WasteP/100),3)
+		--(ROUND(((T1.U_Course / CAST (NM.TCOU AS FLOAT)) * 100) / 100, 3)) + ROUND((((T1.U_Course /CAST (NM.TCOU AS FLOAT)) ) * T0.U_WasteP/100),3)
+		AS TOT,t1.StageId
+    FROM OITT T0  
+    INNER JOIN ITT1 T1 
+        ON T0.[Code] = T1.[Father]
+		
+		WHERE t0.Code =  @ITEM
+
+	UPDATE T1
+    SET T1.U_REQQ = k.REQ ,t1.U_Waste = k.WAS, t1.Quantity = ((T2.Qauntity+(T2.U_WasteP/100)))    -----,t1.Quantity = k.TOT
+    FROM ITT1 T1
+    INNER JOIN OITT T2 
+        ON T1.Father = T2.Code
+    INNER JOIN #TEMP42 k 
+        ON T1.Father = k.Father COLLATE DATABASE_DEFAULT 
+        AND T1.Code = k.CHILD COLLATE DATABASE_DEFAULT 
+		--AND T1.StageId = k.STAGE COLLATE DATABASE_DEFAULT
+        AND T1.ChildNum = k.Num  
+		INNER JOIN OITM L on t1.Code = L.ItemCode
+		where T1.Father =  @ITEM 
+
+
+ --   UPDATE T2
+ --   SET T2.Qauntity = (K.REQ)
+ --   FROM ITT1 T1
+ --   INNER JOIN OITT T2 
+ --   ON T1.Father = T2.Code
+ --   INNER JOIN (sELECT Father,SUM(req) AS REQ FROM #TEMP42 GROUP BY FATHER) K ON T2.Code = K.Father
+ --   INNER JOIN OITM L on t1.Code = L.ItemCode
+ --   where T1.Father =  @ITEM 
+
+		DROP TABLE #TEMP42
+
+END
+END
+END
+
+-----------------------------------------
+
+IF (@object_type in ('202')  AND @transaction_type IN ('A','U'))
+BEGIN
+DECLARE @DOCk nvarchar(255)
+SET @DOCk = (Select t0.DocEntry from dbo.OWOR t0 where t0.DocEntry = @list_of_cols_val_tab_del)
+
+UPDATE T1
+SET T1.PlannedQty = t1.BaseQty * CAST(t1.U_plan_dtlqnty AS float)
+FROM WOR1 T1
+where t1.DocEntry = @DOCk and ISNULL(t1.U_plan_dtlqnty,0) <> 0
+
+END
+
+
+--IF (@object_type in ('67')  AND @transaction_type IN ('A'))
+--	begin
+
+--		set nocount on
+--		declare @doc_entry int
+--		declare @line_num int
+--		declare @obj_type varchar(15)
+--		declare @stc_code varchar(15)
+--		declare @sta_code varchar(15)
+--		declare @sta_type varchar(15)
+
+--		declare @base_sum numeric(12,2)
+--		declare @tax_rate numeric(12,2)
+--		declare @tax_sum numeric(12,2)
+
+--		declare inv_taxdetail cursor static for 
+--		select t0.docentry,t0.linenum,t0.BaseType,t0.LineTotal,t0.U_GTAX_CODE,T1.STACode,T1.STAType,T2.Rate,t0.LineTotal
+--		from WTR1 t0
+--		inner join STC1 t1 on t1.STCCode=t0.U_GTAX_CODE
+--		inner join OSTA T2 ON T2.Code=T1.STACode
+--		WHERE t0.DocEntry=@list_of_cols_val_tab_del
+
+--		open inv_taxdetail
+--		if @@CURSOR_ROWS>0
+--		begin
+	
+--			fetch next from inv_taxdetail into @doc_entry,@line_num,@obj_type,@base_sum,@stc_code,@sta_code,@sta_type,@tax_rate,@base_sum 
+--			while @@FETCH_STATUS=0
+--			begin
+
+------	print 'doc Entry :'+convert(varchar(20),@doc_entry)+',Line Number'+convert(varchar(10),@line_num)
+
+--			select @tax_sum=ROUND((@base_sum*@tax_rate)/100,2)
+
+--			insert into DUKE_TRN4 (objecttype,docentry,linenum,stccode,stacode,statype,taxrate,taxsum,basesum) 
+--				    values (@object_type,@doc_entry,@line_num,@stc_code,@sta_code,@sta_type,@tax_rate,@tax_sum,@base_sum)
+
+--			fetch next from inv_taxdetail into @doc_entry,@line_num,@obj_type,@base_sum,@stc_code,@sta_code,@sta_type,@tax_rate,@base_sum
+--		end
+--	end
+--	close inv_taxdetail
+--	deallocate inv_taxdetail
+
+--		UPDATE WTR1 
+--		SET U_GTax_amount= z.taxamt
+--		FROM WTR1 X , ( select SUM(isnull(taxsum,0)) 'taxamt', linenum FROM DUKE_TRN4 Y WHERE Y.docentry=@list_of_cols_val_tab_del  group by linenum ) z
+--		WHERE x.DocEntry=@list_of_cols_val_tab_del
+--		and x.LineNum=z.linenum
+
+--	--IF (@object_type = ('1250000001'))
+--	--begin
+--	--	UPDATE WTQ1 
+--	--	SET U_GTax_amount= z.taxamt
+--	--	FROM WTQ1 X , ( select SUM(isnull(taxsum,0)) 'taxamt', linenum FROM DUKE_TRN4 Y WHERE Y.docentry=@list_of_cols_val_tab_del AND y.objecttype='1250000001' group by linenum ) z
+--	--	WHERE x.DocEntry=@list_of_cols_val_tab_del
+--	--	and x.LineNum=z.linenum
+--	--end	
+
+
+--end
+
+---------------------------------------------------------------------
+----------------------------------------------------------------------
+
+	IF (@object_type in ('67')  AND @transaction_type IN ('A'))
+	
+	
+	
+	begin
+	Declare @DocKK int
+	SET @DocKK = (Select t0.Docentry from dbo.OWTR t0 where t0.DocEntry = @list_of_cols_val_tab_del)
+
+		set nocount on
+		declare @doc_entry int
+		declare @line_num int
+		declare @obj_type varchar(15)
+		declare @stc_code varchar(15)
+		declare @sta_code varchar(15)
+		declare @sta_type varchar(15)
+
+		declare @base_sum numeric(12,2)
+		declare @tax_rate numeric(12,2)
+		declare @tax_sum numeric(12,2)
+
+		declare inv_taxdetail cursor static for 
+		select t0.docentry,t0.linenum,t0.BaseType,(Convert(float,t0.Quantity) * Convert(float,t0.U_prices)) AS LineTotal,t0.U_GTAX_CODE,T1.STACode,T1.STAType,T2.Rate
+		from WTR1 t0
+		inner join STC1 t1 on t1.STCCode=t0.U_GTAX_CODE
+		inner join OSTA T2 ON T2.Code=T1.STACode
+		WHERE t0.DocEntry=@DocKK
+
+		open inv_taxdetail
+		if @@CURSOR_ROWS>0
+		begin
+	
+			fetch next from inv_taxdetail into @doc_entry,@line_num,@obj_type,@base_sum,@stc_code,@sta_code,@sta_type,@tax_rate
+			while @@FETCH_STATUS=0
+			begin
+
+----	print 'doc Entry :'+convert(varchar(20),@doc_entry)+',Line Number'+convert(varchar(10),@line_num)
+
+			select @tax_sum=ROUND((@base_sum*@tax_rate)/100,2)
+
+			insert into DUKE_TRN4 (objecttype,docentry,linenum,stccode,stacode,statype,taxrate,taxsum,basesum) 
+				    values (@object_type,@doc_entry,@line_num,@stc_code,@sta_code,@sta_type,@tax_rate,@tax_sum,@base_sum)
+
+			fetch next from inv_taxdetail into @doc_entry,@line_num,@obj_type,@base_sum,@stc_code,@sta_code,@sta_type,@tax_rate
+			end
+	end
+	close inv_taxdetail
+	deallocate inv_taxdetail
+
+		UPDATE WTR1 
+		SET U_GTax_amount= z.taxamt
+		FROM WTR1 X , ( select SUM(isnull(taxsum,0)) 'taxamt', linenum FROM DUKE_TRN4 Y WHERE Y.docentry=@DocKK  group by linenum ) z
+		WHERE x.DocEntry=@DocKK
+		and x.LineNum=z.linenum
+
+		UPDATE T1
+		SET T1.ImportLog =(T0.CardCode) 
+		FROM  OWTR T0 (nolock)
+		INNER JOIN OWHS T2 ON T2.WhsCode=T0.Filler AND T2.Location IN ('4','5')
+		INNER JOIN WTR1 T1 ON T1.DocEntry=T0.DocEntry AND T1.FromWhsCod=T2.WhsCode
+		WHERE T0.DocEntry=T1.DocEntry
+
+	--IF (@object_type = ('1250000001'))
+	--begin
+	--	UPDATE WTQ1 
+	--	SET U_GTax_amount= z.taxamt
+	--	FROM WTQ1 X , ( select SUM(isnull(taxsum,0)) 'taxamt', linenum FROM DUKE_TRN4 Y WHERE Y.docentry=@list_of_cols_val_tab_del AND y.objecttype='1250000001' group by linenum ) z
+	--	WHERE x.DocEntry=@list_of_cols_val_tab_del
+	--	and x.LineNum=z.linenum
+	--end	
+
+
+end
+
+
+
+---------------------------------------------------------------------
+
+	IF (@object_type in ('1250000001')  AND @transaction_type IN ('A','U'))
+	begin
+
+		set nocount on
+		declare @doc_entry1 int
+		declare @line_num1 int
+		declare @obj_type1 varchar(15)
+		declare @stc_code1 varchar(15)
+		declare @sta_code1 varchar(15)
+		declare @sta_type1 varchar(15)
+
+		declare @base_sum1 numeric(12,2)
+		declare @tax_rate1 numeric(12,2)
+		declare @tax_sum1 numeric(12,2)
+
+		delete from DUKE_TRN4 where docentry=@list_of_cols_val_tab_del
+		 and objecttype='1250000001'
+
+		declare inv_taxdetail cursor static for 
+		select t0.docentry,t0.linenum,t0.BaseType,t0.quantity * t0.U_prices as LineTotal,t0.U_GTAX_CODE,T1.STACode,T1.STAType,T2.Rate,t0.LineTotal
+		from WTQ1 t0
+		inner join STC1 t1 on t1.STCCode=t0.U_GTAX_CODE
+		inner join OSTA T2 ON T2.Code=T1.STACode
+		WHERE t0.DocEntry=@list_of_cols_val_tab_del
+
+		open inv_taxdetail
+		if @@CURSOR_ROWS>0
+		begin
+	
+			fetch next from inv_taxdetail into @doc_entry1,@line_num1,@obj_type1,@base_sum1,@stc_code1,@sta_code1,@sta_type1,@tax_rate1,@base_sum1 
+			while @@FETCH_STATUS=0
+			begin
+
+ ---       	print 'doc Entry :'+convert(varchar(20),@doc_entry1)+',Line Number'+convert(varchar(10),@line_num1)
+
+			select @tax_sum1=ROUND((@base_sum1*@tax_rate1)/100,2)
+
+			insert into DUKE_TRN4 (objecttype,docentry,linenum,stccode,stacode,statype,taxrate,taxsum,basesum) 
+				    values (@object_type,@doc_entry1,@line_num1,@stc_code1,@sta_code1,@sta_type1,@tax_rate1,@tax_sum1,@base_sum1)
+
+			fetch next from inv_taxdetail into @doc_entry1,@line_num1,@obj_type1,@base_sum1,@stc_code1,@sta_code1,@sta_type1,@tax_rate1,@base_sum1
+		end
+	end
+	close inv_taxdetail
+	deallocate inv_taxdetail
+
+	----IF (@object_type = ('67'))
+	----begin
+	----	UPDATE WTR1 
+	----	SET U_GTax_amount= z.taxamt
+	----	FROM WTR1 X , ( select SUM(isnull(taxsum,0)) 'taxamt', linenum FROM DUKE_TRN4 Y WHERE Y.docentry=@list_of_cols_val_tab_del AND y.objecttype='67' group by linenum ) z
+	----	WHERE x.DocEntry=@list_of_cols_val_tab_del
+	----	and x.LineNum=z.linenum
+	----end
+	--IF (@object_type = ('1250000001'))
+	--begin
+
+		UPDATE WTQ1 
+		SET U_GTax_amount= z.taxamt
+		FROM WTQ1 X , ( select SUM(isnull(taxsum,0)) 'taxamt', linenum FROM DUKE_TRN4 Y WHERE Y.docentry=@list_of_cols_val_tab_del group by linenum ) z
+		WHERE x.DocEntry=@list_of_cols_val_tab_del
+		and x.LineNum=z.linenum
+	--end	
+
+
+end
+-----------------------------------------------------
+
+
+IF @object_type = 'Kniting_production'And @transaction_type in ('A')
+begin
+
+DECLARE @nvar nvarchar(255)
+Declare @year nvarchar(4)
+declare @mont nvarchar(2)
+SET @year =  (SELECT YEAR(GETDATE()))
+SET @mont = (SELECT Concat('0',month(GETDATE())))
+
+SET @nvar = (Select isnull(max(Try_Convert(int,ISNULL(k.U_LOT,0))),0) from dbo."@KNITH" k where Left(K.U_lot,4) = @year and RIGHT(Left(K.U_lot,6),2) = @mont   )
+
+
+IF @nvar= '0'
+
+BEGIN
+UPDATE t0
+SET t0.U_LOT = concat(@year,@mont,'0001')
+FROM "@KNITH" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del
+
+END
+
+IF @nvar != '0'
+BEGIN
+UPDATE t0
+SET t0.U_LOT = Convert(int,@nvar) + 1
+FROM "@KNITH" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del
+END
+
+END
+
+
+
+
+
+
+
+
+
+
+-- Select the return values
+select @error, @error_message
+
+end

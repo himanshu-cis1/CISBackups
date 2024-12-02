@@ -1,0 +1,752 @@
+USE [DukeLiveNew]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_Customer_Aging_Credit]    Script Date: 02-12-2024 10:04:39 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[CIS_Customer_Aging_Credit]
+
+(
+@FromDate Datetime 
+--@ToDate Datetime 
+)
+AS Begin
+--DECLARE @FromDate Date
+/*SELECT FROM [dbo].[OJDT] T0 WHERE T0.RefDate =  */ --SET @FromDate ='[%0]'
+
+Select  A.[Cust Num],A.[Cust Name], A.[Agent],A.U_SuperAgent,a.U_Flag,A.City,A.State,
+--A.Balance
+Isnull( Case when SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I) < 0.0 And SUM(A.I1)> 0.0 then 
+Case When SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1) < 0.0 then 0.0 Else  
+SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1) End else SUM(A.I1) End,0) +
+
+Isnull(Case when SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)< 0.0 And SUM(A.H1)> 0.0 then 
+Case When Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)) < 0.0 then 0.0 Else
+Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)) End else SUM(A.H1) End,0) +
+
+ISNULL(Case when (Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) < 0.0 And SUM(A.G1)> 0.0 then 
+Case when SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) < 0.0 then 0.0 Else
+SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) End
+else SUM(A.G1) End,0 )+
+
+Isnull(Case when (SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 And SUM(A.F1) > 0.0 
+then 
+Case When SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 then 0.0 Else
+SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) End else SUM(A.F1) End,0) +
+
+Isnull(Case when SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 And SUM(A.E1) > 0.0 then 
+Case When SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) < 0.0 then 0.0 
+Else
+SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) End
+else SUM(A.E1) End ,0)+
+
+Isnull(Case when SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) < 0.0 And SUM(A.D1) > 0.0 then Case when 
+SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))) < 0.0 then 0.0
+Else SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))
+End else  SUM(A.D1) 
+End,0) +
+
+Isnull(Case when SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))) < 0.0 
+And SUM(A.C1) > 0.0 then Case When 
+SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))) < 0.0
+then 0.0 Else
+SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))
+End else SUM(A.C1) End ,0)+ 
+
+Isnull(Case when SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))) < 0.0 
+And SUM(A.B1) > 0.0 then case when 
+SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))) 
+< 0.0 then 0.0 Else 
+SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))))
+End else SUM(A.B1) End ,0)+
+Isnull(Case when SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))) < 0.0 
+And SUM(A.A1) > 0.0 then Case When 
+SUM(A.A1)+(SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))))
+< 0.0 then 0.0 else 
+SUM(A.A1)+(SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))))
+End else SUM(A.A1) End ,0)
+'Balance',
+
+/*
+Sum(A.A)+Sum(A.A1) 'less than 1 Months',
+Sum(A.B)+Sum(A.B1) '1-2 Months',
+Sum(A.C)+Sum(A.C1) '2-3 Months',
+Sum(A.D)+Sum(A.D1) '3-4 Months',
+Sum(A.E)+Sum(A.E1) '4-5 Months',
+Sum(A.F)+Sum(A.F1) '5-6 Months',
+Sum(A.G)+Sum(A.G1) '6-12 Months',
+Sum(A.H)+Sum(A.H1) '1-2 years',
+Sum(A.I)+Sum(A.I1) 'More than 2 Years',
+*/
+Case when SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I) < 0.0 And SUM(A.I1)> 0.0 then 
+Case When SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1) < 0.0 then 0.0 Else  
+SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1) End else SUM(A.I1) End 'More than 2 years',
+
+Case when SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)< 0.0 And SUM(A.H1)> 0.0 then 
+Case When Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)) < 0.0 then 0.0 Else
+Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)) End else SUM(A.H1) End '1-2 Years',
+
+
+Case when (Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) < 0.0 And SUM(A.G1)> 0.0 then 
+Case when SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) < 0.0 then 0.0 Else
+SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) End
+else SUM(A.G1) End '6-12 Months',
+
+Case when (SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 And SUM(A.F1) > 0.0 
+then 
+Case When SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 then 0.0 Else
+SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) End else SUM(A.F1) End '5-6 Months', 
+
+Case when SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 And SUM(A.E1) > 0.0 then 
+Case When SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) < 0.0 then 0.0 
+Else
+SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) End
+else SUM(A.E1) End '4-5 Months',  
+
+Case when SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) < 0.0 And SUM(A.D1) > 0.0 then Case when 
+SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))) < 0.0 then 0.0
+Else SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))
+End else  SUM(A.D1) 
+End '3-4 Months', 
+
+Case when SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))) < 0.0 
+And SUM(A.C1) > 0.0 then Case When 
+SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))) < 0.0
+then 0.0 Else
+SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))
+End else SUM(A.C1) End '2-3 Months', 
+
+Case when SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))) < 0.0 
+And SUM(A.B1) > 0.0 then case when 
+SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))) 
+< 0.0 then 0.0 Else 
+SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))))
+End else SUM(A.B1) End '1-2 Months',
+
+Case when SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))) < 0.0 
+And SUM(A.A1) > 0.0 then Case When 
+SUM(A.A1)+(SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))))
+< 0.0 then 0.0 else 
+SUM(A.A1)+(SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))))
+End else SUM(A.A1) End 'less Than 1 Months' 
+
+/* ,
+Case When Sum(A.I) < 0 then Sum(A.I)+Sum(A.I1) else SUM(A.I1)+SUM(A.I) End 'More Than 2 Years',
+Case When Sum(A.I)+Sum(A.I1) < 0 then Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1)) else SUM(A.H1)+SUM(A.H) End '1-2 Years',
+Case When Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1)) < 0 then Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1))) Else Sum(A.G1)+SUM(A.G) End '6-12 Months',
+Case When Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1))) < 0 then 
+Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1)))) Else Sum(A.F1)+SUM(A.F) End '5-6 Months',
+Case When Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1)))) < 0 then
+Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1))))) Else SUM(A.E1)+SUM(A.E) End '4-5 Months',
+Case When Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1))))) < 0 then
+Sum(A.D)+Sum(A.D1)-(Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1)))))) Else SUM(A.D1)+SUM(A.D) End '3-4 Months',
+Case When Sum(A.D)+Sum(A.D1)-(Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1)))))) < 0 then
+Sum(A.C)+Sum(A.C1)- (Sum(A.D)+Sum(A.D1)-(Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1))))))) 
+Else SUM(A.C1)+SUM(A.C) End '2-3 Months',
+Case When Sum(A.C)+Sum(A.C1)- (Sum(A.D)+Sum(A.D1)-(Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1))))))) < 0
+then SUM(A.B)+SUM(A.B1)-(Sum(A.C)+Sum(A.C1)- (Sum(A.D)+Sum(A.D1)-(Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1))))))))
+Else SUM(A.B1)+SUM(A.B) End '1-2 Months',
+Case When SUM(A.B)+SUM(A.B1)-(Sum(A.C)+Sum(A.C1)- (Sum(A.D)+Sum(A.D1)-(Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1)))))))) < 0
+then SUM(A.A)+SUM(A.A1) -(SUM(A.B)+SUM(A.B1)-(Sum(A.C)+Sum(A.C1)- (Sum(A.D)+Sum(A.D1)-(Sum(A.E)+Sum(A.E1)-(Sum(A.F)+Sum(A.F1) -(Sum(A.G)+Sum(A.G1)-(Sum(A.H)+Sum(A.H1)-(Sum(A.I)+ Sum(A.I1)))))))))
+Else SUM(A.A1)+SUM(A.A) End 'Less Than 1 Months'
+
+*/
+
+
+
+
+From (
+
+SELECT tt.[Cust Num],
+
+tt.[Cust Name],tt.Agent,
+tt.Balance ,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag,
+
+--SUM(tt.[Credit Amt]) AS [Credit Amt],
+0 A,
+SUM(tt.[0-30 Days]) AS A1,
+
+0 B,
+SUM(tt.[31 to 60 Days]) AS B1,
+
+0 C,
+SUM(tt.[61 to 90 days]) AS C1,
+
+0 D,
+SUM(tt.[90 to 120 Days]) AS D1,
+
+
+0 E,
+SUM(tt.[120 to 150 days]) AS E1,
+
+0 F,
+SUM(tt.[150 to 180 days]) AS F1,
+
+0 G,
+SUM(tt.[180 to 365 Days]) AS G1,
+
+0 H,
+SUM(tt.[365 to 730 Days]) AS H1,
+
+0 I,
+SUM(tt.[730 Plus Days]) AS I1
+
+
+FROM (
+
+SELECT T1.CardCode AS 'Cust Num',
+T1.CardName AS 'Cust Name',T1.U_Agent 'Agent',T1.U_SuperAgent,T1.U_Flag
+,T1.balance ,
+T0.BalDueDeb AS 'Debit Amt',
+T0.BalDueCred * -1 AS 'Credit Amt',
+CASE WHEN T0.TransType = 13 THEN 'AR Invoice'
+WHEN T0.TransType = 14 THEN 'AR Cred Memo'
+WHEN T0.TransType = 24 THEN 'Payment' ELSE 'Other' END AS 'Trans Type',
+T0.Ref1 AS 'Reference',
+FcCurrency AS 'Currency',
+CONVERT(VARCHAR(10), RefDate, 103) 'Posting Date',
+CONVERT(VARCHAR(10), DueDate, 103) 'Due Date',
+CONVERT(VARCHAR(10), TaxDate, 103) 'Doc Date',
+(Select Top 1 A.City From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'CITY',
+(Select Top 1 (Select B.Name From OCST B Where B.Code=A.State And B.Country='IN' ) From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'State',
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 31 THEN
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0 END END AS '0-30 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 30 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 61 THEN
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0 END END AS '31 to 60 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 60 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 91 THEN
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0  END END AS '61 to 90 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 90 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 121 THEN
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0  END END AS '90 to 120 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 120 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 151 THEN
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0  END END AS '120 to 150 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 150 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 181 THEN
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0  END END AS '150 to 180 days',
+
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 180 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 366 THEN
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0  END END AS '180 to 365 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 365 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 731 THEN
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0  END END AS '365 to 730 Days',
+
+CASE WHEN (DATEDIFF(DD,TaxDate, @FromDate)) + 1 > 730 THEN 
+CASE WHEN BalDueDeb < > 0 THEN BalDueDeb ELSE 0.0  END END AS '730 Plus Days'
+
+FROM JDT1 T0
+INNER JOIN OCRD T1 ON T0.ShortName = T1.CardCode AND T1.CardType = 'C'
+WHERE T0.IntrnMatch = '0' AND T0.BalDueDeb != T0.BalDueCred And T0.TransType in ('30') and refDate<=@FromDate
+) AS tt
+GROUP BY tt.[Cust Num], tt.[Cust Name],tt.Agent,
+tt.Balance,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag
+
+Union All
+
+
+SELECT tt.[Cust Num],
+
+tt.[Cust Name],tt.Agent,
+tt.Balance ,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag,
+
+--SUM(tt.[Credit Amt]) AS [Credit Amt],
+0 A,
+SUM(tt.[0-30 Days]) AS A1,
+
+0 B,
+SUM(tt.[31 to 60 Days]) AS B1,
+
+0 C,
+SUM(tt.[61 to 90 days]) AS C1,
+
+0 D,
+SUM(tt.[90 to 120 Days]) AS D1,
+
+
+0 E,
+SUM(tt.[120 to 150 days]) AS E1,
+
+0 F,
+SUM(tt.[150 to 180 days]) AS F1,
+
+0 G,
+SUM(tt.[180 to 365 Days]) AS G1,
+
+0 H,
+SUM(tt.[365 to 730 Days]) AS H1,
+
+0 I,
+SUM(tt.[730 Plus Days]) AS I1
+
+
+FROM (
+
+SELECT T1.CardCode AS 'Cust Num',
+T1.CardName AS 'Cust Name',T1.U_Agent 'Agent',T1.U_SuperAgent,T1.U_Flag
+,T1.balance ,
+T0.BalDueDeb AS 'Debit Amt',
+T0.BalDueCred * -1 AS 'Credit Amt',
+CASE WHEN T0.TransType = 13 THEN 'AR Invoice'
+WHEN T0.TransType = 14 THEN 'AR Cred Memo'
+WHEN T0.TransType = 24 THEN 'Payment' ELSE 'Other' END AS 'Trans Type',
+T0.Ref1 AS 'Reference',
+FcCurrency AS 'Currency',
+CONVERT(VARCHAR(10), RefDate, 103) 'Posting Date',
+CONVERT(VARCHAR(10), DueDate, 103) 'Due Date',
+CONVERT(VARCHAR(10), TaxDate, 103) 'Doc Date',
+(Select Top 1 A.City From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'CITY',
+(Select Top 1 (Select B.Name From OCST B Where B.Code=A.State And B.Country='IN' ) From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'State',
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 31 THEN
+CASE WHEN balduecred<>0 THEN balduecred *-1 ELSE balduedeb END END AS '0-30 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 30 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 61 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '31 to 60 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 60 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 91 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '61 to 90 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 90 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 121 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '90 to 120 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 120 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 151 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '120 to 150 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 150 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 181 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '150 to 180 days',
+
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 180 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 366 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '180 to 365 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 365 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 731 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '365 to 730 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 730 THEN CASE WHEN
+balduecred <> 0 THEN balduecred*-1 ELSE balduedeb END END AS '730 Plus Days'
+
+FROM JDT1 T0
+INNER JOIN OCRD T1 ON T0.ShortName = T1.CardCode AND T1.CardType = 'C'
+WHERE T0.IntrnMatch = '0' AND T0.BalDueDeb != T0.BalDueCred And T0.TransType in ('13') and TaxDate<=@FromDate
+) AS tt
+GROUP BY tt.[Cust Num], tt.[Cust Name],tt.Agent,
+tt.Balance,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag
+Union All
+
+
+SELECT tt.[Cust Num],
+
+tt.[Cust Name],tt.Agent,
+tt.Balance ,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag,
+
+--SUM(tt.[Credit Amt]) AS [Credit Amt],
+0 A,
+SUM(tt.[0-30 Days]) AS A1,
+
+0 B,
+SUM(tt.[31 to 60 Days]) AS B1,
+
+0 C,
+SUM(tt.[61 to 90 days]) AS C1,
+
+0 D,
+SUM(tt.[90 to 120 Days]) AS D1,
+
+
+0 E,
+SUM(tt.[120 to 150 days]) AS E1,
+
+0 F,
+SUM(tt.[150 to 180 days]) AS F1,
+
+0 G,
+SUM(tt.[180 to 365 Days]) AS G1,
+
+0 H,
+SUM(tt.[365 to 730 Days]) AS H1,
+
+0 I,
+SUM(tt.[730 Plus Days]) AS I1
+
+
+FROM (
+
+SELECT T1.CardCode AS 'Cust Num',
+T1.CardName AS 'Cust Name',T1.U_Agent 'Agent',T1.U_SuperAgent,T1.U_Flag
+,T1.balance ,
+T0.BalDueDeb AS 'Debit Amt',
+T0.BalDueCred * -1 AS 'Credit Amt',
+CASE WHEN T0.TransType = 13 THEN 'AR Invoice'
+WHEN T0.TransType = 14 THEN 'AR Cred Memo'
+WHEN T0.TransType = 24 THEN 'Payment' ELSE 'Other' END AS 'Trans Type',
+T0.Ref1 AS 'Reference',
+FcCurrency AS 'Currency',
+CONVERT(VARCHAR(10), RefDate, 103) 'Posting Date',
+CONVERT(VARCHAR(10), DueDate, 103) 'Due Date',
+CONVERT(VARCHAR(10), TaxDate, 103) 'Doc Date',
+(Select Top 1 A.City From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'CITY',
+(Select Top 1 (Select B.Name From OCST B Where B.Code=A.State And B.Country='IN' ) From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'State',
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 31 THEN
+CASE WHEN balduecred<>0 THEN balduecred *-1 ELSE balduedeb END END AS '0-30 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 30 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 61 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '31 to 60 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 60 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 91 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '61 to 90 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 90 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 121 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '90 to 120 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 120 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 151 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '120 to 150 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 150 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 181 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '150 to 180 days',
+
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 180 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 366 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '180 to 365 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 365 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 731 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '365 to 730 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 730 THEN CASE WHEN
+balduecred <> 0 THEN balduecred*-1 ELSE balduedeb END END AS '730 Plus Days'
+
+FROM JDT1 T0
+INNER JOIN OCRD T1 ON T0.ShortName = T1.CardCode AND T1.CardType = 'C'
+WHERE T0.IntrnMatch = '0' AND T0.BalDueDeb != T0.BalDueCred And T0.TransType in ('46') and TaxDate<=@FromDate
+) AS tt
+GROUP BY tt.[Cust Num], tt.[Cust Name],tt.Agent,
+tt.Balance,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag
+
+Union All
+
+
+SELECT tt.[Cust Num],
+
+tt.[Cust Name],tt.Agent,
+tt.Balance ,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag,
+
+--SUM(tt.[Credit Amt]) AS [Credit Amt],
+
+SUM(tt.[0-30 Days]) AS A,
+0 A1,
+
+SUM(tt.[31 to 60 Days]) AS B,
+0 B1,
+
+SUM(tt.[61 to 90 days]) AS C,
+0 C1,
+
+SUM(tt.[90 to 120 Days]) AS D,
+0 D1,
+
+
+SUM(tt.[120 to 150 days]) AS E,
+0 E1,
+
+SUM(tt.[150 to 180 days]) AS F,
+0 F1,
+
+SUM(tt.[180 to 365 Days]) AS G,
+0 G1,
+
+SUM(tt.[365 to 730 Days]) AS H,
+0 H1,
+
+SUM(tt.[730 Plus Days]) AS I,
+0 I1
+
+
+FROM (
+
+SELECT T1.CardCode AS 'Cust Num',
+T1.CardName AS 'Cust Name',T1.U_Agent 'Agent',T1.U_SuperAgent,T1.U_Flag
+,T1.balance ,
+T0.BalDueDeb AS 'Debit Amt',
+T0.BalDueCred * -1 AS 'Credit Amt',
+CASE WHEN T0.TransType = 13 THEN 'AR Invoice'
+WHEN T0.TransType = 14 THEN 'AR Cred Memo'
+WHEN T0.TransType = 24 THEN 'Payment' ELSE 'Other' END AS 'Trans Type',
+T0.Ref1 AS 'Reference',
+FcCurrency AS 'Currency',
+CONVERT(VARCHAR(10), RefDate, 103) 'Posting Date',
+CONVERT(VARCHAR(10), DueDate, 103) 'Due Date',
+CONVERT(VARCHAR(10), TaxDate, 103) 'Doc Date',
+(Select Top 1 A.City From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'CITY',
+(Select Top 1 (Select B.Name From OCST B Where B.Code=A.State And B.Country='IN' ) From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'State',
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 31 THEN
+CASE WHEN balduecred<>0 THEN balduecred *-1 ELSE 0.0 END END AS '0-30 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 30 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 61 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE 0.0 END END AS '31 to 60 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 60 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 91 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE 0.0 END END AS '61 to 90 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 90 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 121 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE 0.0 END END AS '90 to 120 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 120 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 151 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE 0.0 END END AS '120 to 150 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 150 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 181 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE 0.0 END END AS '150 to 180 days',
+
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 180 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 366 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE 0.0 END END AS '180 to 365 Days',
+
+CASE WHEN (DATEDIFF(DD,TaxDate, @FromDate)) + 1 > 365 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 731 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE 0.0 END END AS '365 to 730 Days',
+
+CASE WHEN (DATEDIFF(DD, RefDate, @FromDate)) + 1 > 730 THEN CASE WHEN
+balduecred <> 0 THEN balduecred*-1 ELSE 0.0 END END AS '730 Plus Days'
+
+FROM JDT1 T0
+INNER JOIN OCRD T1 ON T0.ShortName = T1.CardCode AND T1.CardType = 'C'
+WHERE T0.IntrnMatch = '0' AND T0.BalDueDeb != T0.BalDueCred And T0.TransType in ('30') and TaxDate<= @FromDate
+) AS tt
+GROUP BY tt.[Cust Num], tt.[Cust Name],tt.Agent,
+tt.Balance,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag
+
+Union All 
+
+SELECT tt.[Cust Num],
+
+tt.[Cust Name],tt.Agent,
+tt.Balance ,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag,
+
+--SUM(tt.[Credit Amt]) AS [Credit Amt],
+
+SUM(tt.[0-30 Days]) AS A,
+0 A1,
+
+SUM(tt.[31 to 60 Days]) AS B,
+0 B1,
+
+SUM(tt.[61 to 90 days]) AS C,
+0 C1,
+
+SUM(tt.[90 to 120 Days]) AS D,
+0 D1,
+
+
+SUM(tt.[120 to 150 days]) AS E,
+0 E1,
+
+SUM(tt.[150 to 180 days]) AS F,
+0 F1,
+
+SUM(tt.[180 to 365 Days]) AS G,
+0 G1,
+
+SUM(tt.[365 to 730 Days]) AS H,
+0 H1,
+
+SUM(tt.[730 Plus Days]) AS I,
+0 I1
+
+
+FROM (
+
+SELECT T1.CardCode AS 'Cust Num',
+T1.CardName AS 'Cust Name',T1.U_Agent 'Agent',T1.U_SuperAgent,T1.U_Flag
+,T1.balance ,
+T0.BalDueDeb AS 'Debit Amt',
+T0.BalDueCred * -1 AS 'Credit Amt',
+CASE WHEN T0.TransType = 13 THEN 'AR Invoice'
+WHEN T0.TransType = 14 THEN 'AR Cred Memo'
+WHEN T0.TransType = 24 THEN 'Payment' ELSE 'Other' END AS 'Trans Type',
+T0.Ref1 AS 'Reference',
+FcCurrency AS 'Currency',
+CONVERT(VARCHAR(10), RefDate, 103) 'Posting Date',
+CONVERT(VARCHAR(10), DueDate, 103) 'Due Date',
+CONVERT(VARCHAR(10), TaxDate, 103) 'Doc Date',
+(Select Top 1 A.City From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'CITY',
+(Select Top 1 (Select B.Name From OCST B Where B.Code=A.State And B.Country='IN' ) From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'State',
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 31 THEN
+CASE WHEN balduecred<>0 THEN balduecred *-1 ELSE balduedeb END END AS '0-30 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 30 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 61 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '31 to 60 Days',
+
+CASE WHEN (DATEDIFF(DD,TaxDate, @FromDate)) + 1 > 60 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 91 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '61 to 90 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 90 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 121 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '90 to 120 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 120 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 151 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '120 to 150 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 150 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 181 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '150 to 180 days',
+
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 180 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 366 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '180 to 365 Days',
+
+CASE WHEN (DATEDIFF(DD,TaxDate, @FromDate)) + 1 > 365 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 731 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '365 to 730 Days',
+
+CASE WHEN (DATEDIFF(DD, RefDate, @FromDate)) + 1 > 730 THEN CASE WHEN
+balduecred <> 0 THEN balduecred*-1 ELSE balduedeb END END AS '730 Plus Days'
+
+FROM JDT1 T0
+INNER JOIN OCRD T1 ON T0.ShortName = T1.CardCode AND T1.CardType = 'C'
+WHERE T0.IntrnMatch = '0' AND T0.BalDueDeb != T0.BalDueCred And T0.TransType in ('14','24') and TaxDate<=@FromDate
+) AS tt
+GROUP BY tt.[Cust Num], tt.[Cust Name],tt.Agent,
+tt.Balance,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag
+
+Union All
+
+SELECT tt.[Cust Num],
+
+tt.[Cust Name],tt.Agent,
+tt.Balance ,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag,
+
+--SUM(tt.[Credit Amt]) AS [Credit Amt],
+
+SUM(tt.[0-30 Days]) AS A,
+0 A1,
+
+SUM(tt.[31 to 60 Days]) AS B,
+0 B1,
+
+SUM(tt.[61 to 90 days]) AS C,
+0 C1,
+
+SUM(tt.[90 to 120 Days]) AS D,
+0 D1,
+
+
+SUM(tt.[120 to 150 days]) AS E,
+0 E1,
+
+SUM(tt.[150 to 180 days]) AS F,
+0 F1,
+
+SUM(tt.[180 to 365 Days]) AS G,
+0 G1,
+
+SUM(tt.[365 to 730 Days]) AS H,
+0 H1,
+
+SUM(tt.[730 Plus Days]) AS I,
+0 I1
+
+FROM (
+
+SELECT T1.CardFName AS 'Cust Num',
+T1.CardName AS 'Cust Name',T1.U_Agent 'Agent',T1.U_SuperAgent,T1.U_Flag
+,T1.balance ,
+T0.BalDueDeb AS 'Debit Amt',
+T0.BalDueCred * -1 AS 'Credit Amt',
+CASE WHEN T0.TransType = 13 THEN 'AR Invoice'
+WHEN T0.TransType = 14 THEN 'AR Cred Memo'
+WHEN T0.TransType = 24 THEN 'Payment' ELSE 'Other' END AS 'Trans Type',
+T0.Ref1 AS 'Reference',
+FcCurrency AS 'Currency',
+CONVERT(VARCHAR(10), RefDate, 103) 'Posting Date',
+CONVERT(VARCHAR(10), DueDate, 103) 'Due Date',
+CONVERT(VARCHAR(10), TaxDate, 103) 'Doc Date',
+(Select Top 1 A.City From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'CITY',
+(Select Top 1 (Select B.Name From OCST B Where B.Code=A.State And B.Country='IN' ) From CRD1 A Where A.AdresType='B' And A.CardCode=T1.CardCode)'State',
+CASE WHEN (DATEDIFF(DD, RefDate, @FromDate)) + 1 < 31 THEN
+CASE WHEN balduecred<>0 THEN balduecred *-1 ELSE balduedeb END END AS '0-30 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 31 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 61 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '31 to 60 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 60 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 91 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '61 to 90 days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 90 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 121 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '90 to 120 days',
+
+CASE WHEN (DATEDIFF(DD,TaxDate, @FromDate)) + 1 > 120 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 151 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '120 to 150 days',
+
+CASE WHEN (DATEDIFF(DD,TaxDate, @FromDate)) + 1 > 150 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 181 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '150 to 180 days',
+
+
+CASE WHEN (DATEDIFF(DD,TaxDate, @FromDate)) + 1 > 180 AND (DATEDIFF(DD,  TaxDate, @FromDate)) + 1 < 366 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '180 to 365 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 365 AND (DATEDIFF(DD, TaxDate, @FromDate)) + 1 < 731 THEN
+CASE WHEN balduecred < > 0 THEN balduecred * -1 ELSE balduedeb END END AS '365 to 730 Days',
+
+CASE WHEN (DATEDIFF(DD, TaxDate, @FromDate)) + 1 > 730 THEN CASE WHEN
+balduecred <> 0 THEN balduecred*-1 ELSE balduedeb END END AS '730 Plus Days'
+
+FROM JDT1 T0
+INNER JOIN OCRD T1 ON T0.ShortName = T1.CardCode AND T1.CardType = 'S' And T1.CardCode Like '%%VS%%'
+WHERE T0.IntrnMatch = '0' AND T0.BalDueDeb != T0.BalDueCred And T0.TransType = '18'  and  TaxDate<=@FromDate
+) AS tt
+GROUP BY tt.[Cust Num], tt.[Cust Name],tt.Agent,
+tt.Balance,tt.City,tt.State,Tt.U_SuperAgent,Tt.U_Flag
+
+
+) A
+--Where 
+Group By A.[Cust Num],A.[Cust Name],A.Balance,A.Agent,A.City,A.State,A.U_SuperAgent,A.U_Flag
+Having 
+Isnull( Case when SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I) < 0.0 And SUM(A.I1)> 0.0 then 
+Case When SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1) < 0.0 then 0.0 Else  
+SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1) End else SUM(A.I1) End,0) +
+
+Isnull(Case when SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)< 0.0 And SUM(A.H1)> 0.0 then 
+Case When Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)) < 0.0 then 0.0 Else
+Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)) End else SUM(A.H1) End,0) +
+
+ISNULL(Case when (Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) < 0.0 And SUM(A.G1)> 0.0 then 
+Case when SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) < 0.0 then 0.0 Else
+SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))) End
+else SUM(A.G1) End,0 )+
+
+Isnull(Case when (SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 And SUM(A.F1) > 0.0 
+then 
+Case When SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 then 0.0 Else
+SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) End else SUM(A.F1) End,0) +
+
+Isnull(Case when SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))) < 0.0 And SUM(A.E1) > 0.0 then 
+Case When SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) < 0.0 then 0.0 
+Else
+SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) End
+else SUM(A.E1) End ,0)+
+
+Isnull(Case when SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))) < 0.0 And SUM(A.D1) > 0.0 then Case when 
+SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))) < 0.0 then 0.0
+Else SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))
+End else  SUM(A.D1) 
+End,0) +
+
+Isnull(Case when SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))) < 0.0 
+And SUM(A.C1) > 0.0 then Case When 
+SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))) < 0.0
+then 0.0 Else
+SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))
+End else SUM(A.C1) End ,0)+ 
+
+Isnull(Case when SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))) < 0.0 
+And SUM(A.B1) > 0.0 then case when 
+SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))) 
+< 0.0 then 0.0 Else 
+SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1))))))))
+End else SUM(A.B1) End ,0)+
+Isnull(Case when SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))) < 0.0 
+And SUM(A.A1) > 0.0 then Case When 
+SUM(A.A1)+(SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))))
+< 0.0 then 0.0 else 
+SUM(A.A1)+(SUM(A.B1)+(SUM(A.C1)+(SUM(A.D1)+(SUM(A.E1)+(SUM(A.F1)+(SUM(A.G1)+(Sum(A.H1)+(SUM(A.A)+SUM(A.B)+SUM(A.C)+SUM(A.D)+SUM(A.E)+SUM(A.F)+SUM(A.G)+SUM(A.H)+SUM(A.I)+Sum(A.I1)))))))))
+End else SUM(A.A1) End ,0)<0
+
+END

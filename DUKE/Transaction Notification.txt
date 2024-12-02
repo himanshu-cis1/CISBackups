@@ -1,0 +1,2518 @@
+USE [DukeLiveNew]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_TransactionNotification]    Script Date: 29-11-2024 16:09:00 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER proc [dbo].[SBO_SP_TransactionNotification] 
+
+@object_type nvarchar(30), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+declare @draft_object int
+select @error_message = N'Ok'
+declare @f_date date
+declare @t_date date
+declare @pinv_no int
+declare @doctype char
+declare @docstype char(10)
+
+
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------
+/*iF (@object_type = 'GateEntrySR' AND @transaction_type IN ('A','U'))
+
+BEGIN
+
+DECLARE @VendorRefNo AS VarChar (20)
+SELECT @VendorRefNo =U_BillNo FROM dbo.[@GATEENTRYH]
+
+     WHERE DocEntry = @list_of_cols_val_tab_del
+	 
+IF 1 != (SELECT COUNT(DocEntry) 
+FROM dbo.[@GATEENTRYH] WITH(NOLOCK) WHERE U_BillNo = @VendorRefNo ) AND (@VendorRefNo IS NOT NULL OR @VendorRefNo <> '') and 
+
+BEGIN
+
+SELECT @ERROR = 1
+
+SELECT @ERROR_MESSAGE = 'Bill No. Already Added'
+
+END
+
+end*/
+
+
+
+-----------------------------------------Item Group account Change not allowed -----------------------------------
+
+iF (@object_type = '10000210' AND @transaction_type IN ('A','U'))
+
+BEGIN
+
+	SELECT @ERROR = 8
+	SELECT @ERROR_MESSAGE = 'Item Group Insert or updation not allowed.....................1? '+@object_type
+
+end
+
+
+
+------------------------------------------Gate entry not duplicate in current financial year----Salony 160623---------
+
+iF (@object_type = 'GateEntrySR' AND @transaction_type IN ('A','U'))
+
+BEGIN
+
+DECLARE @VendorRefNo AS VarChar (20)
+
+DECLARE @BPCode1 AS VarChar (20)
+
+--DECLARE @PIndicator AS nvarchar (20)
+
+SELECT @VendorRefNo = U_BillNo FROM dbo.[@GATEENTRYH]
+
+     WHERE DocEntry = @list_of_cols_val_tab_del
+
+SELECT @BPCode1 = U_Party FROM dbo.[@GATEENTRYH]
+
+
+  WHERE DocEntry = @list_of_cols_val_tab_del
+  
+  --SELECT @PIndicator = PIndicator FROM dbo.[@GATEENTRYH]
+
+  --WHERE DocEntry = @list_of_cols_val_tab_del
+
+IF 1 != (SELECT COUNT(DocEntry) 
+FROM dbo.[@GATEENTRYH] WITH(NOLOCK) WHERE U_BillNo = @VendorRefNo  and CreateDate>'20240401'
+ and U_Party=@BPCode1 ) AND (@VendorRefNo IS NOT NULL OR @VendorRefNo <> '')
+
+BEGIN
+
+SELECT @ERROR = 28
+
+SELECT @ERROR_MESSAGE = 'Bill No. Already Added'
+
+END
+
+end
+--------------------------------------------------------------------------------------------------------------------------------
+
+If @object_type = 'GateEntrySR' and @transaction_type IN ('A','U')
+ Begin 
+ If Exists (Select A.DocEntry from dbo.[@GATEENTRYH] A
+ Where A.DocEntry = @list_of_cols_val_tab_del and A.U_Location = 'NA'
+ )
+ Begin
+ Set @error = 10
+ set @error_message = 'Location Must Be Filled'
+ End
+ End
+ -------------------------------------------------------
+
+--------ItemCode Repetations-----Ishan 080622-------------
+
+If @object_type = '17' And @transaction_type = 'A'
+begin 
+IF  Exists ( select  T0.docentry from ordr T0 where T0.docentry= @list_of_cols_val_tab_del and T0.UserSign NOT IN ('32','34','54','57'))
+BEGIN
+	If Exists (select rdr1.ItemCode, count (rdr1.ItemCode) 
+	from rdr1 
+	where rdr1.docentry = @list_of_cols_val_tab_del 
+	group by rdr1.itemCode having count(rdr1.ItemCode) >1 )
+	BEGIN
+
+		set @error = -1
+		set @error_message = 'ItemCode cannot be repeated '
+	END	
+end
+END
+
+
+
+
+
+----------------Ishan 080622-----------------------
+
+IF @object_type = '17' and @transaction_type in ('A','U')
+
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM ORDR T0
+	Inner Join OCRD T2 On T0.CardCode=T2.CardCode
+	 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T2.E_Mail is Null And T2.CardType !='S'))
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'Email Of Customer Must filled first ' 
+				END 
+END
+
+--------------------------------SO Block Stock 310822------------------------------------------
+IF (@object_type = '17' and (@transaction_type = 'A' ))
+
+Begin If Exists (Select * FROM ORDR T0
+Inner Join RDR1 T1 on T0.DocEntry = T1.DocEntry
+where T0."DocEntry" = @list_of_cols_val_tab_del and T1.WhsCode in( 'FG-HO','MIX-D1','FG-FRN')
+and T1.quantity > Cast(T1.U_Warehouse AS float) and T0.Usersign <> '35') 
+Begin
+Select  @error = 2301, @error_message = 'Stock In Warehouse is 0'
+
+END
+
+END
+
+-----------------------------------------------------------Ishan------------------------------------------------------------------------
+IF (@object_type = '17' and (@transaction_type = 'A' ))
+
+Begin If Exists (Select * FROM ORDR T0
+Inner Join RDR1 T1 on T0.DocEntry = T1.DocEntry
+where T0."DocEntry" = @list_of_cols_val_tab_del and T1.WhsCode in ( 'FG-HO','FG-FRN')
+and T1.quantity > Cast(T1.U_SIZEDIM AS float) ) 
+Begin
+Select  @error = 2301, @error_message = 'Available is 0'
+
+END
+
+END
+
+--------------------Ishan 150622--------------------------------------------------------------  
+  /*IF (@object_type = '17' AND @transaction_type IN ( 'A','U'))
+
+BEGIN
+
+If   exists
+
+(select t1.WhsCode from  ORDR t0
+
+INNER JOIN RDR1 T1 ON T0.DocEntry=t1.DocEntry
+
+where
+
+t1.WhsCode  in ('QUD', 'RFNSH')
+
+and t0.DocEntry=@list_of_cols_val_tab_del and T0.UserSign <> '18') 
+Begin
+
+set @error =1
+
+set @error_message = 'Select DWF warehouse' 
+
+End
+
+END  */
+---UDO Restrictions-----
+
+-----------------------------------Ishan---------------------------------------------
+If @object_type = '17' and @transaction_type in (N'A')
+begin
+IF EXISTS (Select Distinct T0.DocEntry from ORDR T0
+Inner Join RDR12 T1 on T0.DocEntry = T1.DocEntry
+Inner Join RDR1 T2 on T2.DocEntry = T0.DocEntry
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN and T2.TaxCode != 'GST0' and T1.StateB = 'PB')
+begin
+set @error = 999
+set @error_message = 'Please Select GST 0 for this party'
+end
+End
+
+------------------------------------------Ishan--------------------------------------------------------------------------
+/*if @object_type = '17' and @transaction_type in (N'A')
+begin
+IF EXISTS (SELECT Distinct T0.[DocEntry] 
+FROM ORDR T0 
+INNER JOIN OCRD T1 ON T0.[CardCode] = T1.[CardCode] 
+INNER JOIN CRD1 T2 ON T1.[CARDCODE] = T2.[CARDCODE] 
+WHERE T0.DOCENTRY = @list_of_cols_val_tab_del AND T2.[GSTRegnNo] IS NULL OR T2.[GSTRegnNo]= '' ) 
+begin 
+set @error = 101 
+set @error_message = 'PLEASE UPDATE GST REG NO IN Customer MASTER DATA' 
+end 
+End*/
+
+---------------------------------------------------------------------------------------------------------------------------
+if @object_type = '17' and @transaction_type in (N'A')
+begin
+IF EXISTS (SELECT Distinct T0.[DocEntry] 
+FROM ORDR T0 
+INNER JOIN OCRD T1 ON T0.[CardCode] = T1.[CardCode] 
+INNER JOIN CRD1 T2 ON T1.[CARDCODE] = T2.[CARDCODE] 
+WHERE T0.DOCENTRY = @list_of_cols_val_tab_del AND T2.[Block] IS NULL OR T2.[Block]= '' ) 
+begin 
+set @error = 101 
+set @error_message = 'PLEASE UPDATE Block IN Customer MASTER DATA' 
+end 
+End
+
+
+---------------------------------------Ishan----------------------------------------------------------------------------------
+If @object_type = '17' and @transaction_type in (N'A')
+begin
+IF EXISTS (Select Distinct T0.DocEntry from ORDR T0
+Inner Join RDR12 T1 on T0.DocEntry = T1.DocEntry
+Inner Join RDR1 T2 on T2.DocEntry = T0.DocEntry
+Inner Join OCRD T3 on T3.cardCode = T0.CardCode
+Inner Join OITM T4 on T4.ItemCode = T2.ItemCode
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN  and T4.ItmsGrpCod in ( '101','102') and 
+T2.AcctCode != '410101006' and T1.StateB = 'PB' and T0.CardCode <> 'WART0001RX')
+begin
+set @error = 999
+set @error_message = 'Please Select Branch Transfer Within PB for this party for Footwear/Garment Kindly select this g/l 410101006'
+end
+End
+
+-------------------------------------------Ishan-------------------------------------------------
+If @object_type = '17' and @transaction_type in (N'A')
+begin
+IF EXISTS (SELECT T0.[DocEntry] 
+FROM ORDR T0 
+INNER JOIN RDR1 T1 ON T0.DocEntry = T1.DocEntry 
+WHERE T0.DOCENTRY = @list_of_cols_val_tab_del AND T1.WhsCode <> (Select Max (P1.WhsCode) From RDR1 P1 where P1.DocEntry=T1.DocEntry) ) 
+begin 
+set @error = 101 
+set @error_message = 'Different Whse' 
+end 
+End
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+if @object_type = '17' and @transaction_type in (N'A')
+begin
+IF EXISTS (SELECT Distinct T0.[DocEntry] 
+FROM ORDR T0 
+INNER JOIN OCRD T1 ON T0.[CardCode] = T1.[CardCode] 
+INNER JOIN CRD1 T2 ON T1.[CARDCODE] = T2.[CARDCODE] 
+WHERE T0.DOCENTRY = @list_of_cols_val_tab_del AND T2.[Street] IS NULL OR T2.[Street]= '' ) 
+begin 
+set @error = 101 
+set @error_message = 'PLEASE UPDATE Street IN Customer MASTER DATA' 
+end 
+End
+
+-------------------------------------------------------------------------------------------------------
+If (@object_type = '17' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+(Select T0.docentry from RDR1 t0
+where t0.docentry = @list_of_cols_val_tab_del and Isnull(t0.price,0) =0 )
+BEGIN
+Select @error = '17',@error_message = 'Please Mention Unit Price'
+
+END
+END
+
+-----------------------------------sandeep---------------------------------------------------------
+If (@object_type = '17' and @transaction_type in ('U'))
+begin
+if EXISTS
+(Select Z.DocEntry 
+from  ORDR Z
+Where Z.DocEntry = @list_of_cols_val_tab_del  )
+BEGIN 
+Select @error = '123',
+@error_message = 'You can not Update This Document.....!!!!!!!!!'
+END
+END
+
+-----------------------------------------------Ishan---------------------------------------------------------------------------
+/*If @object_type = '17' and @transaction_type in (N'A')
+begin
+IF EXISTS (Select Distinct T0.DocEntry from ORDR T0
+Inner Join RDR12 T1 on T0.DocEntry = T1.DocEntry
+Inner Join RDR1 T2 on T2.DocEntry = T0.DocEntry
+Inner Join OCRD T3 on T3.cardCode = T0.CardCode
+Inner Join OITM T4 on T4.ItemCode = T2.ItemCode
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN and T3.U_Flag = 'F' and T4.ItmsGrpCod = '102' and 
+T2.AcctCode != '410101009' and T1.StateB = 'PB' and T0.CardCode <> 'WART0001RX')
+begin
+set @error = 999
+set @error_message = 'Please Select Branch Transfer Within PB for this party for Garments'
+end
+End*/
+----------------------------------------------------------------------------------------------------------------------
+/*IF @object_type = '17' AND @transaction_type IN ('A', 'U')
+BEGIN
+    IF EXISTS (
+        SELECT A.DocEntry FROM RDR1 A
+		Inner Join ORDR B on B.DocEntry = A.DocEntry
+		Inner Join OITM C on C.ItemCode = A.ItemCode
+        WHERE A.DocEntry = @list_of_cols_val_tab_del
+        AND A.Price <> C.U_MRP  and B.UserSign <> '11'-- replace U_UDF_ON_POR1 with the actual UDF name on POR1
+    )
+    BEGIN
+        SET @error = -10 -- set a custom error code to block the transaction
+        SET @error_message = 'MRP Cannot be Changed.' -- set a custom error message
+    END
+END*/
+------------------------------------------------------------------------------------------------------------------------
+/*IF @transaction_type IN ( 'A') AND (@Object_type = '13')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM INV1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end*/
+		   
+---------------------------------------------------------------------------------------------------------------------------------------------
+/*IF @transaction_type IN ( 'A','U') AND (@Object_type = '17')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RDR1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end*/
+----------------------------------------------------------------------------------------------------------------------------------------
+/*IF @transaction_type IN ( 'A','U') AND (@Object_type = '15')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM DLN1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+-----------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '14')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RIN1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end*/
+
+-------------------------------------------------------------------------------------------------
+/*If @transaction_type = 'A' and @object_type = '17'
+Begin
+If Exists ( Select A.DocEntry from ORDR A
+            Inner Join OCRD B on A.CardCode = B.CardCode
+			WHERE A.DocEntry = @list_of_cols_val_tab_del
+			And B.U_SO = 'Y')
+			
+ BEGIN
+        SET @error = -10 
+        SET @error_message = 'Stop Order'
+		End
+		
+		End*/
+
+---------------------------------------------------------------------------------
+/*IF (@object_type = '17' and (@transaction_type = 'A' ))
+
+Begin If Exists (Select T0.DocEntry FROM RDR1 T0
+--Inner Join RDR1 T1 on T0.DocEntry = T1.DocEntry
+where ISNULL(T0.TaxCode,'')<>'' and T0."DocEntry" = @list_of_cols_val_tab_del ) 
+Begin
+Select  @error = 2301, @error_message = 'TaxCode Is Blank'
+
+END
+
+END*/
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*If (@object_type = '17' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+(Select T0.docentry from RDR1 t0
+where t0.docentry = @list_of_cols_val_tab_del and Isnull(t0.TaxCode,'') ='' )
+BEGIN
+Select @error = '17',@error_message = 'Please Select Tax Code'
+
+END
+END*/
+
+--------------------------------------------
+
+If (@object_type = '1250000001' And @transaction_type = 'U')
+begin 
+ if EXISTS(select T0.CardCode from  adoc t0 where T0.docentry = @list_of_cols_val_tab_del 
+ and t0.U_Acceptance='YES' AND T0.filler = 'FFS-HO' )
+ begin
+	Select @error = 125004,
+	@error_message = 'Purchase order already Accepted..........it can not be modified'
+ end
+END
+---------------------------------------------------------------------------------------------------------
+-- IF @object_type = '1250000001' AND @transaction_type IN ('A', 'U')
+-- BEGIN
+--     DECLARE @U_Type NVARCHAR(100)
+    
+--     SELECT @U_Type = U_TypeFW	
+--     FROM OWTQ
+--     WHERE DocEntry = @list_of_cols_val_tab_del;
+    
+--     IF @U_Type IS NULL OR @U_Type = ''
+--     BEGIN
+--         SET @error = 1
+--         SET @error_message = 'PO Type Cannot Be Empty'
+--     END
+-- END
+--------------------------------------------------------------------------------------------------------------
+
+
+If @object_type = '1250000001' And @transaction_type = 'A'
+begin 
+	declare @wh_ffsho int ,@sers nvarchar(12),@U_Type NVARCHAR(100)
+
+	select @wh_ffsho = count (T0.ItemCode), @sers=T3.SeriesName,@U_Type=t1.U_TypeFW
+	from WTQ1 T0 (NOLOCK)
+	INNER JOIN OWTQ T1 (NOLOCK) ON T0.DocEntry=T1.DocEntry 
+	left join nnm1 t3 (nolock) on t1.Series=t3.Series and t3.ObjectCode='1250000001'
+	where T0.docentry = @list_of_cols_val_tab_del
+	AND T0.FromWhsCod = 'FFS-HO'
+	group by t0.ItemCode,t3.SeriesName,t1.U_TypeFW
+
+	IF ((isnull(@wh_ffsho,0)) >0 AND SUBSTRING(isnull(@sers,''),1,2)!='PO') 
+	begin
+		Select @error = 125003,
+		@error_message = 'Please USE PO+Year series for Production Order'
+	end
+
+	IF ((isnull(@wh_ffsho,0)) >0 AND SUBSTRING(isnull(@sers,''),1,2)='PO') and isnull(@U_Type,'')='' 
+	begin
+		Select @error = 125004,
+		@error_message = 'Please select PO Type in User Define Field...............'
+	end
+
+	If Exists (select WTQ1.ItemCode, count (WTQ1.ItemCode) from WTQ1 (nolock) where WTQ1.docentry = @list_of_cols_val_tab_del
+	AND WTQ1.FromWhsCod != 'FFS-HO'
+   group by WTQ1.itemCode having count(WTQ1.ItemCode) >1  
+    )
+BEGIN
+set @error = -2
+set @error_message = 'ItemCode cannot be repeated'
+END
+end
+
+---------------------------------------------------------------------------------------------------------
+IF (@object_type = '1250000001' and (@transaction_type in ('A','U') ))
+
+Begin If Exists (Select * FROM OWTQ T0
+Inner Join WTQ1 T1 on T0.DocEntry = T1.DocEntry
+where T0."DocEntry" = @list_of_cols_val_tab_del
+and T1.quantity > Cast(T1.U_SIZEDIM AS float) and T0.Filler != 'FFS-HO' ) 
+Begin
+Select  @error = 2301, @error_message = 'Available is less than issuing'
+
+END
+
+END
+
+----------------------------------------------------
+/*
+If (@object_type = '1250000001' and @transaction_type in ('A'))
+BEGIN
+IF  EXISTS
+(Select T0.docentry from WTQ1 t0
+where t0.docentry = @list_of_cols_val_tab_del and isnull(t0.Quantity,0) <=isnull(t0.U_warehouse,0)--Isnull((Select A.OnHand from OITW A Where A.ItemCode=t0.ItemCode and A.WhsCode=t0.FromWhsCod),0)
+)
+BEGIN
+Select @error = '1250000001',@error_message = 'Stock is not available'
+
+END
+END*/
+IF (@object_type = '1250000001' and (@transaction_type = 'A' ))
+
+Begin If Exists (Select * FROM OWTQ T0
+Inner Join WTQ1 T1 on T0.DocEntry = T1.DocEntry
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.Filler != 'FFS-HO'
+and T1.quantity > Cast(T1.U_SIZEDIM AS float) ) 
+Begin
+Select  @error = 2301, @error_message = 'Available is 0 '
+
+END
+
+END
+
+--------------------------------Ishan 080622-------------------------------------------
+	
+IF @object_type = '4' AND @transaction_type IN ( 'A','U')
+
+BEGIN
+
+if EXISTS (Select t0.ItemCode from OITM T0
+
+where T0.ItemName ='' or T0.ItemName Is Null and T0.ItemCode=@list_of_cols_val_tab_del)
+
+begin
+
+Select @error = -1
+
+Select @error_message= 'Item Name is mandatory'
+
+end
+
+
+END
+
+--------------------------------------------------------------------------------------------------------
+
+
+
+-----------------------------Ishan 080622--------------------------
+/*
+IF @object_type = '4' AND @transaction_type IN ( 'A')
+
+BEGIN
+
+if  EXISTS (Select t0.ItemCode from OITM T0
+
+where T0.ItmsGrpCod  in ('101','102') and T0.FrgnName ='' or T0.FrgnName Is Null and T0.ItemCode=@list_of_cols_val_tab_del)
+
+begin
+
+Select @error = -2
+
+Select @error_message= 'Article No is mandatory'
+
+end
+
+
+END
+
+
+---------------Ishan 080622---------------------
+
+IF @object_type = '4' AND @transaction_type IN ( 'A')
+
+BEGIN
+
+if not EXISTS (Select t0.ItemCode from OITM T0
+
+where Isnull(T0.U_MRP ,'') = '' or Cast(T0.U_MRP as int) is null  and T0.ItmsGrpCod  IN ('101','102') and T0.ItemCode=@list_of_cols_val_tab_del)
+
+begin
+
+Select @error = -3
+
+Select @error_message= 'MRP is missing'
+
+end
+
+
+END*/
+
+
+----------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+IF @object_type = '59' and @transaction_type in ('A')
+
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM IGN1 T0
+	 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.PRICE=0))
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'Please Enter CP value in unit price.............. ' 
+				END 
+END
+--------------------------------------------------------------------------
+IF @object_type = '67' and @transaction_type in ('A')
+
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM WTR1 T0
+	 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.StockPRICE=0))
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'Please Enter CP value in unit price.............. ' 
+				END 
+END
+------------------------------------------------------------
+IF @object_type = '16' and @transaction_type in ('A')
+
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM RDN1 T0
+	 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.STOCKPRICE=0))
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'Please Enter Item Cost value in unit price.............. ' 
+				END 
+END
+------
+IF @object_type = '60' and @transaction_type in ('A') 
+
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM IGE1 T0
+	 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.stockprice=0 and t0.BaseType='202'))
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'Please Enter Item Cost value.............. ' 
+				END 
+END
+
+--------------------------------------------------
+
+---------------------------------------------------------- Ar Credit Note
+
+IF @transaction_type IN (N'A') AND (@Object_type = N'14')
+Begin
+
+    declare @cn_date date
+    declare @pcn_date date
+
+---   declare @pinv_no int
+
+	 	select @cn_date = t5.cn_date , @pinv_no= t5.cp_no, @doctype=t5.cp_type,@docstype=t5.cp_stype  from 
+	        (select DISTINCT T0.DocDate 'cn_date' ,t0.DocNum 'cp_no' ,t0.doctype 'cp_type',t0.DocSubType 'cp_stype'
+			from ORIN T0 (NOLOCK)
+			inner join RIN1 T2 (NOLOCK) ON T2.DocEntry = T0.DocEntry
+			where T0.DocEntry=@list_of_cols_val_tab_del) T5
+
+        	select @f_date=StartDate ,@t_date =EndDate from OFYM (nolock) WHERE @Cn_date  BETWEEN StartDate AND EndDate
+	        set @cn_date = ( select T0.DocDate from ORIN T0 (NOLOCK) WHERE T0.DocNum = @pinv_no-1 and T0.DocDate >= @f_date and T0.DocDate <= @t_date and T0.DOCTYPE=@doctype  and t0.DocSubType=@docstype)
+
+
+	    if (@pcn_date > @cn_date)
+		begin
+		      set @error = 992  
+			  set @error_message = ' Previous Ap1 Invoice Posting date is  '+ convert(varchar(10),@pcn_date,103) +' You can not enter Ap invoice posting date before this date ............'
+		end
+end
+
+------------------------------------------------------Ap Debit Memo
+
+IF @transaction_type IN (N'A') AND (@Object_type = N'19')
+Begin
+
+    declare @dn_date date
+    declare @pdn_date date
+	declare @d_status char(1)
+	declare @d_stype char(10)
+
+
+
+ ---   declare @pinv_no int
+
+	 	select @dn_date = t5.dn_date , @pinv_no= t5.dp_no , @doctype= t5.dp_type , @d_status=t5.dp_status,@d_stype = t5.dp_subtype from 
+	        (select DISTINCT T0.DocDate 'dn_date' ,t0.DocNum 'dp_no',t0.DocType 'dp_type' ,T0.DocStatus 'dp_status',t0.DocSubType 'dp_subtype'
+			from ORPC T0 (NOLOCK)
+			inner join RPC1 T2 (NOLOCK) ON T2.DocEntry = T0.DocEntry
+			where T0.DocEntry=@list_of_cols_val_tab_del) T5
+
+
+        	select @f_date=StartDate ,@t_date =EndDate from OFYM (nolock) WHERE @dn_date  BETWEEN StartDate AND EndDate
+	        set @pdn_date = ( select distinct T0.DocDate from ORPC T0 (NOLOCK) WHERE T0.DocNum = @pinv_no-1 and T0.DocDate >= @f_date and T0.DocDate <= @t_date and t0.DocType=@doctype and t0.DocSubType=@d_stype )
+
+		if (@d_status !='C')
+		begin 
+		    if (@pdn_date > @dn_date)
+			begin
+		      set @error = 993  
+			  set @error_message = ' Previous Debit Memo  Posting date is  '+ convert(varchar(10),@pdn_date,103) +' You can not enter previous Debit Memo posting date before this date............'
+			end
+		end
+end
+-----------------------------------------------------------------------------------------------------
+
+------------------------------ Ap Invoice --------------------------------------------------------------------------
+
+IF @transaction_type IN ('A') AND (@Object_type = '18')
+Begin
+    declare @grpo_date date
+    declare @ap_date date
+    declare @pap_date date
+    declare @d_type char(1)
+    declare @trn_type varchar(20)
+    declare @vch_cancel char(1)
+
+	select @ap_date =t5.Ap_date , @grpo_date= t5.Grpo_date, @pinv_no= t5.Ap_no , @d_type=ap_doc,@trn_type=tran_type,@vch_cancel = Ap_cancel  from 
+	       (select DISTINCT T1.DocDate 'Grpo_date',T0.DocDate 'Ap_date' ,t0.DocNum 'Ap_no',
+		    T0.doctype 'ap_doc',t0.GSTTranTyp 'tran_type',t0.CANCELED 'Ap_cancel'
+			from OPCH T0 (NOLOCK)
+			inner join PCH1 T2 (NOLOCK) ON T2.DocEntry = T0.DocEntry
+			left join OPDN T1 (NOLOCK) on T1.docentry = T2.BaseEntry and T2.BaseType=T1.ObjType
+			where T0.DocEntry=@list_of_cols_val_tab_del and T0.CANCELED!='C') T5
+			
+	if (upper(@vch_cancel)!='C')
+		begin
+
+	        	select @f_date=StartDate ,@t_date =EndDate from OFYM (nolock) WHERE @ap_date  BETWEEN StartDate AND EndDate
+		        set @pap_date = ( select T0.DocDate from OPCH T0 (NOLOCK) WHERE T0.DocNum = @pinv_no-1 and T0.DocDate >= @f_date and T0.DocDate <= @t_date and T0.doctype=@d_type and t0.GSTTranTyp=@trn_type and T0.CANCELED!='C' )
+
+			    if (@pap_date > @ap_date)
+				begin
+				      set @error = 994  
+					  set @error_message = ' Previous Ap Invoice Posting date is  '+ convert(varchar(10),@pap_date,103) +' You can not enter Ap invoice posting date before this date44............'
+
+				end
+
+			    if (@grpo_date > @ap_date)
+				begin
+		             set @error = 995  
+					  set @error_message = ' Grpo Posting date is  '+ convert(varchar(10),@grpo_date,103) +' You can not enter Ap invoice posting date before this date............'
+
+				end
+	end
+End
+
+-----------------------------------------------------------------------------------------------------------------------------
+If @object_type = '18' And @transaction_type IN ('A','U')
+Begin
+    If EXISTS (
+	   Select A.DocENtry from OPCH A
+	   Inner Join PCH1 B on A.DocEntry = B.DocEntry
+	   Left Join OITM C on C.ItemCode = B.ItemCode
+	   Where A.Docentry = @list_of_cols_val_tab_del
+	   and A.U_QA <> 'Yes' and C.ItmsGrpCod = '111' and A.DocType = 'I'
+	   )
+	   Begin 
+	   Set @error = 66
+	   Set @error_message = 'Quality is not approved'
+	   end
+	   end
+-----------------------------------------------------------------------------------------------------------------------------
+ 
+   
+-----------------------------GRN Qty excess Ishan-----------------------------------------------------
+
+	/*IF (@object_type = '18' AND @transaction_type in ('A','U'))  
+BEGIN 
+If  (select COUNT(a.DocEntry)
+    from PDN1 a 
+    inner join POR1 b on a.BaseEntry = b.DocEntry and a.BaseLine=b.LineNum
+    where a.DocEntry =  @list_of_cols_val_tab_del
+    AND (b.Quantity) < a.Quantity)> 0
+Begin  
+SET @Error =31  
+SET @Error_message = 'Quantity is greater then Bill quantity'  
+END
+END*/
+
+--------------------------------------------------------------------------------------------------------
+
+
+--------------Ishan 070722----------------
+/*
+
+IF @object_type = '22' And @transaction_type = 'A'
+begin 
+If Exists (select POR1.ItemCode, count (POR1.ItemCode) from POR1 where POR1.docentry = @list_of_cols_val_tab_del
+group by POR1.itemCode having count(POR1.ItemCode) >1 )
+
+set @error = -99
+set @error_message = 'ItemCode cannot be repeated'
+
+end
+*/
+--------------------------------------------------------------------------------------------
+-----------Ishan 080622--------------
+
+IF @object_type = '22' and @transaction_type in ('A','U')
+
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM OPOR T0
+	Inner Join OCRD T2 On T0.CardCode=T2.CardCode
+	 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T2.E_Mail is Null And T2.CardType !='C'))
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'Email Of Vendor Must filled first ' 
+				END 
+END
+----------------------------------------------------------------------------
+-------------Ishan 150622------------------
+   IF (@object_type = '22' AND @transaction_type IN ( 'A','U'))
+
+BEGIN
+
+If   exists
+
+(select t1.WhsCode from  OPOR t0
+
+INNER JOIN POR1 T1 ON T0.DocEntry=t1.DocEntry
+
+where
+
+t1.WhsCode  in ('QUD','RFNSH')
+
+and t0.DocEntry=@list_of_cols_val_tab_del)
+Begin
+
+set @error =1
+
+set @error_message = 'Select DWF warehouse' 
+
+End
+
+END 
+----------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------------------------------------------------	
+IF @object_type = '22' AND @transaction_type IN ('A', 'U')
+BEGIN
+    DECLARE @U_TypeFW NVARCHAR(100)
+    
+    SELECT @U_TypeFW = U_TypeFW	
+    FROM OPOR
+    WHERE DocEntry = @list_of_cols_val_tab_del;
+    
+    IF @U_TypeFW IS NULL OR @U_TypeFW = ''
+    BEGIN
+        SET @error = 1
+        SET @error_message = 'PO Type Cannot Be Empty'
+    END
+END
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+ if @object_type = '22' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ORDR where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = '22' -- Draft PO
+   if exists (select T0.DocEntry from POR1 T1
+   inner join OPOR T0 on T0.DocEntry = T1.DocEntry
+   Inner Join OITM T2 On T1."ItemCode"=T2.Itemcode
+ 
+ WHERE T2.ItemClass='2' And (T1."HsnEntry" is  null or T1."HsnEntry" = '')
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 108
+     set @error_message = 'HSN Code Should Not Blank !! '  
+    end
+end
+ ---------------------------------------------------------------------------------------------------------------------------------
+	iF (@object_type = '22' AND @transaction_type IN ('A'))
+
+ 
+
+BEGIN
+
+              IF EXISTS (SELECT *  FROM OPOR (NOLOCK) T0
+
+                     INNER JOIN POR1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry
+
+                    WHERE T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null)
+                    IF EXISTS(SELECT POR1.DocEntry FROM POR1 WHERE ISNULL(POR1.BaseType, '') <> '')
+                    BEGIN
+                                           SET @error = 112
+
+                                           SET @error_message = 'PO should based on the PR !'
+
+                             END
+
+                             END
+
+--------------------------------------------------------------------------------------------------------
+If @transaction_type in ('A','U') and @object_type = '22'
+begin
+IF EXISTS
+(Select T0.Docentry
+from OPOR T0 
+Inner Join POR12 T1 on T0.DocEntry = T1.DocEntry
+where T0.DocEntry = @list_of_cols_val_tab_del and (T1.LocStatCod is null or T1.LocStatcod = ''))
+
+Begin
+Set @error = 4
+Set @error_message = 'Please Enter Place of supply'
+end
+end
+
+---------------------------------------------------------------Ishan------------------------------------------------------------------
+If @transaction_type in ('A','U') and @object_type = '22'
+begin
+IF EXISTS
+(Select T0.Docentry
+from POR1 T0 
+Inner Join PRQ1 T1 On T1.DocEntry=T0.BaseEntry and T1.LineNum=T0.BaseLine
+Left Join OITM T3 on T3.ItemCode = T1.ItemCode
+--Inner Join POR12 T1 on T0.DocEntry = T1.DocEntry
+where T0.DocEntry = @list_of_cols_val_tab_del and T1.U_Approver='No' and T3."ItmsGrpCod"  in ('109','111','112','113' ))
+
+Begin
+Set @error = 4
+Set @error_message = 'Indent Should be Approved'
+end
+end
+---------------------------------------------------------------------------------------------------------
+If @transaction_type in ('A','U') and @object_type = '22'
+begin
+IF EXISTS
+(Select T0.Docentry
+from POR1 T0 
+Inner Join PRQ1 T1 On T1.DocEntry=T0.BaseEntry and T1.LineNum=T0.BaseLine
+Left Join OITM T3 on T3.ItemCode = T1.ItemCode
+--Inner Join POR12 T1 on T0.DocEntry = T1.DocEntry
+where T0.DocEntry = @list_of_cols_val_tab_del and T1.U_Verifier='No' and T3."ItmsGrpCod"  in ('109','111','112','113' ))
+
+Begin
+Set @error = 5
+Set @error_message = 'Indent Should be Verified'
+end
+end 	
+
+---------------Ishan 220622----------------------
+IF @transaction_type IN (N'U') AND (@Object_type = N'TNAFOOTWEAR')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TNAFOOTWEAR] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del  )
+begin
+SELECT @ERROR = 2
+SELECT @ERROR_MESSAGE = 'You are not Authorised to update TNA'
+end
+end
+-------------------------------------------------------------------
+------------------Ishan 220622----------------------------
+IF @transaction_type IN (N'U') AND (@Object_type = N'CalendarFootwear')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@CALENDARFOOTWEAR] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del  )
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'You are not Authorised to update Calender'
+end
+end
+-------------------------------------------------------
+-------------------Ishan 220622--------------------
+IF @transaction_type IN (N'U') AND (@Object_type = N'COMMENTCARDFOOTWEAR')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@CALENDARFOOTWEAR] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del  )
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'You are not Authorised to update Comment Card'
+end
+end
+-------------------------------------------------------------
+------------------------Ishan 220622-------------------------
+IF @transaction_type IN (N'U') AND (@Object_type = N'SealerFootwear')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@CALENDARFOOTWEAR] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del  )
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'You are not Authorised to update Sealer'
+end
+end
+--------------------------------------------------------------------------
+IF @object_type = '22' AND @transaction_type IN ('A', 'U') 
+    IF EXISTS (
+        SELECT T0.DocEntry 
+        FROM OPOR T0
+        WHERE T0.DocEntry = @list_of_cols_val_tab_del
+          AND T0.TaxDate > T0.DocDueDate 
+    )
+    BEGIN
+        SET @error = 1021; 
+        SET @error_message = 'Document Date cannot be greater than Delivery Date.';
+    END
+
+-----------------------------Ishan 220622----------------------------
+/*IF @transaction_type IN (N'U') AND (@Object_type = N'SpecFootwear')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@SPECIFICATIONFOOTWE] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del  and T0.UserSign = '10') 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'You are not Authorised to update Sheet'
+end
+end*/
+
+
+
+-------------------------------------------------------------------------
+IF(@object_type = N'20' AND @transaction_type in (N'A',N'U'))
+
+BEGIN
+
+IF EXISTS ( SELECT T0.ItemCode FROM  PDN1 T0
+INNER JOIN POR1 T1 ON T0."BaseEntry" = T1."DocEntry" AND t0."BaseLine"=T1."LineNum" --And T1."ItemCode"=T0."ItemCode"
+WHERE T0.BaseType='22'And ((T0."U_QTY")>=(T1."Quantity"+((T1."Quantity"*'6')/100)) ) AND T0.DocEntry = @list_of_cols_val_tab_del
+ )
+ 
+  BEGIN
+
+SElecT @error=102
+SElecT @error_message='Grpo is not greater than 5%'
+
+END
+
+END
+----------------------------Ishan-----------------------------------------
+IF @transaction_type IN (N'A') and (@object_type = N'Box Scanning')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@BOXSCANNINGH] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del  and T0.U_Add = 'NO') 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'yes'
+end
+end
+
+
+-------------------------------------------------Ishan---------------------------------------------------------------
+
+IF @transaction_type IN (N'U') AND (@Object_type = N'Rate Entry')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@RATEENTRYH] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'You are not Authorised to update Eans'
+end
+end
+
+
+--------------------------------------------------------------------------------------------------------------
+/*IF (@object_type=15)
+
+BEGIN
+
+if (@transaction_type='A')
+
+BEGIN
+
+IF (SELECT max(ISNULL(T0.BaseEntry,-1)) FROM DLN1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del) != -1
+
+BEGIN
+
+set @error = 0
+
+set @error_message = N'Ok'
+
+END
+
+ELSE
+
+BEGIN
+
+set @error_message='Delivery cannot be created directly. Copy from Sales Order'
+
+set @error=1
+
+END
+
+END
+
+END
+*/
+-----------------------------------Ishan-----------------------------------------------
+if @object_type = '234000031' and @transaction_type in (N'A')
+begin
+IF EXISTS (SELECT Distinct T0.[DocEntry] 
+FROM ORRR T0 
+INNER JOIN RRR1 T1 ON T0.DocEntry = T1.DocEntry 
+WHERE T0.DOCENTRY = @list_of_cols_val_tab_del AND T0.U_GEQTY <(Select Sum(P1.Quantity) From RRR1 P1 where P1.DocEntry=T1.DocEntry) ) 
+begin 
+set @error = 101 
+set @error_message = 'Qty Scanned Greater than Gate Entry Qty' 
+end 
+End
+
+-------------------------------------------------------------------------------------------------------------------------------------
+If @object_type = '234000031' and @transaction_type in (N'A')
+begin
+IF EXISTS (Select Distinct T0.DocEntry from ORRR T0
+Inner Join RRR12 T1 on T0.DocEntry = T1.DocEntry
+Inner Join RRR1 T2 on T2.DocEntry = T0.DocEntry
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN and T2.TaxCode != 'GST0' and T1.StateB = 'PB')
+begin
+set @error = 999
+set @error_message = 'Please Select GST 0 for this party'
+end
+End
+--------------------------------------------------------------------------------------------------------------------
+If @object_type = '234000031' and @transaction_type in (N'A')
+begin
+IF EXISTS (Select Distinct T0.DocEntry from ORRR T0
+Inner Join RRR12 T1 on T0.DocEntry = T1.DocEntry
+Inner Join RRR1 T2 on T2.DocEntry = T0.DocEntry
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN and T2.AcctCode != '410101006' and T1.StateB = 'PB' and T0.CardCode <> 'WART0001RX')
+begin
+set @error = 999
+set @error_message = 'Please Select Branch Transfer for this party'
+end
+End
+
+--------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '234000031')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RRR1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---------------Return Request -----------------------------------------
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '234000031')
+	BEGIN
+		if Exists (SELECT T0.DocEntry FROM ORRR T0  WHERE (t0.U_GENo is  null or T0.U_GENO = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+			BEGIN
+				SELECT @Error = 1, @error_message = 'GateEntry Number should not be Blank '
+			END
+	end
+---------------------------------------------------------------------------
+   IF @transaction_type IN ( 'A') AND (@Object_type = 'GateEntrySR')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM [@GATEENTRYH] T0  WHERE (t0.U_TN is  null or T0.U_TN = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'TransportN should not be Blank '
+
+           END
+
+           end
+-------------------------------------------------------------------------------------
+
+-----------------------------------------------------Ishan-------------------------------------------------------------------------
+iF (@object_type = '20' AND @transaction_type IN ('A','U'))
+BEGIN
+DECLARE @VendorRefNo1 AS VarChar (20)
+DECLARE @BPCode AS VarChar (20)
+DECLARE @PIndicator AS nvarchar (20)
+SELECT @VendorRefNo1 = NumAtCard FROM dbo.OPDN
+ WHERE CANCELED='N' and  DocEntry = @list_of_cols_val_tab_del
+SELECT @BPCode = CardCode FROM dbo.opdn
+ WHERE CANCELED='N' and DocEntry = @list_of_cols_val_tab_del
+
+ SELECT @PIndicator = PIndicator FROM dbo.opdn
+ WHERE CANCELED='N' and DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT COUNT(DocEntry)
+FROM opdn WITH(NOLOCK) WHERE CANCELED='N' and NumAtCard = @VendorRefNo1 and
+CardCode=@BPCode and PIndicator=@PIndicator
+ ) AND (@VendorRefNo1 IS NOT NULL OR @VendorRefNo1 <> '')
+BEGIN
+SELECT @ERROR = 1
+SELECT @ERROR_MESSAGE = 'Vendor Bill No Already Exist'
+END
+end
+
+----------------------------------------------------------
+If @object_type = '23' and @transaction_type in (N'A')
+begin
+IF EXISTS (Select Distinct T0.DocEntry from OQUT T0
+Inner Join QUT12 T1 on T0.DocEntry = T1.DocEntry
+Inner Join QUT1 T2 on T2.DocEntry = T0.DocEntry
+Inner Join OCRD T3 on T3.cardCode = T0.CardCode
+Inner Join OITM T4 on T4.ItemCode = T2.ItemCode
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN  and T4.ItmsGrpCod in ( '101','102') and 
+T2.AcctCode != '410101006' and T1.StateB = 'PB' and T0.CardCode <> 'WART0001RX')
+begin
+set @error = 999
+set @error_message = 'Please Select Branch Transfer Within PB for this party for Footwear/Garment Kindly select this g/l 410101006'
+end
+End
+-----------------------------------------------------------------------------------------------------------------------------------------
+IF(@object_type = N'20' AND @transaction_type in (N'A',N'U'))
+
+BEGIN
+
+IF EXISTS ( SELECT T1.DOCENTRY FROM OPDN T0 INNER JOIN PDN1 T1 ON T0.DocEntry = T1.DocEntry
+ WHERE (T0.NumAtCard IS NULL OR T0.NumAtCard = '') AND T0.DocEntry = @list_of_cols_val_tab_del ) BEGIN
+
+SElecT @error=1
+SElecT @error_message='Bill No Cannot Be Blank.'
+
+END
+
+END
+
+
+
+----------------------------------------------Ishan------------------------------------------------------
+/*IF @transaction_type IN (N'A') AND (@Object_type = N'15')
+Begin
+
+declare @dtdiff2 int
+     Set @dtdiff2 = ( Select datediff(day, getdate(), T0.[DocDate]) from ODLN t0 
+    where T0.docentry = @list_of_cols_val_tab_del ) -- Draft PO
+    if @dtdiff2 < 0
+
+    begin
+                 select @error = 10001, @error_message = 'You are not allowed to enter in earlier posting date'
+
+end
+end*/
+-----------------------------------------------Ishan----------------------------------------------------------------------
+/*IF @transaction_type IN (N'A') AND (@Object_type = N'14')
+Begin
+
+declare @dtdiff1 int
+     Set @dtdiff1 = ( Select datediff(day, getdate(), T0.[DocDate]) from ORIN t0 
+    where T0.docentry = @list_of_cols_val_tab_del ) -- Draft PO
+    if @dtdiff2 < 0
+
+    begin
+                 select @error = 10001, @error_message = 'You are not allowed to enter in earlier posting date'
+
+end
+end
+--------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN ('A') AND (@Object_type = '18')
+
+Begin
+
+declare @dtdiff int
+
+     Set @dtdiff = ( Select datediff(day, getdate(), T0.[DocDate]) from OPCH t0 
+     where T0.docentry = @list_of_cols_val_tab_del )
+
+    if @dtdiff < 0
+
+    begin
+
+                  select @error = 1, @error_message = 'You are not allowed to enter in earliar posting date'
+
+end
+
+End
+*/
+
+
+-----------------------------------------------------------------------------------------------------------------------
+If @object_type = '540000006' and @transaction_type in (N'A')
+begin
+IF EXISTS (Select Distinct T0.DocEntry from OPQT T0
+Inner Join PQT12 T1 on T0.DocEntry = T1.DocEntry
+Inner Join PQT1 T2 on T2.DocEntry = T0.DocEntry
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN and T2.TaxCode != 'GST0' and T1.StateB = 'PB')
+begin
+set @error = 999
+set @error_message = 'Please Select GST 0 for this party'
+end
+End
+------------------------------------------------------------------------------------------------------------------------
+If @object_type = '540000006' and @transaction_type in (N'A')
+begin
+IF EXISTS (Select Distinct T0.DocEntry from OPQT T0
+Inner Join PQT12 T1 on T0.DocEntry = T1.DocEntry
+Inner Join PQT1 T2 on T2.DocEntry = T0.DocEntry
+Where T0.DocEntry = @list_of_cols_val_tab_del and T0.VATRegNum = T1.BpGSTN and T2.AcctCode != '410101006' and T1.StateB = 'PB' and T0.CardCode <> 'WART0001RX')
+begin
+set @error = 999
+set @error_message = 'Please Select Branch Transfer for this party'
+end
+End
+
+
+----------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '30')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM JDT1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+		   
+
+-------------		-------------------------------------------------------------------------------------------------------------------------------
+/*If @transaction_type = 'A' and @object_type = '15'
+Begin
+If Exists ( Select A.DocEntry from ODLN A
+            Inner Join OCRD B on A.CardCode = B.CardCode
+			WHERE A.DocEntry = @list_of_cols_val_tab_del
+			And B.U_SDD = 'Y')
+			
+ BEGIN
+        SET @error = -10 
+        SET @error_message = 'Stop Packing'
+		End
+		
+		End*/
+----------		----------------------------------------------------------------------------------------------------------------------------------------
+	/*	If @transaction_type = 'A' and @object_type = '13'
+Begin
+If Exists ( Select A.DocEntry from OINV A
+            Inner Join OCRD B on A.CardCode = B.CardCode
+			WHERE A.DocEntry = @list_of_cols_val_tab_del
+			And B.U_SB = 'Y')
+			
+ BEGIN
+        SET @error = -10 
+        SET @error_message = 'Stop Bill'
+		End
+		End*/
+		
+		---------------------------------------------------TCS Validation only For 0.075-----------------------------------------
+/*if @object_type = '13' and (@transaction_type = 'A' or @transaction_type = 'U')
+begin
+Declare @CURRENCY nvarchar(100)
+set @CURRENCY=isnull((Select OINV.DocCur From OINV where OINV.DocEntry=@list_of_cols_val_tab_del),'')
+
+If( @CURRENCY='INR')-----------0.075 tax code--------------------
+Begin
+       
+              If Exists(SELECT '*' FROM OINV T0,INV1 T1,OCRD H ,INV3 T
+
+                          WHERE  T0.DocEntry = @list_of_cols_val_tab_del 
+                          and T0.Docentry=T1.DocEntry
+						  ANd T.DocEntry=T1.DocEntry
+		and T0.CardCode=h.CardCode
+	    --------Kindly fill interbranch group code
+        and (Isnull(t0.U_UDF2,0.0)> 0) AND T.ExpnsCode  in ('4') and T0.docdate>='20201001' and T0.DocCur='INR' and T0.DocType='I'and h.U_U_UDF2 = 'N')
+              Begin
+              SELECT @Error = -2, @error_message = 'Kindly select TCS Tax Code!!'
+              END
+END
+END*//*
+-------------------------------------
+if @object_type = '13' and (@transaction_type = 'A' or @transaction_type = 'U') --and (Select OINV.U_UDF2 From OINV where OINV.DocEntry=@list_of_cols_val_tab_del )=0 
+--and (Select OINV.U_CP From OINV where OINV.DocEntry=@list_of_cols_val_tab_del )='N'
+--Declare @udf int
+--set @udf=(Select OINV.U_UDF2 From OINV where OINV.DocEntry=@list_of_cols_val_tab_del )
+begin
+       
+              If  Exists(SELECT T0.DocEntry FROM OINV T0
+			--  Inner Join INV3 T1 On T1.DocEntry=T0.DocENtry
+			 Inner Join OCRD A On A.CardCode=T0.CardCode
+                         WHERE  T0.DocEntry = @list_of_cols_val_tab_del and Case When Isnull(A.U_UDF2,'')='N' and Isnull(T0.U_UDF2,0)>0 Then Isnull((Select INV3.LineTotal From INV3 where INV3.DocEntry=@list_of_cols_val_tab_del and INV3.ExpnsCode=6 ),0) end=0 --and T0.U_CP='N'
+   -- and  (Select INV3.LineTotal From INV3 where INV3.DocEntry=@list_of_cols_val_tab_del and INV3.ExpnsCode=4 )=0 and T0.DocCur='INR' and T0.DocType='I'
+		)
+              Begin
+              SELECT @Error = -4, @error_message = 'Kindly select TCS Tax Code!!'
+              END
+END
+
+---------------------------------------------------------UDF2------------------------------------------------------------------
+
+if @object_type = '13' and (@transaction_type = 'A' or @transaction_type = 'U')
+begin
+------------------------------UDF1----------------------------------
+Declare @CardCode nvarchar(100)
+set @CardCode=isnull((Select CardCode From OINV where OINV.DocEntry=@list_of_cols_val_tab_del),'')
+
+Declare @Date1 Datetime
+set @Date1=(Select Convert(nvarchar(100),DocDate,112) From OINV where OINV.DocEntry=@list_of_cols_val_tab_del)
+
+Declare @PANNo1 nvarchar(50)
+set @PANNo1=isnull((Select Distinct TaxId0 From CRD7 
+where cardcode=@cardcode--$[OINV.CardCode]
+and AddrType='S' 
+and (taxid0 is not null or taxid0<>'') ),'')
+
+Select Distinct CardCode into #Temp From CRD7 where CRD7.TaxId0=@PANNo1 --and (CRD7.TaxId0 is not null or CRD7.TaxId0<>'') 
+--Select @PANNo1
+
+Declare @UDF1 numeric(19,3)
+
+
+if(@PANNo1='xxxxxxxxxx')
+begin
+
+set @UDF1=(select isnull((select sum(a.vv) from (Select (isnull((Select (Case when DocCur='INR' then sum(INV1.Linetotal) else sum(inv1.TotalFrgn) END )  
+
+From INV1,OITM 
+ where INV1.DocEntry=OINV.DocEntry and OITM.ItemCode=INV1.ItemCode and (OITM.InvntItem='Y' ))
+,0) +
+       isnull((Select sum(INV4.TaxSum) From INV4 where OINV.DocEntry=INV4.docentry AND (INV4.statype <> 18 AND INV4.Taxrate not in( 0.075))),0.0) +
+       isnull((Select sum(inv3.LineTotal) From INV3 where OINV.DocEntry=Inv3.docentry),0.0) -
+       isnull((Case when DocCur='INR' then OINV.DiscSum else OINV.DiscSumFC END ),0.0))'VV'
+From OINV,OCRD
+where OINV.DocType='I'
+and OINV.Docdate between '20200401' and @date1
+and OINV.CardCode=@Cardcode AND OCRD.CardCode=OINV.CardCode  and OCRD.groupcode not in (106)
+ and OINV.DocCur='INR' and OINV.Canceled='N' and OINV.DocEntry<>@list_of_cols_val_tab_del
+group by DocCur,DiscSum,DiscSumFC,OINV.DocEntry)a),0)
+-
+isnull((Select sum(DocTotal) VV
+From ORIN ,OCRD
+where ORIN.Docdate between '20200401' and @Date1
+and ORIN.CardCode=@CardCode AND OCRD.CardCode=ORIN.CardCode  and OCRD.groupcode not in (106)
+and ORIN.Canceled='N'
+and ORIN.DocCur='INR'),0))
+--END 
+END
+else
+BEGIN
+
+set @UDF1=(select isnull((select sum(a.vv) from (Select (isnull((Select (Case when DocCur='INR' then sum(INV1.Linetotal) else sum(inv1.TotalFrgn) END )  
+
+From INV1,OITM 
+ where INV1.DocEntry=OINV.DocEntry and OITM.ItemCode=INV1.ItemCode and (OITM.InvntItem='Y' ))
+,0) +
+       isnull((Select sum(INV4.TaxSum) From INV4 where OINV.DocEntry=INV4.docentry AND (INV4.statype <> 18 AND INV4.Taxrate not in( 0.075))),0.0) +
+       isnull((Select sum(inv3.LineTotal) From INV3 where OINV.DocEntry=Inv3.docentry),0.0) -
+       isnull((Case when DocCur='INR' then OINV.DiscSum else OINV.DiscSumFC END ),0.0))'VV'
+From OINV,#Temp T ,OCRD
+where OINV.DocType='I'
+and OINV.Docdate between '20200401' and @date1
+and OINV.CardCode=T.CardCode AND OCRD.CardCode=OINV.CardCode and OCRD.groupcode not in (106)
+and OINV.DocCur='INR' and OINV.Canceled='N' and OINV.DocEntry<>@list_of_cols_val_tab_del
+group by DocCur,DiscSum,DiscSumFC,OINV.DocEntry)a),0)
+---------------------------------------------------------------------
+-
+isnull((Select sum(DocTotal) VV
+From ORIN ,#Temp T,OCRD
+where ORIN.Docdate between '20200401' and @Date1
+and ORIN.CardCode=T.CardCode AND OCRD.CardCode=ORIN.CardCode and OCRD.groupcode not in (106)
+and ORIN.Canceled='N'
+and ORIN.DocCur='INR'),0))
+END
+
+
+---------------------------------------------------------------------
+--------------------------------------------------------------------
+end
+
+-----------------------------------------------------------------------------------------
+if @object_type = '17' and (@transaction_type = 'A' or @transaction_type = 'U')
+begin
+if exists(SELECT '*' FROM ORDR T0,OCRD H
+           WHERE  T0.DocEntry = @list_of_cols_val_tab_del 
+ and (isnull(@UDF1,0)-5000000)>0 and isnull(T0.U_UDF2,0)=0 and H.groupcode not in (106)
+and T0.CardCode=h.CardCode 
+and T0.docdate>='20201001' 
+and T0.DocCur='INR' and T0.DocType='I'and h.U_UDF2 = 'Y')
+Begin
+              SELECT @Error = -22, @error_message = 'Kindly refresh TCS Applicable Amount!!'
+              END
+end*/
+
+-----------------------------------------------------------------------
+if @object_type = '13' and (@transaction_type in( 'A','u' )) --and (Select OINV.U_UDF2 From OINV where OINV.DocEntry=@list_of_cols_val_tab_del )=0 
+
+begin
+       
+              If  Exists(SELECT T0.DocEntry FROM INV1 T0
+			Inner Join OITM T1 On T1.ItemCode=T0.ItemCode
+                         WHERE  T0.DocEntry = @list_of_cols_val_tab_del and T1.ItmsGrpCod='102' and Isnull(T0.Price,0)>'1000' and T0.TaxCode  in ('GST5','IGST5') --and T0.U_CP='N'
+   -- and  (Select INV3.LineTotal From INV3 where INV3.DocEntry=@list_of_cols_val_tab_del and INV3.ExpnsCode=4 )=0 and T0.DocCur='INR' and T0.DocType='I'
+		)
+              Begin
+              SELECT @Error = -4, @error_message = 'Price is above the 1000 Kindly Select The 12 Percent Tax!!'
+              END
+END
+-------------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------
+if @object_type = '13' and (@transaction_type in( 'A','u' )) --and (Select OINV.U_UDF2 From OINV where OINV.DocEntry=@list_of_cols_val_tab_del )=0 
+
+begin
+       
+              If  Exists(SELECT T0.DocEntry FROM INV1 T0
+			Inner Join OITM T1 On T1.ItemCode=T0.ItemCode
+                         WHERE  T0.DocEntry = @list_of_cols_val_tab_del and T1.ItmsGrpCod='102' and Isnull(T0.Price,0)<'1000' and T0.TaxCode  in ('GST12','IGST12') --and T0.U_CP='N'
+   -- and  (Select INV3.LineTotal From INV3 where INV3.DocEntry=@list_of_cols_val_tab_del and INV3.ExpnsCode=4 )=0 and T0.DocCur='INR' and T0.DocType='I'
+		)
+              Begin
+              SELECT @Error = -5, @error_message = 'Price is below the 1000 Kindly Select The 5 Percent Tax!!'
+              END
+END
+
+------------------------------------------------------------------------------------------------------------------------------------------------
+If @object_type = '13' and (@transaction_type = N'A')
+Begin 
+If Exists (Select A.DocENtry from OINV A
+Left Join OUSR B on b.userid = A.usersign
+Where A.DocENtry = @list_of_cols_val_tab_del and A.DocStatus <> 'O' and A.Usersign not in ('25','15','56','1','31','86') )
+Begin
+Set @error = 10
+Set @error_message = 'Cancellation is not allowed'
+end
+end
+
+-------------------------------E-Invoice Status Not Change--------------------------------------------------
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '13')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM OINV T0 
+  WHERE (t0.U_IRN is not null or T0.U_IRN <> ' ') and T0.U_EInvReqs<>'Rec' and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'You Not Authorized To Change the E-Invoice Status '
+
+           END
+
+           end
+
+---------------------------TCS YES______________________
+if @object_type = '13' and (@transaction_type = 'A' ) --and (Select OINV.U_UDF2 From OINV where OINV.DocEntry=@list_of_cols_val_tab_del )=0 
+
+begin
+       
+              If  Exists(SELECT T0.DocEntry FROM OINV T0
+		
+                         WHERE  T0.DocEntry = @list_of_cols_val_tab_del and t0.CardName not like ('%Duke%') and t0.DocType='I' and Isnull(T0.U_TCS,'')<>'YES'  --and --and T0.U_CP='N'
+   -- and  (Select INV3.LineTotal From INV3 where INV3.DocEntry=@list_of_cols_val_tab_del and INV3.ExpnsCode=4 )=0 and T0.DocCur='INR' and T0.DocType='I'
+   )
+              Begin
+              SELECT @Error = -1101, @error_message = 'Kindly Select Tcs Field Yes!' 
+              END
+END
+
+
+-----------------------------------------------------------------Ishan-------------------------------------------------------------------------------------------
+		IF @object_type = '2' AND @transaction_type IN ( 'A','U')
+
+BEGIN
+
+if EXISTS (Select t0.CardCode from OCRD T0
+
+where T0.U_Flag ='' or T0.U_Flag Is Null and T0.CardType = 'C' and T0.U_Flag=@list_of_cols_val_tab_del)
+
+begin
+
+Select @error = -1
+
+Select @error_message= 'Flag is mandatory'
+
+end
+
+
+END
+------------------------------------------------------------------Ishan------------------------------------------------------------------------------------
+/*IF @object_type = '2' AND @transaction_type IN ( 'A','U')
+
+BEGIN
+
+if EXISTS (Select t0.CardCode from OCRD T0
+
+where T0.U_Agent ='' or T0.U_Agent Is Null and T0.CardType = 'C' and T0.U_Agent=@list_of_cols_val_tab_del)
+
+begin
+
+Select @error = -1
+
+Select @error_message= 'Agent is mandatory'
+
+end
+
+
+END*/
+----------------------------------------------------------------------Ishan-----------------------------------------------------------------------------------
+	/*IF @object_type = '2' AND @transaction_type IN ( 'A','U')
+
+BEGIN
+
+if EXISTS (Select t0.CardCode from OCRD T0
+
+where T0.U_SuperAgent ='' or T0.U_SuperAgent Is Null and T0.Cardtype = 'C' and T0.U_Flag=@list_of_cols_val_tab_del)
+
+begin
+
+Select @error = -1
+
+Select @error_message= 'Super Agent mandatory'
+
+end
+
+
+END*/
+
+----------------------------------------------------------------------------------------------------------------------------
+--IF @object_type = '2' and @transaction_type IN ( 'A','U')
+--Begin
+--IF Exists (Select  T0.CardCode From OCRD T0 
+--Inner JOIN CRD1 T1 on t1.CardCode = t0.CardCode 
+--Inner JOin OCST T2 on t2.code = t1.State
+--Where T0.CardCode = @list_of_cols_val_tab_del and Cast (Left (t1.GSTRegnNo,2) as int) <> T2.GSTCode 
+--)
+--Begin 
+--set @error = 963
+--set @error_message = 'GST No is wrong'
+--end
+--end
+
+---------------------------------------------------------Ishan120723-----------------------------------------------------------------------------------
+IF @transaction_type IN (N'A') AND (@Object_type = N'SeasonFootwear')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@SEASONFOOTWEAR] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end
+-----------------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN (N'A') AND (@Object_type = N'CategoryFootwear')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@CATEGORYFOOTWEAR] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end
+------------------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN (N'A') AND (@Object_type = N'CushioningFootwear')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@CushioningFootwear] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end
+----------------------------------------------------------------------------------------------------------------------------------------
+/*IF @transaction_type IN (N'A') AND (@Object_type = N'ArticleType')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@ARTICLETYPE] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end*/
+----------------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN (N'A') AND (@Object_type = N'SUBCATEGORYFOOTWEAR')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@SUBCATEGORYFOOTWEAR] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end
+---------------------------------------------------------------------------------------------------------------------------------------	
+IF @transaction_type IN (N'A') AND (@Object_type = N'OUTSOLETYPEFOOT')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@OUTSOLETYPEFOOT] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end
+--------------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN (N'A') AND (@Object_type = N'FASTENINGFOOTWEAR')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@FASTENINGFOOTWEAR] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end
+-------------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN (N'A') AND (@Object_type = N'INSOLEFOOTWEAR')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@INSOLEFOOTWEAR] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end
+--------------------------------------------------------------------------------------------------------------------------------------
+/*IF @transaction_type IN (N'A') AND (@Object_type = N'NETCONTENTFOOTWEAR')
+Begin
+if exists (SELECT T0.Code FROM [dbo].[@NETCONTENTFOOTWEAR] T0
+where T0.Code = @list_of_cols_val_tab_del  ) 
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Please Dont Add'
+end
+end*/
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------
+IF @object_type = '112' and (@transaction_type='A')
+begin 
+IF EXISTS
+(select T0.Docentry  From ODRF T0 LEFT JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+Where T0."DocEntry"= @list_of_cols_val_tab_del 
+and  (T1.E_Mail is null) and  T0."ObjType"='22' 
+
+)
+
+   
+Begin
+               Set @error = 3
+              Set @error_message = 'email should not be blank  '
+          
+          
+End 
+End
+-------------------------------------------------------------------------------------------------------------------------------
+IF @object_type = '112' and (@transaction_type='A')
+begin 
+IF EXISTS
+
+
+
+(select T0.Docentry  From DRF1 T0 LEFT JOIN OITM T1 ON T0."ItemCode" = T1."ItemCode"
+Where T0."DocEntry"= @list_of_cols_val_tab_del 
+and  ISNULL(T0."HsnEntry",0)=0 and  T0."ObjType"='1470000113' 
+
+)
+
+   
+Begin
+               Set @error = 3
+              Set @error_message = 'HSN Code Should Not Blank'
+          
+          
+End 
+End
+
+------------------------------------------
+
+If @transaction_type in ('A') and @object_type = '112'
+begin
+IF EXISTS
+(Select T0.Docentry
+from ODRF T0 
+Inner Join DRF12 T1 on T0.DocEntry = T1.DocEntry
+where T0.DocEntry = @list_of_cols_val_tab_del and t0.ObjType='22' and (T1.LocStatCod is null or T1.LocStatcod = ''))
+
+Begin
+Set @error = 4
+Set @error_message = 'Please Enter Place of supply'
+end
+end
+-----------------------------------------------------------------------------------------------------------------------------------
+If @transaction_type in ('A') and @object_type = '112'
+begin
+IF EXISTS
+(Select T0.Docentry
+from ODRF T0 
+Inner Join DRF12 T1 on T0.DocEntry = T1.DocEntry
+where T0.DocEntry = @list_of_cols_val_tab_del and t0.ObjType='1470000113' and (T1.LocStatCod is null or T1.LocStatcod = ''))
+
+Begin
+Set @error = 4
+Set @error_message = 'Please Enter Place of supply'
+end
+end
+
+-------------------------------------------------------------------------------------------------------------------------------
+IF @object_type = 'MATRH' and (@transaction_type in ('A','U'))
+begin 
+IF EXISTS
+(select T0.Docentry  From [@MATRD] T0 --LEFT JOIN OITM T1 ON T0."ItemCode" = T1."ItemCode"
+Where T0."DocEntry"= @list_of_cols_val_tab_del and T0.U_QUAN>T0.U_INSTOK
+--and  ISNULL(T0."HsnEntry",0)=0 --and  T0."ObjType"='1470000113' 
+
+)
+
+   
+Begin
+               Set @error = 3
+              Set @error_message = 'Quantity falls into negative!'
+          
+          
+End 
+End
+
+--------------------------------------------------------------------------
+
+IF @object_type = 'MATRH' And @transaction_type in ('A','U')
+begin 
+If Exists (select t0.U_ITMNM, count (t0.U_ITMNM) from [@MATRD] t0 where t0.docentry = @list_of_cols_val_tab_del
+group by t0.U_ITMNM having count(t0.U_ITMNM) >1 )
+
+set @error = -1
+set @error_message = 'ItemCode cannot be repeated'
+
+end
+
+-----------------------
+IF @object_type = 'MATRH' And @transaction_type in ('A','U')
+begin 
+If Exists (select t0.LineId from [@MATRD] t0 where t0.docentry = @list_of_cols_val_tab_del and
+Isnull(t0.U_REMR1,0)-Isnull(T0.U_QUAN,0)<0 )
+
+set @error = -1
+set @error_message = 'Stock is not available'
+
+end
+--------------------------------
+IF @object_type = 'MATRH' And @transaction_type in ('A','U')
+begin 
+If  Exists (select t0.DocEntry from [@MATRD] t0 where t0.docentry = @list_of_cols_val_tab_del and
+t0.U_STORE<>'' and Isnull(T0.U_WHSC,'')='' )
+
+set @error = -4
+set @error_message = 'Kindly select Warehouse!'
+
+end
+-----------------------------
+
+IF @object_type = 'MATRH' And @transaction_type in ('A','U')
+begin 
+If  Exists (select t0.DocEntry from [@MATRD] t0 where t0.docentry = @list_of_cols_val_tab_del and
+t0.U_STORE<>'' and Isnull(T0.U_QUAN,0)<=0 )
+
+set @error = -9
+set @error_message = 'Kindly select Postive Value in Quantity!'
+
+enD
+
+
+
+-----------------------------------------------------------Ishan-------------------------------------------------------------------------------------
+IF @transaction_type IN ('A') and @object_type = '15' 
+BEGIN
+    DECLARE @U_GIREF NVARCHAR(100);
+    DECLARE @count INT;
+
+    SET @U_GIREF = (SELECT U_GIREF FROM ODLN WHERE DocEntry = @list_of_cols_val_tab_del and CANCELED = 'N');
+    SET @count = (SELECT COUNT(*) FROM ODLN WHERE U_GIREF = @U_GIREF AND DocEntry <> @list_of_cols_val_tab_del and CANCELED ='N');
+
+    IF @count > 0
+    BEGIN
+        SET @error = 1;
+        SET @error_message = 'Issuance already done';
+    END
+END
+
+-----------------------------------------------------------------------------------------------------------------------------------------------
+---
+If @object_type = '1470000113' AND @transaction_type IN ('A','U')
+BEGIN
+    IF EXISTS (
+	   Select A.Docentry From PRQ1 A 
+	   Left Join OITM B on B.ItemCode = A.ItemCode
+	   Where A.DocEntry = @list_of_cols_val_tab_del
+	    And A.WhsCode <> B.DfltWH
+	   )
+	   Begin 
+	   Set @error = 55
+	   Set @error_message = 'Please select IQC Warehouse'
+	   End
+	   end
+------------------------------------
+
+
+----------------------------------------------------------------------------------------------------------------------------------------
+/*IF @object_type = '1470000113' AND @transaction_type IN ('A', 'U')
+BEGIN
+    IF EXISTS (
+        SELECT A.DocEntry FROM PRQ1 A
+		Left Join OITM B on B.ItemCode = A.ItemCode
+        WHERE A.DocEntry = @list_of_cols_val_tab_del
+        AND B.OnHand > A.U_ROL
+    )
+    BEGIN
+        SET @error = -10 -- set a custom error code to block the transaction
+        SET @error_message = 'Please check Re-Order Level' -- set a custom error message
+    END
+END*/
+
+----------------------------------------------------------------------------------------------------------------------------------------
+/*If @object_type = '20' AND @transaction_type IN ('A','U')
+BEGIN
+    IF EXISTS (
+	   Select A.Docentry From PDN1 A 
+	   Left Join OITM B on B.ItemCode = A.ItemCode
+	   Where A.DocEntry = @list_of_cols_val_tab_del
+	   And B.itmsgrpcod = '102' and A.whscode not in ('IQC-FG','DWL','FST-QD')
+	   )
+	   Begin 
+	   Set @error = 55
+	   Set @error_message = 'Please select IQC Warehouse'
+	   End
+	   end*/
+/*If @object_type = '67' and @transaction_Type IN ('A','U')
+Begin
+	IF EXISTS(SELECT WTR1.DocEntry FROM WTR1 WHERE WTR1.DocEntry = @list_of_cols_val_tab_del
+	AND WTR1.FromWhsCod = 'IQC-HO' AND WTR1.WhsCode NOT in
+	('ACM-HO','AMS-HO','GS-HO','PMS-HO'))
+		BEGIN
+			SET @error = 1112
+			SET @error_message = 'Please Select General Store for this.'
+	     end
+		 end
+		 */
+
+--------------------------------------------------------------------------------------------------------
+/*If @object_type = '20' and @transaction_type in ('A','U')
+Begin
+If Exists(Select t0.DocEntry from OPDN t0
+where t0.docentry = @list_of_cols_val_tab_del and t0.U_QTYTYPE is null)
+
+begin
+Set @error = 20
+set @error_message = 'Kindly Select Quantity Type'
+end
+end*/
+
+------------------------------------------------------------------------------------------------------------------------------------------------
+/*IF @object_type = '23' And @transaction_type in ('A', 'U')
+begin 
+If Exists (select QUT1.ItemCode, count (QUT1.ItemCode) from QUT1 where QUT1.docentry = @list_of_cols_val_tab_del
+group by QUT1.itemCode having count(QUT1.ItemCode) >1 )
+
+set @error = -1
+set @error_message = 'ItemCode cannot be repeated'
+
+end*/
+------------------------------------------------------------------------------------------------------
+/*If @object_type = '23' and @transaction_type in ('A','U')
+begin
+IF EXISTS (Select t0.docentry from OQUT t0
+inner join OCRD t1 on t0.cardcode = t1.cardcode
+where t1.U_flag in ('A','B') and t0.U_SetCode is null )
+
+Begin
+Select @error = 23
+Select @error_message = 'Pick SetCode First'
+
+end
+end
+*/
+-----------------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------------
+IF (@object_type = '202' and (@transaction_type = 'A'))
+BEGIN 
+if EXISTS
+(sELECT t0.DocEntry FROM OWOR T0
+WHERE t0.usersign = 65 and  T0.PLANNEDQTY <> (SELECT SUM(PlannedQty) from WOR1 where DocEntry = t0.DocEntry) AND T0.DOCENTRY = @list_of_cols_val_tab_del	 )
+BEGIN
+SELECT @error = 202,@error_message = 'SET QUANTITY is not equal to sum of single pcs Quantity'
+
+End
+end
+----------------------------------------------------------------------------------
+IF (@object_type = '23' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+(SELECT t0.Itemcode from QUT1 t0
+Inner Join OQUT t1 on t0.docentry = t1.docentry
+where t0.docentry = @list_of_cols_val_tab_del and  t1.UserSign in ('76','33','34')  and t0.WhsCode NOT IN ('FG-HO','FG-FRN'))
+BEGIN
+SELECT @error = 23, @error_message = 'PLEASE SELECT FG-HO - FG-FRN warehouse'
+
+end
+end
+
+--------------------------------------------------------------------------------------------------
+if (@object_type = '202' and @transaction_type in ('A','U'))
+begin
+if EXISTS
+
+(sELECT * FROM OWOR T
+wHERE T.DocEntry = @list_of_cols_val_tab_del AND T.usersign <> 65  and isNULL(T.U_ChallanNo,'') <> '' AND isnull(t.U_PType,'') <> 'K')
+BEGIN
+Select @error = '20201',
+@error_message = 'PLEASE SELECT PRODUCTION TYPE'
+
+end
+end
+
+-----------------------------------------------------------------------------------
+if (@object_type = '202' and @transaction_type in ('A','U'))
+BEGIN
+
+DECLARE @locat int,@Challanno nvarchar(15),@Pono nvarchar(15),@orgno nvarchar(15),@seris nvarchar(10),@towareh nvarchar(12)
+
+Select @Challanno=T0.U_ChallanNO,@orgno=t0.OriginNum,
+@seris=ltrim(rtrim(t3.SeriesName)),@locat=t1.Location,@Pono=t0.U_POno
+from OWOR t0 (nolock)
+Inner Join OWHS t1 (nolock) on t0.warehouse = t1.whscode
+left join nnm1 t3 (nolock) on t0.Series=t3.Series and t3.ObjectCode='202'
+Where t0.DocEntry = @list_of_cols_val_tab_del 
+and t1.location = '4' and t0.ObjType='202'
+--and ISNULL(t0.U_ChallanNO,'')='' 
+--and isnull(t0.OriginNum,'')=''  
+---BEGIN
+if (@locat='4')
+begin
+ 
+	if ISNULL(@Pono,'')=''
+	begin
+		Select @error = 20208,
+		@error_message = 'Please Enter Po No.'
+	end
+
+	if ISNULL(@Challanno,'')=''
+	begin
+	Select @error = 20208,
+		@error_message = 'Please Select Challan No.'
+	end
+ 
+	if(@transaction_type='A')
+	begin
+		if substring(@seris,1,2)!='PD'
+		begin
+			Select @error = 20209,
+			@error_message = 'Please USE PD+Year series for Production Order'
+		end
+	end
+end
+
+end
+
+
+---------------------------------------------------------------------------------------------
+------if (@object_type = '202' and @transaction_type in ('A','U')) and 
+------BEGIN
+------IF NOT EXISTS 
+------(Select T0.DocEntry from OWOR t0
+------Inner Join WTQ1 l on t0.U_ChallanNO = l.DocEntry and t0.ItemCode = l.ItemCode
+------Inner Join OWHS t1 on t0.warehouse = t1.whscode
+------Where t0.DocEntry = @list_of_cols_val_tab_del and t1.location = '4'  )
+
+------BEGIN
+------Select @error = 2029,
+------@error_message = 'Please Select Item only present on Challan '
+------end
+------end
+
+
+
+---------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------
+IF (@object_type = '67' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+(SELECT t0.docentry from wtr1 t0
+inner join OWTR t1 on t0.docentry = t1.docentry
+inner join wtq1 t2 on t2.docentry = t0.BaseEntry and t2.LineNum = t0.BaseLine
+where t0.DocEntry = @list_of_cols_val_tab_del and t0.BaseType = '1250000001' and t1.UserSign = '73' and t0.Quantity <> t2.Quantity)
+BEGIN 
+SELECT @error = 67, @error_message = 'Quantity of the item is not equal to the quantity of item on advice'
+END
+END
+
+---------------------------------------------------------------------------------
+
+
+
+if (@object_type = '67' and @transaction_type in ('A','U'))
+
+
+
+begin
+DECLARE @BAse int,@flocat int,@seri nvarchar(10),@PRis float,@Gtax nvarchar(7),@tlocat int,@twareh nvarchar(12)
+
+Select @BAse = ML.BAseEntry,@twareh=ml.towhscode,@flocat = ml.Flocation,@sERI = ml.SeriesName,@pris = ml.price,@Gtax = ML.Tax_C from 
+(Select t0.DocEntry,t0.towhscode,ISNULL(t1.BaseEntry,0) as 'BaseEntry',t2.Location 'Flocation',t3.SeriesName,
+isnull(t1.U_prices,0) as price ,
+isnull(t1.U_GTAX_CODE,'') as TAX_C  from OWTR t0 (nolock)
+Inner join WTR1 t1 (nolock) on t0.DocEntry = t1.DocEntry
+Left Join OWHS t2 (nolock) on t0.filler = t2.WhsCode
+left join nnm1 t3 (nolock) on t0.Series=t3.Series and t3.ObjectCode='67'
+Where t0.DocEntry = @list_of_cols_val_tab_del ) ML
+
+select @tlocat= (select distinct t1.location from OWHS t1 (nolock) where t1.WhsCode=@twareh )
+
+IF @flocat = 5 AND @BAse = 0
+BEGIN
+Select @error = 6701,
+@error_message = 'Please USE CTRL+tab AND SELECT CHALLAN NO.'
+end
+
+if @flocat = 5 AND substring(ltrim(rtrim(@SERI)),1,2)!= 'JR'
+BEGIN
+Select @error = 6702,
+@error_message = 'Please USE JR+Year series for JobWork Receving'
+end
+if @tlocat = 5 AND substring(ltrim(rtrim(@SERI)),1,2)!='JD'
+BEGIN
+Select @error = 6703,
+@error_message = 'Please USE JD+Year series for JobWork Dispatch'
+end
+
+IF @tLocat = 5 AND @pris = 0
+BEGIN
+Select @error = 6704,
+@error_message = 'Please Enter Price Value.........'
+end
+
+IF @tLocat = 5 AND @Gtax = ''
+BEGIN
+Select @error = 6704,
+@error_message = 'Please Select Taxcode...........'
+end
+
+if @flocat = 5 AND substring(ltrim(rtrim(@SERI)),1,2)= 'JR'
+BEGIN
+    DECLARE @DIF_AMOUNT DECIMAL
+	SELECT @DIF_AMOUNT =  (select (SUM(ISNULL(Quantity,0))-(SUM(ISNULL(U_FinQty,0)))+sum(isnull(U_fininvloss,0)) )FROM WTR1 (NOLOCK) WHERE DocEntry=@list_of_cols_val_tab_del AND U_FabItemcode IS NOT NULL)
+
+	  if (@DIF_AMOUNT!=0.00)
+	  begin 
+		  Select @error = 6706,
+		  @error_message = 'Please Check Quantity difference  between Quantity and Finished Quantity, or Finished Item Quantity not entered......'
+	  end 
+end
+
+end
+/*ELSE IF EXISTS
+(Select t0.DocEntry from OWTR t0
+Inner join WTR1 t1 on t0.DocEntry = t1.DocEntry
+Left Join OWHS t2 on t0.Filler = t2.WhsCode
+Where t0.DocEntry = @list_of_cols_val_tab_del and t2.Location = '5' and t0.PIndicator  not like 'JR%')
+
+BEGIN
+Select @error = 6702,
+@error_message = 'Please USE JR+Year series for JobWork Receving'
+
+
+end
+
+ELSE IF EXISTS
+(Select t0.DocEntry from OWTR t0
+Inner join WTR1 t1 on t0.DocEntry = t1.DocEntry
+Left Join OWHS t2 on t0.Filler = t2.WhsCode
+Where t0.DocEntry = @list_of_cols_val_tab_del and t2.Location = '4' and t0.PIndicator not like 'JD%')
+
+BEGIN
+Select @error = 6703,
+@error_message = 'Please USE JD+Year series for JobWork Dispatch'
+
+
+end*/
+
+
+
+---------------------------------------------------------------------------------------------------
+
+
+--------------------------------------------Ishan 200923----------------------------------------------
+/*IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'22')
+BEGIN
+declare  @line int
+set @line=-1
+set @line=(SELECT T0.LineNum+1 FROM POR1 T0
+ WHERE T0.DocEntry =@list_of_cols_val_tab_del
+  and exists(select linenum from por1
+           where docentry=T0.DocEntry and itemcode=T0.Itemcode
+               and linenum<T0.LineNum) )
+If @line<>-1
+begin
+SET @error = 10
+SET @error_message = N'Duplicate item: line '+
+ CONVERT(nvarchar(4),@line) + '!'
+end
+END*/
+
+----------------------------------Sand-----------------------------
+/*IF (@object_type = '15' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+(Select   T1.ItemCode, T2.U_BRCD
+ FROM ODLN t0
+ iNNER JOIN DLN1 t1 on t1.DocEntry = t0.DocEntry
+ lEFT JOIN "@BRCH" T3 ON T3.U_SODOCE = T1.BaseEntry
+ lEFT JOIN "@BRCD" T2 ON T2.U_BRCD = T1.ItemCode AND T3.DocEntry = T2.DocEntry AND T3.U_SCANTP = '2'
+where t0.DocEntry = @list_of_cols_val_tab_del and T1.ItemCode <> T2.U_BRCD)
+BEGIN 
+SELECT @error = 10003, @error_message = 'Delivery Item Should be match with scaned item '
+END
+END
+
+--------------------------------------------------------------------------
+IF (@object_type = '15' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+(Select   T1.ItemCode, T2.U_BRCD
+ FROM ODLN t0
+ iNNER JOIN DLN1 t1 on t1.DocEntry = t0.DocEntry
+ lEFT JOIN "@BRCH" T3 ON T3.U_SODOCE = T1.BaseEntry
+ lEFT JOIN "@BRCD" T2 ON T2.U_BRCD = T1.ItemCode AND T3.DocEntry = T2.DocEntry AND T3.U_SCANTP = '2'
+where t0.DocEntry = @list_of_cols_val_tab_del and T1.Quantity <> T2.U_SQUANT )
+BEGIN 
+SELECT @error = 10004, @error_message = 'Delivery Quanityty not matching the scan Quantity'
+END
+END*/
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+If (@object_type = '21' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+
+(Select T0.docentry from ORPD t0
+Inner Join OUSR t1 on t0.Usersign = t1.UserID
+Where T0.docentry = @list_of_cols_val_tab_del  and T1.UserID = '65' and t0.numatcard is null)
+BEGIN
+Select @error = '21',@error_message = 'Please Mention Bill No. '
+
+END
+END
+
+------------------------------------------------------------------------------------------------------------------------------
+IF (@object_type = '21' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM ORPD t0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+-----------------------------------------------------------------
+IF (@object_type = '15' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM odln T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+
+-------------------------------------------
+
+-------------------- Check on Box Scan by Rohit Dispatch Team 16-nov-2023--------------------------------
+If (@object_type = 'BRCH' and @transaction_type = 'A')
+BEGIN  
+If ExISTS (SELECT t0.DocEnTRY,t3.ItemCode from [@BRCH] t0
+Inner join [@BRCD] t1 on t0.DocEntry = t1.DocEntry
+Inner Join ORDR t2 on t0.U_SODOCE = t2.DocEntry
+Inner Join RDR1 t3 on t3.DocEntry = t2.DocEntry and t1.U_BRCD = t3.ItemCode
+where t0.DocEntry =  @list_of_cols_val_tab_del and t0.U_SCANTP = '2' and t1.U_FORNM Like 'BXS%'
+Group by t0.DocEntry, t3.ItemCode
+Having sum(t1.U_SQUANT)>SUM(t3.Quantity)
+)
+
+BEGIN
+Select  @error = '103',@error_message = 'SET box Scan quantity is greater than Order acceptance Quantity'
+END
+END
+----------------------------------------------------------------------
+If (@object_type = 'PODH' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS (Select DocEntry from [@PODD] t0
+where Docentry = @list_of_cols_val_tab_del
+
+Group by DocEntry
+Having Count(U_SELECT) < 1)
+BEGIN
+Select  @error = '104',@error_message = 'Please Tick Atleast One Bill'
+END
+END
+
+
+------------------------------------------------------------shamsher
+IF (@object_type = '59' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM OIGN T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+---------------------------------------------
+/*IF (@object_type = '14' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM ORIN T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END*/
+-------------------------------------------------
+IF (@object_type = '16' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM ORDN T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+--------------------------------------------------------------------------------------
+
+IF (@object_type = '20' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+Begin 
+    If Exists (Select T0.DocEntry FROM OPDN T0
+       where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+	   and T0.DocDate<>T0.CreateDate and UserSign not in ('56','41')) 
+	Begin
+		Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+	END
+END
+-------------------------------------------------
+IF (@object_type = '60' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM OIGE T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type = 'A' AND @object_type = '60'
+BEGIN
+    DECLARE @U_GIREFS NVARCHAR(100);
+    DECLARE @existingCount INT;
+
+    SET @U_GIREFS = (SELECT U_GIREF FROM OIGE WHERE DocEntry = @list_of_cols_val_tab_del)
+    SET @existingCount = (SELECT COUNT(U_GIREF) FROM OIGE WHERE U_GIREF = @U_GIREFS and DocEntry <> @list_of_cols_val_tab_del)
+
+    IF @existingCount > 0
+    BEGIN
+        SET @error = 1;
+        SET @error_message = 'Issuance already done';
+    END
+END
+
+---------------------------------------------------------------------------------------------------------------------------------------
+/*IF @object_type = '60' AND @transaction_type IN ('A', 'U')
+BEGIN
+    DECLARE @U_GIT NVARCHAR(100)
+    
+    SELECT @U_GIT = U_GIT	
+    FROM OIGE
+    WHERE DocEntry = @list_of_cols_val_tab_del;
+    
+    IF @U_GIT IS NULL OR @U_GIT = ''
+    BEGIN
+        SET @error = 1
+        SET @error_message = 'Goods issue cannot be created or updated because Issue Type is empty.'
+    END
+END
+*/
+
+------------------------------------------------------------------------
+/*IF (@object_type = '19' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM ORPC T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END*/
+--------------------------------------------------------------------------------
+If (@object_type = '15' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+(Select T0.docentry from DLN1 t0
+	Left Join  OITM t1 on t0.Itemcode = T1.Itemcode
+where t0.docentry = @list_of_cols_val_tab_del and t1.ItmsGrpCod in (101,102) and Isnull(t0.TaxCode,'') ='' )
+BEGIN
+Select @error = '9917',@error_message = 'Please Select Tax Code'
+
+END
+END
+-----------------------------------
+If (@object_type = '15' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS
+(Select T0.docentry from DLN1 t0
+	Left Join  OITM t1 on t0.Itemcode = T1.Itemcode
+where t0.docentry = @list_of_cols_val_tab_del and t1.ItmsGrpCod in (101,102) and Isnull(t0.Price,0) =0 )
+BEGIN
+Select @error = '9917',@error_message = 'Please Select Price'
+
+END
+END
+
+
+
+----------------------------------------------------------------------------------------------------
+
+IF(@object_type = N'67' AND @transaction_type in (N'A',N'U'))
+
+BEGIN
+
+IF EXISTS ( 
+SELECT T0.ItemCode  
+FROM  WTR1 T0 (nolock)
+Inner Join OWHS t4 (nolock) on t0.FromWhsCod = t4.whscode
+Inner Join (select whscode 'Whscode',location from owhs (nolock) ) t6 on t0.WhsCode = t6.Whscode
+WHERE T0.BaseType!='1250000001'  
+and T0.DocEntry = @list_of_cols_val_tab_del
+and isnull(t0.BaseEntry,0)=0
+and t4.Location='4'  and t6.Location='2')
+BEGIN
+SElecT @error=102
+SElecT @error_message='Select Inventory Transfer Request Data from  --  Copy from '
+
+END
+
+IF EXISTS ( 
+SELECT T0.ItemCode  
+FROM  WTR1 T0 (nolock)
+INNER JOIN WTQ1 T1 (nolock) ON T0."BaseEntry" = T1."DocEntry" AND t0."BaseLine"=T1."LineNum" --And T1."ItemCode"=T0."ItemCode"
+INNER JOIN OWTQ T3 (nolock) ON T3.DOCENTRY=T1.DocEntry
+Inner Join OWHS t4 (nolock) on t0.FromWhsCod = t4.whscode
+Inner Join (select whscode 'Whscode',location from owhs (nolock) ) t7 on t0.WhsCode = t7.Whscode
+WHERE T0.BaseType='1250000001'  
+and T0.DocEntry = @list_of_cols_val_tab_del
+and t4.Location='4' and t7.Location='2'
+And ((T0.Quantity)>(T0.U_OpenQty+((T1.Quantity* (case when t3.U_TypeFW='Sample' then 10 when t3.U_TypeFW='Purchase' then 5 else 0 end ))/100))) )
+BEGIN
+
+SElecT @error=102
+SElecT @error_message='Quantity  is greater than the Purchase Order '
+
+END
+end
+
+
+---------------------------------------------------------------------------------------------
+
+-- Select the return values
+select @error, @error_message
+end

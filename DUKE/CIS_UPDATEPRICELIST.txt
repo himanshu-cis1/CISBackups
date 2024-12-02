@@ -1,0 +1,39 @@
+USE [DukeLiveNew]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_UpdatePriceList]    Script Date: 02-12-2024 10:10:04 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[CIS_UpdatePriceList]
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+   
+    WITH PriceList AS (
+        SELECT 
+            T0.ItemCode,
+            T1.LastPurPrc,
+            T0.Price
+        FROM ITM1 T0 (nolock)
+        INNER JOIN OITM T1 (nolock) ON T1.ItemCode = T0.ItemCode
+        WHERE 
+            T0.PriceList = 1
+            AND T0.Price <> 
+                CASE 
+                    WHEN ISNULL(T1.LastPurPrc, 0) = 0 THEN T0.Price
+                    ELSE T1.LastPurPrc
+                END
+    )
+
+    UPDATE A
+    SET A.Price = B.LastPurPrc
+    FROM ITM1 A (nolock)
+    INNER JOIN PriceList B ON A.ItemCode = B.ItemCode
+    WHERE A.PriceList = 1;
+
+   
+    PRINT 'Prices updated successfully.';
+END;

@@ -1,0 +1,34 @@
+USE [SAVI_LIVE_NEW]
+GO
+/****** Object:  StoredProcedure [dbo].[Savi_Sticker]    Script Date: 03/12/2024 2:37:28 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[Savi_Sticker]
+(
+	 @DocEntry INTEGER
+)
+AS
+BEGIN
+SELECT DISTINCT T0.AbsEntry, T2.ItemCode,
+	T1.PickQtty AS 'QTY.',
+	T2.Dscription As 'SKU' ,
+	T3.ShipToCode,T3.Address2,
+	T2.U_OuterPack,T3.NumAtCard,T5.Name,T5.ReportCode,T0.AbsEntry,T.TrnspName
+FROM 
+	OPKL T0 
+	INNER JOIN PKL1 T1 ON T0.AbsEntry = T1.AbsEntry 
+	LEFT JOIN RDR1 T2 ON T2.DocEntry = T1.OrderEntry AND T1.OrderLine = T2.LineNum --AND BaseObject = 17
+	LEFT JOIN ORDR T3 ON T2.DocEntry = T3.DocEntry and T3.ObjType = T1.BaseObject 
+	LEFT JOIN OSHP T ON T3.[TrnspCode] = T.[TrnspCode]
+    LEFT OUTER JOIN RDR12 T4 ON T4.DocEntry=T2.DocEntry
+	LEFT OUTER JOIN CRD1 T7 ON T7.Address=T3.ShipToCode AND T7.AdresType='S'
+	LEFT OUTER JOIN OCRY T5 ON T5.Code=T7.Country
+    WHERE T0.AbsEntry=@DocEntry
+ORDER BY 
+	T2.Dscription
+
+
+
+END

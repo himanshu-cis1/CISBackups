@@ -1,0 +1,68 @@
+USE [SAVI_LIVE_NEW]
+GO
+/****** Object:  StoredProcedure [dbo].[LastPurchasePriceReport]    Script Date: 03/12/2024 2:38:05 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+
+
+
+
+--Exec [LastPurchasePriceReport] 
+ALTER PROCEDURE [dbo].[LastPurchasePriceReport] 
+	-- Add the parameters for the stored procedure here
+	
+
+	AS
+BEGIN
+
+
+create table #TempCIS
+(
+ItemCode nvarchar(250) COLLATE SQL_Latin1_General_CP850_CI_AS,
+ItemName nvarchar(250) COLLATE SQL_Latin1_General_CP850_CI_AS,
+Last_Price_Current_Year numeric(19,6),
+Last_Price_Last_Year numeric(19,6),
+Last_Price_Last_Last_Year numeric(19,6)
+)
+
+
+insert into #TempCIS
+(ItemCode,ItemName)
+
+select distinct b.ItemCode,B.Dscription 
+		from OPOR a 
+		inner join POR1 b  on a.DocEntry=b.DocEntry 
+		--where b.Project=@Project and a.CANCELED='N' 
+
+
+---------------------------------------------------
+----Marketing_Proposed_pricing-------------
+
+update #TempCIS set Last_Price_Current_Year= (select   top 1 t1.price 
+from OPOR t0 inner join POR1 T1 ON T0.DocEntry=T1.DocEntry
+WHERE T1.ItemCode= #TempCIS.ItemCode and T0.CANCELED='N' and t0.PIndicator='2223'
+ORDER BY T0.DocDate desc)
+
+update #TempCIS set Last_Price_Last_Year= (select   top 1 t1.price 
+from OPOR t0 inner join POR1 T1 ON T0.DocEntry=T1.DocEntry
+WHERE T1.ItemCode= #TempCIS.ItemCode and T0.CANCELED='N' and t0.PIndicator='FY2021-22'
+ORDER BY T0.DocDate desc)
+
+update #TempCIS set Last_Price_Last_Last_Year= (select   top 1 t1.price 
+from OPOR t0 inner join POR1 T1 ON T0.DocEntry=T1.DocEntry
+WHERE T1.ItemCode= #TempCIS.ItemCode and T0.CANCELED='N' and t0.PIndicator='FY-2020 21'
+ORDER BY T0.DocDate desc)
+
+
+
+Select * from #TempCIS
+
+----------------
+drop table  #TempCIS
+--------------
+End
+

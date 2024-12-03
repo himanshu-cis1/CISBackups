@@ -1,0 +1,129 @@
+USE [SAVI_LIVE_NEW]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_EWAY_AR]    Script Date: 03/12/2024 2:34:58 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER Procedure [dbo].[CIS_EWAY_AR]
+(
+      @DocEntry INTEGER
+)
+
+-- Last Updated 26092021 0151
+
+AS
+BEGIN
+
+SELECT Distinct T0."U_Irn" AS "Irn",
+/*( CASE
+                        WHEN T0."TrnspCode" = '19' THEN  '3'
+                        WHEN T0."TrnspCode" = '20' THEN  '1'
+                  --    WHEN T0."TrnspCode" = '21' THEN  '3'
+                  --    WHEN T0."TrnspCode" = '22' THEN  '4'
+                        --WHEN T0."TrnspCode" = '23' THEN  '5'
+                        --WHEN T0."TrnspCode" = '24' THEN  '6'
+                        WHEN T0."TrnspCode" = '25' THEN  '1'
+                        --WHEN T0."TrnspCode" = '26' THEN  '8'
+                        --WHEN T0."TrnspCode" = '27' THEN  '9'
+                        --WHEN T0."TrnspCode" = '28' THEN  '10'
+                                                                                                                        
+                        ELSE ''
+                  END)*/ t0.U_Mod "TransMode",
+                  t0."U_ShiptoGST" AS  "Transid", T0.U_TransporterName as "Transname"   , T0."U_Distance" AS "Distance",T0."U_Transdocno" "Transdocno",CONVERT(VARCHAR(8), T0.U_TransDocDt, 112) "TransdocDt",T0."U_VechileNo"
+                  
+                   "Vehno",T0."U_VehType" as "Vehtype" ,
+
+                                                                 (Select A.CompnyName From OADM A) "ShipFrom_Nm"
+
+,T12."Street" AS "ShipFrom_Addr1",ISNULL(T12."Block",'Wadala Road') +',' + Cast (ISNULL(T12."Building",'')as NVarChar) AS "ShipFrom_Addr2",
+ISNULL(T12."City",'') + ', '+ISNULL((SELECT "Name" FROM OCST WHERE T12."State" = "Code" AND T12."Country" = "Country"),'') AS "ShipFrom_Loc",
+isnull(T12."ZipCode",'144003') AS "ShipFrom_Pin", LEFT(T12."GSTRegnNo",2) AS "ShipFrom_Stcd",
+
+Case When T2.ImpORExp='Y' then T6."Street" Else T0."U_ShipToAddress1" End AS "ShipTo_Addr1",
+Case When T2.ImpORExp='Y' then ISNULL(T6."Block",'')+','+Cast(ISNULL(T6."Building",'')As NvarChar) Else ISNULL(T0."U_ShiptoAddress2",'')+','+Cast(ISNULL(T6."Building",'')As NvarChar) End AS "ShipTo_Addr2",
+--T6."City",'JALANDHAR' AS "ShipTo_Loc",
+--isnull(T0."U_ShiptoCity",'') + '' +T0.U_ShipToState--isnull((SELECT "Name" FROM OCST WHERE OCST."Code" = T0."U_ShiptoState" AND "Country" = T0."U_Country"),'')
+ --"ShipTo_Loc",
+  Case When T2.ImpORExp='N' then isnull( (SELECT "Name" FROM OCST WHERE OCST."Code" = T2."StateS" AND "Country" = T2."CountryS") ,'') + '' +ISNULL(((Select x2.Name From OCRY x2 Where x2.Code = T2.CountryS)),'') Else isnull( (SELECT "Name" FROM OCST WHERE OCST."Code" = T0.U_ShipToState AND "Country" = 'In') ,'') /*+ '' +ISNULL(((Select x2.Name From OCRY x2 Where x2.Code = 'in')),'')*/ End--isnull((SELECT "Name" FROM OCST WHERE OCST."Code" = T0."U_ShiptoState" AND "Country" = T0."U_Country"),'')
+ "ShipTo_Loc",
+ --(SELECT "GSTCode" FROM OCST WHERE OCST."Code" = T0."U_ShiptoState" AND "Country" = T0."U_Country")
+ --T0.U_Country "ShipTo_Stcd",
+ Case When T2.ImpORExp='N' then LEFT(T6."GSTRegnNo",2) else (SELECT eCode FROM OCST WHERE OCST."Code" = T0."U_ShiptoState" AND "Country" = 'In')  end "ShipTo_Stcd",
+--CASE WHEN T2."ImpORExp" = 'Y' THEN '96' ELSE (SELECT "GSTCode" FROM OCST WHERE OCST."Code" = T5."State" AND "Country" = T5."Country") END "ShipTo_Stcd",
+ Case When T2.ImpORExp='N' then T6."ZipCode"  else T0."U_ZipCode" end "ShipTo_Pin",
+                                    
+--T6."ZipCode" as "ShipTo_Pin",
+ --Case When T2.ImpORExp='Y' then LEFT(T6."GSTRegnNo",2) else LEFT(T0."U_ShipToGST",2) end as "ShipTo_Stcd",
+ T12.GSTRegnNo AS "GSTIN"--'03AAACW3775F010' "GSTIN"
+ 
+ 
+--(Select A.CompnyName From OADM A)
+/*'' "ShipFrom_Nm"
+
+,--T12."Street"
+'' AS "ShipFrom_Addr1",--ISNULL(T12."Block",'') +',' + Cast (ISNULL(T12."Building",'')as NVarChar)
+ '' AS "ShipFrom_Addr2",
+--iSNULL(T12."City",'') + ', '+ISNULL((SELECT "Name" FROM OCST WHERE T12."State" = "Code" AND T12."Country" = "Country"),'')
+'' AS "ShipFrom_Loc",
+--T12."ZipCode" 
+ ''AS "ShipFrom_Pin", 
+ --LEFT(T12."GSTRegnNo",2)
+ '' AS "ShipFrom_Stcd",
+
+--T6."Street"
+'' AS "ShipTo_Addr1",
+--ISNULL(T6."Block",'')+','+Cast(ISNULL(T6."Building",'')As NvarChar) 
+''AS "ShipTo_Addr2",
+''--T6."City"
+AS "ShipTo_Loc",
+--T6."ZipCode" 
+''as "ShipTo_Pin", --LEFT(T6."GSTRegnNo",2) 
+''as "ShipTo_Stcd",T12.GSTRegnNo 
+ AS "GSTIN"*/
+,T27.[U_EwCD] "CDKey",T27.[U_EInvUsNa] "EWbUserName" ,
+T27.[U_EInvPwd] "EWbPassword",T27.[U_EWEF] "EFUserName",T27.[U_EWEFPASS] "EFPassword"
+
+
+
+FROM OINV T0
+
+      INNER JOIN INV1 T1 ON T0."DocEntry" = T1."DocEntry"
+
+      INNER JOIN INV12 T2 ON T0."DocEntry" = T2."DocEntry"
+
+      INNER JOIN OCRD T3 ON T0."CardCode" = T3."CardCode"
+
+      LEFT OUTER JOIN CRD1 T5 ON T0."CardCode"  = T5."CardCode" AND T0."PayToCode" = T5."Address" AND T5."AdresType" = 'B'
+
+      LEFT OUTER JOIN CRD1 T6 ON T0."CardCode"  = T6."CardCode" AND T0."ShipToCode" = T6."Address" AND T6."AdresType" = 'S'
+
+      --LEFT OUTER JOIN CRD1 W ON T0."U_VENDOR"  = W."CardCode" AND T0."U_EwayAddress"=W."Address"  AND W."AdresType" = 'S'
+
+      LEFT OUTER JOIN OCST T7 ON T5."State" = T7."Code" AND T5."Country" = T7."Country"
+
+      LEFT OUTER JOIN OCST T8 ON T6."State" = T8."Code" AND T6."Country" = T8."Country"
+
+      LEFT OUTER JOIN CRD1 T9 ON T0."ShipToCode" = T9."CardCode" AND T0."ShipToCode" = T9."Address" AND T9."AdresType" = 'S'
+
+      LEFT OUTER JOIN OCRD T10 ON T9."CardCode" = T10."CardCode"
+
+      LEFT OUTER JOIN OITM T11 ON T1."ItemCode" = T11."ItemCode"
+
+      INNER JOIN OLCT T12 ON T1."LocCode" = T12."Code"
+
+      LEFT OUTER JOIN RDR1 T13 ON T1."BaseEntry" = T13."DocEntry" AND T1."BaseLine" = T13."LineNum"
+
+      LEFT OUTER JOIN ORDR T14 ON T13."DocEntry" = T14."DocEntry"
+
+      LEFT OUTER JOIN OUSR T15 ON T14."UserSign" = T15."INTERNAL_K"
+
+      INNER JOIN INV26 T16 ON T0."DocEntry" = T16."DocEntry"
+
+      LEFT JOIN "@CIS_OEIC" T27 ON T1."LocCode" = T27."Code"
+
+      WHERE--- T0."Series" NOT IN (SELECT "Series" FROM NNM1 WHERE "Remark" = 'TCS'
+
+T0."DocEntry" =@DocEntry;
+End

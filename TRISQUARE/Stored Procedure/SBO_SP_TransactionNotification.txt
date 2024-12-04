@@ -1,0 +1,2772 @@
+USE [Trisquare_LIVE]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_TransactionNotification]    Script Date: 04/12/2024 4:58:58 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+ALTER proc [dbo].[SBO_SP_TransactionNotification] 
+
+@object_type nvarchar(20), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+-- 000000000800457775
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+select @error_message = N'Ok'
+declare @draft_object int
+declare @avvvvv nvarchar(255)
+declare @b nvarchar(255)
+declare @c nvarchar(255)
+declare @d nvarchar(255)
+-----------------------------------------------
+------------------Inventory Type--------------------
+IF @object_type='67' AND ( @transaction_type = 'U')     
+
+BEGIN
+If   exists
+(select t0.U_TransferType from  OWTR t0 where 
+(t0.U_TransferType='' or t0.U_TransferType IS null)
+and t0.DocEntry=@list_of_cols_val_tab_del)
+   
+Begin
+set @error =1
+set @error_message = 'Please select transfer Type'  
+End
+END	
+-------------------------------------------------------------
+--  
+IF @object_type = '2' and (@transaction_type = 'A' or @transaction_type = 'U')  
+BEGIN
+	IF (SELECT TOP 1 COUNT(*) FROM OCRD T0  
+				INNER JOIN CRD1 T1 ON T0.[CardCode] = T1.[CardCode] 
+					WHERE T0.[CardCode] = @list_of_cols_val_tab_del AND  T1.[Country] <> 'IN' AND  T0.[Currency]<> '##')>0
+				BEGIN
+					SET @error = '2020'
+					SET @error_message = 'Please select the All Currencies' 
+				END
+END
+
+
+/* amit 
+IF @object_type = '2' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+ Declare @taxIds as integer  
+ set @taxIds = (select COUNT(taxid0) from CRD7 where TaxId0 is not null and TaxId0 <> '' and CardCode = @list_of_cols_val_tab_del)  
+ if @taxIds = 0  
+ begin  
+  set @error  = 10001  
+  Set @error_message = 'PAN No should not be blank'  
+ end  
+end  
+------------------------------------------ 
+
+
+
+
+-----
+if @object_type = '2' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+ Declare @contname as integer  
+ set @contname = (select COUNT(Name) from OCPR where Name is not null and CardCode = @list_of_cols_val_tab_del)  
+ if @contname = 0  
+ begin  
+  set @error  = 10001  
+  Set @error_message = 'Contact ID should not be blank'  
+ end  
+end  
+
+
+if @object_type = '2' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+ Declare @Cellolar as integer  
+ set @Cellolar = (select COUNT(Cellolar) from OCPR where Cellolar is not null and CardCode = @list_of_cols_val_tab_del)  
+ if @Cellolar = 0  
+ begin  
+  set @error  = 10001  
+  Set @error_message = 'Contact Mobile No should not be blank'  
+ end  
+end  
+
+
+if @object_type = '2' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+ Declare @E_MailL as integer  
+ set @E_MailL = (select COUNT(E_MailL) from OCPR where E_MailL is not null and CardCode = @list_of_cols_val_tab_del)  
+ if @E_MailL = 0  
+ begin  
+  set @error  = 10001  
+  Set @error_message = 'Contact Email ID should not be blank'  
+ end  
+end  
+
+
+
+
+
+
+--------------------------------------------------------  
+-----------E_MailL  
+  
+if @object_type = '2' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+ Declare @Name as nvarchar(180)  
+ set @Name = (select COUNT(CardName) from OCRD where CardName is not null  and CardCode =@list_of_cols_val_tab_del)  
+   
+ if @Name =0  
+ begin  
+  set @error  = 10001  
+  Set @error_message = 'BP Name should not be blank'  
+ end  
+end  
+
+if @object_type = '2' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+ Declare @Adress as nvarchar(180)  
+ set @Adress = (select COUNT(Address) from OCRD where Address is not null  and CardCode =@list_of_cols_val_tab_del)  
+   
+ if @Adress =0  
+ begin  
+  set @error  = 10001  
+  Set @error_message = 'Bill to Address should not be blank'  
+ end  
+end 
+
+
+
+
+---@Industry
+if @object_type = '2' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+ Declare @Industry as nvarchar(180)  
+ set @Industry = (select COUNT(IndustryC) from OCRD where IndustryC is not null  and CardCode =@list_of_cols_val_tab_del)  
+   
+ if @Industry =0  
+ begin  
+  set @error  = 10001  
+  Set @error_message = 'Industry should not be blank'  
+ end  
+end
+
+*/   --amit  
+--GRP
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '20')
+BEGIN 
+    if Exists (select t0.DocEntry from OPDN t0 inner join PDN1 t1 on t0.DocEntry=t1.DocEntry 
+            
+             WHERE t1.WhsCode not in ('QC-EX','QC-NEX','QC-NEX2','Capital','QC-NEX3','QC-CO')
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Select the QC warehuse QC-EX,QC-NEX' 
+           END 
+           end
+
+-----Item Master lenght
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '17')
+BEGIN 
+            if Exists (SELECT T0.DocNum FROM ORDR T0 
+             WHERE (t0.U_Team  ='' OR t0.U_Team  is null) and
+              T0.DocEntry = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Please select the Team !' 
+           END 
+                     
+   
+END 
+
+
+
+----Components NOT ISSUED COMPLETELY 
+/*
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'59')
+
+
+Begin  
+  
+IF EXISTS(SELECT T1.DocEntry as 'DocEntry' FROM dbo.IGN1 T1  
+INNER JOIN WOR1 T2 ON  T1.BaseEntry=T2.DocEntry AND t1.BaseType=202 and t1.BaseLine is null
+GROUP BY T1.DocEntry
+HAVING  SUM(T2.PlannedQty) <> SUM(T2.IssuedQty)
+
+ and T1.DocEntry = @list_of_cols_val_tab_del  )  
+  
+BEGIN  
+  
+SELECT @Error = 1, @error_message = 'Components NOT ISSUED COMPLETELY  '  
+  
+END  
+end
+ */
+ --------------------------------------------------------
+ 	IF (@object_type = '60' AND @transaction_type = 'A') 
+	BEGIN  
+			IF EXISTS  (SELECT T0.DocEntry
+						FROM IGE1 (NOLOCK) T0
+						INNER JOIN WOR1 (NOLOCK) T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseType = '202'  
+						AND T0.BaseLine = T1.LineNum
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+						AND ISNULL(T1.IssuedQty, 0.00) > ISNULL(T1.PlannedQty, 0.00)   )  
+			BEGIN  
+				SET @error = 1  
+				SET @error_message = 'You can not issue more than planned !'  
+			END  
+	END 
+
+
+---------------------Recevied Quantity Not More Than Planned Quantity---
+ IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'59')
+
+
+Begin  
+  
+IF EXISTS(SELECT T1.DocEntry as 'DocEntry' FROM dbo.IGN1 T1  
+INNER JOIN OWOR T2 ON  T1.BaseEntry=T2.DocEntry AND t1.BaseType=202 AND T1.TranType='C'
+GROUP BY T1.DocEntry
+HAVING  SUM(T2.PlannedQty) < SUM(T2.CmpltQty+T2.RjctQty)
+
+ and T1.DocEntry = @list_of_cols_val_tab_del  )  
+  
+BEGIN  
+  
+SELECT @Error = 1, @error_message = 'RECEIVED QTY NOT MORE THAN PLANNED QTY  '  
+  
+END  
+end
+
+----Sales order no. on production order mandatory.Production order to be = sales order qty.----
+
+If @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U') 
+BEGIN
+Declare @type nvarchar(2)
+SET @type = (select type from OWOR a where a.DocEntry = @list_of_cols_val_tab_del )
+IF @type <> 'D'
+begin  
+Declare @itemcode1 varchar(40) 
+Declare @Salesord1 varchar(40) 
+declare @Qty float
+declare @QtyOld float
+--DECLARE @Shotage NVARCHAR(10)
+
+--set @Shotage =(select ISNULL(t0.U_ShortQty, 'N') from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @itemcode1=(select t0.ItemCode from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @Salesord1=(select t0.OriginAbs from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @Qty=(select sum(t0.PlannedQty) from OWOR t0 where t0.OriginAbs=@Salesord1 and  t0.ItemCode =@itemcode1 and 
+                t0.DocEntry=@list_of_cols_val_tab_del and t0.Status <>'C')
+set @QtyOld= ISNULL((select sum(t0.PlannedQty) from OWOR t0 where t0.OriginAbs=@Salesord1 and  t0.ItemCode =@itemcode1 and 
+                t0.DocEntry<>@list_of_cols_val_tab_del and t0.Status <>'C' ), 0)
+
+	
+		if  not Exists(select t0.docnum from ORDR t0 
+		inner join RDR1 t1 on t0.DocEntry=t1.DocEntry
+		where t0.DocEntry= @Salesord1 and t1.ItemCode = @itemcode1 and t1.Quantity >= (@Qty + @QtyOld)
+		)
+		AND EXISTS (SELECT T0.DocEntry
+					FROM OWOR T0
+					INNER JOIN OITM T2 ON T0.ItemCode = T2.ItemCode
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T2.ItmsGrpCod NOT IN (106, 107)  and isnull(t0.Type,'') not in ('D')  )
+		begin  
+			set @error  = 10001 
+			Set @error_message ='Production Order Qty is more than Sales Order Qty or Selected item is not in sales order !'  
+		end
+	  
+end
+end
+---------------------------Sales Order Mindatory------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '202')
+BEGIN
+Declare @type2 nvarchar(2)
+SET @type2 = (select type from OWOR a where a.DocEntry = @list_of_cols_val_tab_del )
+IF @type2 <> 'D'
+BEGIN 
+if Exists (Select T1.DocEntry from WOR1 T1 
+				INNER JOIN OWOR T0 ON T1.DocEntry=T0.DocEntry 
+				INNER JOIN OITM T2 ON T0.ItemCode=T2.ItemCode 
+			 Where T2.ItmsGrpCod not in(106, 107) AND (T0.U_Status <>'Without SO')
+			 AND T1.DocEntry=@list_of_cols_val_tab_del And (isnull(t0.OriginNum,'')='' ) and isnull(t0.type,'') NOt In ('D'))
+		Begin
+			 SELECT @Error = 1, @error_message = 'Please enter  Sales Order No' 
+		End
+		
+End
+END
+
+
+/*if @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+Declare @itemcode1 varchar(40) 
+Declare @Salesord1 varchar(40) 
+declare @Qty float
+declare @QtyOld float
+--DECLARE @Shotage NVARCHAR(10)
+
+--set @Shotage =(select ISNULL(t0.U_ShortQty, 'N') from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @itemcode1=(select t0.ItemCode from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @Salesord1=(select t0.OriginAbs from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @Qty=(select sum(t0.PlannedQty) from OWOR t0 where t0.OriginAbs=@Salesord1 and  t0.ItemCode =@itemcode1 and 
+                t0.DocEntry=@list_of_cols_val_tab_del and t0.Status <>'C')
+set @QtyOld= ISNULL((select sum(t0.PlannedQty) from OWOR t0 where t0.OriginAbs=@Salesord1 and  t0.ItemCode =@itemcode1 and 
+                t0.DocEntry<>@list_of_cols_val_tab_del and t0.Status <>'C' ), 0)
+
+	
+		if  not Exists(select t0.docnum from ORDR t0 
+		inner join RDR1 t1 on t0.DocEntry=t1.DocEntry
+		where t0.DocEntry= @Salesord1 and t1.ItemCode = @itemcode1 and t1.Quantity >= (@Qty + @QtyOld)
+		)
+		AND EXISTS (SELECT T0.DocEntry
+					FROM OWOR T0
+					INNER JOIN OITM T2 ON T0.ItemCode = T2.ItemCode
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T2.ItmsGrpCod NOT IN (106, 107) )-- and isnull(t0.Type,'') not in ('D')  )
+		begin  
+			set @error  = 10001 
+			Set @error_message ='Production Order Qty is more than Sales Order Qty or Selected item is not in sales order !'  
+		end
+	  
+end
+*/
+---------------Sales Guarantee/Warranty Field ---------------------
+IF @object_type = '112' and @transaction_type = N'A'
+
+BEGIN
+
+	IF EXISTS (select DocEntry from ODRF WHERE ObjType = '17' AND U_GuaranteeW is Null AND DOCENTRY = @list_of_cols_val_tab_del )
+
+	Begin
+
+	set @error = 1
+
+	set @error_message = 'You must fill in Gaurantee/Warranty field to create sales order!'
+
+	end
+	ELSE IF EXISTS (select DocEntry from ODRF 
+						WHERE ObjType = '17' AND U_SalesONo is Null AND DOCENTRY = @list_of_cols_val_tab_del )
+
+	Begin
+
+	set @error = 2
+
+	set @error_message = 'Sales Order No Should not be blank'
+
+	end
+
+
+END
+-----------------------------BOM JOB APPROVAL PENDING
+  if @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+Declare @itemcode11 varchar(40) 
+Declare @Salesord11 varchar(40) 
+declare @BomApp    numeric
+set @itemcode11=(select t0.ItemCode from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @Salesord11=(select t0.OriginNum from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+--set @Qty=(select t0.PlannedQty from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+ if  not Exists(select t0.code from OITT t0 
+where  t0.Code=@itemcode11 and t0.U_JOBAPP = 'YES')
+   
+ 
+ begin  
+     set @error  = 10001 
+  Set @error_message = 'BOM JOB APPROVAL PENDING '  
+ end  
+end
+-------------PR manadatory for PO
+/*
+if @object_type = '22' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+ Declare @docnum as nvarchar(180)  
+ declare @doctype as nvarchar(180)
+ declare @ItmsGrpCod as int
+ set @doctype = (select DocType from OPOR where DocEntry=@list_of_cols_val_tab_del)
+ set @ItmsGrpCod = ( select t2.ItmsGrpCod from POR1 t1 inner join OITM t2 
+ on t1.ItemCode=t2.ItemCode and t1.DocEntry=@list_of_cols_val_tab_del)
+ set @docnum = (select count(t0.DocNum) from OPOR t0 
+ inner join POR1 t1 on t0.DocEntry=t1.DocEntry and t1.BaseType=1470000113 
+   where T0.DocEntry = @list_of_cols_val_tab_del ) 
+   
+ if (@docnum =0 and @doctype!='S' and @ItmsGrpCod !=105 )  
+ begin  
+  set @error  = 10001  
+  Set @error_message = 'Purchase Order  based only Purchase Requset'  
+ end  
+end 
+*/
+
+--------------------------------------------
+	IF (@object_type = '13' AND @transaction_type = 'A') 
+	BEGIN
+		 IF EXISTS (SELECT T0.TransID
+				    FROM OINV T0
+					WHERE DocDate >= '20300203' AND T0.DocEntry = @list_of_cols_val_tab_del)		
+		BEGIN
+			SET @error =10000001
+			SET @error_message = 'enternal error'
+		END
+	END
+
+
+
+------==========================================================================================================
+----- BOM and Produciton Order matched. (Production Order: 42000929 Onwards)
+------==========================================================================================================
+ if @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin 
+
+Declare @itemcode13 varchar(40) 
+
+
+set @itemcode13=(select t0.ItemCode from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del )----and t0.UserSign2 not in(69))
+ 
+
+ if   Exists(select t0.DocNum from OWOR t0 inner join WOR1 t1 on t0.DocEntry=t1.DocEntry 
+inner join ITT1 t2 on t0.ItemCode=t2.Father and t2.Code=t1.ItemCode and t2.Father=@itemcode13
+ --and t1.VisOrder=t2.ChildNum
+--and  sum(t1.BaseQty) !=sum(t2.Quantity)
+group  by t0.DocEntry,t0.DocNum,t0.UserSign2
+
+having t0.DocEntry=@list_of_cols_val_tab_del  AND T0.DocEntry > 5382  and sum(t1.BaseQty) !=sum(t2.Quantity) 
+
+)
+   
+ 
+ begin  
+     set @error  = 10001 
+  Set @error_message = 'Production QTy greater than bom qty!'  
+ end  
+end
+
+
+--production item not match
+
+
+if @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+
+	Declare @itemcode12 varchar(40) 
+	set @itemcode12=(select t0.ItemCode 
+					 from OWOR t0 
+					 LEFT JOIN ORDR T1 ON T0.OriginAbs = T1.DocEntry
+					 where t0.DocEntry=@list_of_cols_val_tab_del
+					 
+					-- AND ((T0.Status <> 'L' AND ISNULL(T1.U_OrderCreateType, 'No') = 'Yes' )
+					--OR ISNULL(T1.U_OrderCreateType, 'No') <> 'Yes')
+
+					  ) --and t0.UserSign2 not in(69))
+
+
+ if  Exists (select t0.DocNum 
+			  from OWOR t0 
+			  inner join WOR1 t1 on t0.DocEntry=t1.DocEntry 
+		      and t1.itemcode not in (select Code from ITT1 where Father=@itemcode12)
+		      where t0.DocEntry=@list_of_cols_val_tab_del AND T0.DocEntry >5382)
+		      
+	OR Exists (SELECT T0.Code
+			   FROM OITT T0
+			   INNER JOIN ITT1 T1 ON T0.Code = T1.Father
+			   WHERE T0.Code = @itemcode12 AND @list_of_cols_val_tab_del > 5380
+			   AND T1.Code NOT IN (SELECT C0.ItemCode 
+								   FROM OWOR C
+								   INNER JOIN WOR1 C0 ON C.DocEntry = C0.DocEntry
+			                       WHERE C0.DocEntry = @list_of_cols_val_tab_del AND C.DocEntry >  5382 ))		      
+   
+   OR (SELECT COUNT(C1.ItemCode) 
+	    FROM OWOR C0 
+	   INNER JOIN WOR1 C1 ON C0.DocEntry = C1.DocEntry 
+	   WHERE C0.DocEntry = @list_of_cols_val_tab_del AND C0.DocEntry >  5382  )
+	  <> (SELECT COUNT(Code) FROM ITT1 WHERE Father = @itemcode12)
+	  
+ 
+ begin
+	
+	IF (SELECT COUNT(C0.DocEntry) FROM OWOR C0 WHERE C0.DocEntry = @list_of_cols_val_tab_del AND C0.DocEntry > 5382) > 0 
+	
+	BEGIN  
+     set @error  = 10002
+	 Set @error_message = 'Production Item and BOM Item are not Match !' 
+	END	  
+ end  
+end
+
+
+----==========================================================================================================
+
+
+
+
+----PR mandotry filed 
+/*
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '1470000113')
+BEGIN 
+            if Exists (SELECT T1.DocEntry FROM OPRQ T0  inner join PRQ1 t1 on t0.DocEntry=t1.DocEntry
+            inner join OITM t2 on t1.ItemCode=t2.ItemCode
+             WHERE (t1.U_SONo is  null or t1.U_SONo = '')
+                and T0.DocEntry = @list_of_cols_val_tab_del and t2.ItmsGrpCod !=105 )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'SO Number should not
+    be Blank ' 
+           END 
+           end
+           */
+------------------Putchase order Update---------------------
+--IF @object_type = '22' AND @transaction_type = 'U'
+--BEGIN
+--IF EXISTS (SELECT T0.DocEntry FROM OPOR T0 WHERE T0.UserSign2 in (1,27) and T0.DocEntry= @list_of_cols_val_tab_del)
+--BEGIN
+--SELECT @error = -500,
+--@error_message = N'You do not have permission to Update purchase order.'
+--END
+--END
+-------------------------
+/*
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '1470000113')
+BEGIN 
+            if Exists (SELECT T1.DocEntry FROM OPRQ T0  inner join PRQ1 t1 on t0.DocEntry=t1.DocEntry
+            
+            inner join OITM t2 on t1.ItemCode=t2.ItemCode
+             WHERE (t1.U_FGName is  null or t1.U_FGName = '')
+                and T0.DocEntry = @list_of_cols_val_tab_del and t2.ItmsGrpCod !=105 )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'SO Item should not be Blank ' 
+           END 
+           end
+*/
+----
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '1470000113')
+BEGIN 
+            if Exists (SELECT T1.DocEntry FROM OPRQ T0  inner join PRQ1 t1 on t0.DocEntry=t1.DocEntry
+            inner join OITM t2 on t1.ItemCode=t2.ItemCode
+             WHERE (t1.U_Production_No is  null or t1.U_Production_No = '')
+                and T0.DocEntry = @list_of_cols_val_tab_del and t2.ItmsGrpCod != 105)
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Production Order should not be Blank ' 
+           END 
+           end
+     
+----Receipt From Prodution 
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '59')
+BEGIN 
+            if Exists (select t0.DocEntry from oign t0 inner join IGN1 t1 on t0.DocEntry=t1.DocEntry 
+            inner join OITM t2 on t1.ItemCode=t2.ItemCode
+            
+             WHERE t1.WhsCode not in ('QC-FG-EX','QC FG-NE','QC-FGEX2','QC-FGEX3') and t1.BaseType=202
+                and T0.DocEntry = @list_of_cols_val_tab_del and t2.ItmsGrpCod =103 )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Select the QC warehuse QC-FG-EX,QC FG-NE,QC-FGEX3,QC-FGEX2' 
+           END 
+           end
+----- 
+ --receipt from Production for Shortage Item
+ 
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'59')
+
+BEGIN
+
+Declare @entry int
+
+declare @receveqty float
+declare @userdata nvarchar(20)
+
+declare @receveqty1 float
+declare @receveqty4 float
+declare @receveqty5 float
+declare @receveqty6 float
+declare @itemcode15 varchar(40) 
+declare @receveqty7 float
+declare @ReType as nvarchar(180)
+set @ReType = (select distinct BaseType from IGN1 where  BaseType=202 --and BaseLine is  null 
+and DocEntry =@list_of_cols_val_tab_del)
+set @entry= (select distinct t0.BaseEntry from IGN1 t0 inner join OIGN t1 on t0.DocEntry=t1.DocEntry  
+where t0.DocEntry=@list_of_cols_val_tab_del and t0.BaseType=202 and t1.UserSign not in(81) 
+
+--and t0.BaseLine is  null
+ )
+set @itemcode15=(select distinct t0.ItemCode from IGN1 t0 where BaseType=202 and t0.DocEntry=@list_of_cols_val_tab_del and t0.BaseLine is  null)
+set @receveqty =(select sum(IssuedQty) from WOR1 where DocEntry= @entry  )
+set @receveqty4 =(select sum(BaseQty) from WOR1 where DocEntry= @entry  )
+--set @receveqty6 =(select Quantity from IGN1 where DocEntry= @list_of_cols_val_tab_del  and ItemCode= @itemcode15)
+set @receveqty5=(select isnull(CmpltQty,0.00) from OWOR where DocEntry= @entry and ItemCode= @itemcode15 )
+set @receveqty7=((--isnull(@receveqty6,0.00)+
+isnull(@receveqty5,0.00))*isnull(@receveqty4,0.00))
+if ( (@receveqty7 > @receveqty) and @ReType !=-1) --and @receveqty7 !=@receveqty)
+
+BEGIN
+
+SELECT @Error = 5, @error_message = 'Receipt from Production are not allow for Shortage Item !'
+
+END
+
+END
+-----Production Close
+/*
+---------------------------
+	IF (@object_type = '59' AND @transaction_type = 'A') 
+	BEGIN  
+			IF EXISTS (Select top 1 T1.Status From OWOR T1 
+			inner join WOR1 T2 On T1.DocEntry=T2.DocEntry
+				  Where T1.DocEntry in (select T3.BaseEntry from IGN1 T3 where T3.DocEntry =@list_of_cols_val_tab_del and T3.TranType is not null)
+				  and ISNULL(T2.PlannedQty,0.00) <> ISNULL(T2.IssuedQty,0.00))
+			Begin
+			
+			select @error =11, @error_message = 'Please check, Issue from production not yet done!'
+			
+			END  
+	END
+--------------------
+*/
+/*
+IF @object_type='202' AND (@transaction_type = 'A' or @transaction_type = 'U')   
+  
+Begin  
+  
+IF EXISTS(SELECT T1.DocEntry as 'DocEntry' FROM dbo.[Owor] T1    
+WHERE T1.DocEntry not in(Select BaseEntry from ign1 where BaseType='202' ) 
+and T1.DocEntry = @list_of_cols_val_tab_del and status ='L ')  
+  
+BEGIN  
+  
+SELECT @Error = 1, @error_message = 'Reciepts from Production not completed as per Production Plan Qty'  
+  
+END  
+end 
+*/
+-----Last Purchase Price BOM
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '66')
+BEGIN 
+            if Exists (SELECT T0.Code FROM OITT T0  
+            
+             WHERE (t0.PriceList !=-1)
+                and T0.Code = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Select Last Purchase Price' 
+           END 
+           end
+---Prodcution
+
+
+-------GST Number mandatroy on Sales Order---------
+--IF @transaction_type IN ( 'A','U') AND (@Object_type = '17')
+--BEGIN 
+--            if Exists (SELECT T0.DocEntry FROM oDPI T0   inner join DPI12 t1 on t0.DocEntry=t1.DocEntry
+-- ``````````````           
+--             WHERE (t1.BpGSTN is  null or T1.BpGSTN = '')
+--                and T0.DocEntry = @list_of_cols_val_tab_del )
+-- BEGIN 
+--   SELECT @Error = 1, 
+--   @error_message = 'BP GSTIN shuold be define with Ship To Address ' 
+--           END 
+--           end
+           
+------For Vendor
+--IF @transaction_type IN ( 'A','U') AND (@Object_type = '22')
+--BEGIN 
+--            if Exists (SELECT T0.DocEntry FROM opor T0   inner join por12 t1 on t0.DocEntry=t1.DocEntry
+            
+--             WHERE (t1.BpGSTN is  null or T1.BpGSTN = '')
+--                and T0.DocEntry = @list_of_cols_val_tab_del )
+-- BEGIN 
+--   SELECT @Error = 1, 
+--   @error_message = 'BP GSTIN shuold be define with Ship To Address ' 
+--           END 
+--           end
+
+---
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+BEGIN 
+            if  Exists ( select t0.ItemCode from OITM t0
+            
+                where len(t0.ItemCode)<>20 and T0.ItemCode = @list_of_cols_val_tab_del and t0.ItmsGrpCod not in (103,107))
+ BEGIN 
+   SELECT @Error = 1,
+ @error_message = 'item code should be 20 Char.' 
+ END 
+           end 
+           
+ 
+ 
+-- IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+--BEGIN 
+--            if  Exists ( select t0.ItemCode from OITM t0
+            
+--                where len(t0.ItemCode)<>15 and T0.ItemCode = @list_of_cols_val_tab_del and t0.ItmsGrpCod =103)
+-- BEGIN 
+--   SELECT @Error = 1,
+-- @error_message = 'item code should be 15 Char.' 
+--           END 
+--           end
+
+---------------------------Sales Order Mindatory------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '202')
+BEGIN 
+if Exists (Select T1.DocEntry from WOR1 T1 
+				INNER JOIN OWOR T0 ON T1.DocEntry=T0.DocEntry 
+				INNER JOIN OITM T2 ON T0.ItemCode=T2.ItemCode 
+			 Where T2.ItmsGrpCod not in(106, 107) AND (T0.U_Status <>'Without SO')
+			 AND T1.DocEntry=@list_of_cols_val_tab_del And (isnull(t0.OriginNum,'')='' ))-- and isnull(t0.type,'') NOt In ('D'))
+		Begin
+			 SELECT @Error = 1, @error_message = 'Please enter  Sales Order No' 
+		End
+		
+End  
+------------------------
+	--------------------------GRPO Raise First-----------
+	If @object_type='18' and @transaction_type='A'
+BEGIN 
+--If Exists (Select * from [dbo].[OPCH] T0 Inner Join PCH1 T1 On T0.DocEntry=T1.DocEntry
+--Where T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null and T0.DocType='I' )
+If Exists (Select T0.DocEntry from [dbo].[OPCH] T0 
+			Inner Join PCH1 T1 On T0.DocEntry=T1.DocEntry
+			Inner Join OITM T2 On T2.ItemCode=T1.ItemCode
+			Where T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null and T0.DocType='I' 
+			AND ISNULL(T2.InvntItem, 'N') <> 'N')
+BEGIN
+Select @error = -1,
+@error_message = 'Please Raise GRN First'
+End
+End	
+---------------------------COmment By Rakesh Shukla Problem in Gate Entry 16/10/2022-
+	/*IF @object_type = '20' AND @transaction_type = 'A'  
+	BEGIN   
+		IF EXISTS (SELECT * 
+				   FROM [dbo].[OPDN] (NOLOCK) T0 
+				   INNER JOIN PDN1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry  
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null)  
+		BEGIN  
+				Select @error = -1, @error_message = 'Must Raise PO First'  
+		End  
+	end */
+-------------------------
+IF (@object_type = '15' AND @transaction_type IN ( 'A','U'))
+BEGIN
+If   exists
+(select t1.WhsCode from  ODLN t0 
+INNER JOIN DLN1 T1 ON T0.DocEntry=t1.DocEntry
+where 
+t1.WhsCode NOT IN ('FG-EX','FG-NEX','RM-EX','RM-NEX','SC-EX' ,'RJ-EX','ShortSup')
+and t0.DocEntry=@list_of_cols_val_tab_del)
+   
+Begin
+set @error =1
+set @error_message = 'Select Finish GOod Warehouse For Delivery'  
+End
+END
+
+---------------------------------
+--IF @transaction_type IN ('A') AND (@Object_type = '20')
+--BEGIN
+--IF EXISTS (SELECT Count (*)FROM dbo.OPDN T0
+--INNER JOIN dbo.PDN1 T1 ON T1.DOCENTRY = T0.DocEntry
+--INNER JOIN dbo.POR1 T2 ON T2.DOCENTRY = T1.BaseEntry AND T1.ItemCode = T2.ItemCode AND T1.BaseLine = T2.LineNum
+--WHERE T1.BaseType = '22' AND T0.DOCENTRY = @list_of_cols_val_tab_del
+--GROUP BY T1.BaseEntry
+--HAVING SUM(T1.Quantity) > SUM(T2.OpenQty))
+--Begin
+--SELECT @Error = 10, @error_message = 'GRPO quantity is greater than PO quantity'
+--End
+--END
+/*------------------------COmment By Rakesh Shukla Issue on Gate Entry 16/11/2022-----------
+IF @Object_type = N'20' and @transaction_type = N'A'
+BEGIN
+ declare  @line int
+SELECT @line = (LineNum + 1)
+ From PDN1
+ Where PDN1.DocEntry = @list_of_cols_val_tab_del
+   and (Quantity > BaseOpnQty)
+ Order by LineNum
+If (not ISNULL(@line, 0) = 0)
+begin
+  Set @error = 10
+  Set @error_message = N'Line quantity' + CONVERT(nvarchar(4), @line) + N' is more then ordered !'
+end
+END
+*/
+--------------------------
+	
+	/*IF (@object_type = '15' AND @transaction_type IN ('A'))
+	BEGIN
+	
+	DECLARE @BaseDocument VARCHAR(100)
+	
+	IF EXISTS (SELECT * 
+			   FROM ODLN (NOLOCK) T0 
+			   INNER JOIN DLN1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry  
+			   INNER JOIN NNM1 (NOLOCK) T2 ON T0.Series = T2.Series AND T2.ObjectCode = T0.ObjType
+			   WHERE T0.DocEntry = @list_of_cols_val_tab_del
+			   and T1.BaseType <> CASE WHEN T2.SeriesName LIKE '%RET%' THEN '23' ELSE '17' END )  
+
+	--IF EXISTS(SELECT DLN1.DocEntry FROM DLN1 WHERE ISNULL(DLN1.BaseType, '') <> '')
+		BEGIN
+		
+			SELECT @BaseDocument = CASE WHEN T2.SeriesName LIKE '%RET%' THEN 'Approval Note' ELSE 'Sales Order' END
+			FROM ODLN (NOLOCK) T0 
+			INNER JOIN NNM1 (NOLOCK) T2 ON T0.Series = T2.Series AND T2.ObjectCode = T0.ObjType
+			WHERE T0.DocEntry = @list_of_cols_val_tab_del
+		
+			SET @error = 112
+			SET @error_message = 'Delivery document must be based on ' + @BaseDocument + '.' 
+		END
+	END*/
+	IF (@object_type = '15' AND @transaction_type IN ('A','U'))
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM ODLN T0 
+		Inner Join DLN1 T1 On T1.DocEntry=T0.DocEntry 
+		Where T0.DocEntry = @list_of_cols_val_tab_del And T1.BaseType not in ('17','23') AND T0.U_ProductionNo Is Null  or t1.U_Production_No = ''  ))
+		BEGIN
+					SET @error = 0107
+					SET @error_message = 'Production Order Should be Mandatory' 
+				END
+				END
+---------------------------------------------------------
+IF (@object_type = '15' AND @transaction_type IN ('A','U'))
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM ODLN T0 
+		Inner Join DLN1 T1 On T1.DocEntry=T0.DocEntry 
+		Where T0.DocEntry = @list_of_cols_val_tab_del And T1.BaseType not in ('17','23') and T0.U_IssueToPDNo Is  Null or T0.U_IssueToPDNo=''  ))
+		BEGIN
+					SET @error = 0107
+					SET @error_message = 'Issue for Production Should be Mandatory' 
+				END
+				END
+
+
+
+--------------------------------------------------------------------
+IF (@object_type = '15' AND @transaction_type IN ('A','U'))
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM ODLN T0 
+		Inner Join DLN1 T1 On T1.DocEntry=T0.DocEntry 
+		Where T0.DocEntry = @list_of_cols_val_tab_del And T1.BaseType not in ('17','23')  AND T0.U_FGCode Is Null or T0.U_FGCode =''   ))
+		BEGIN
+					SET @error = 0107
+					SET @error_message = 'FG Code Should be Mandatory' 
+				END
+				END
+-------------------------------------
+
+IF (@object_type = '15' AND @transaction_type IN ('A','U'))
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM ODLN T0 
+		Inner Join DLN1 T1 On T1.DocEntry=T0.DocEntry 
+		Where T0.DocEntry = @list_of_cols_val_tab_del And T1.BaseType not in ('17','23') AND T0.U_SONo Is Null or T0.U_SONo=''  ))
+		BEGIN
+					SET @error = 0107
+					SET @error_message = 'Sales Order Should be Mandatory' 
+				END
+				END
+
+------------------------------------------------------------------
+IF (@object_type = '15' AND @transaction_type IN ('A','U'))
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM ODLN T0 
+		Inner Join DLN1 T1 On T1.DocEntry=T0.DocEntry 
+		Where T0.DocEntry = @list_of_cols_val_tab_del And T1.BaseType not in ('17','23') AND T1.whscode <> 'ShortSup' ))
+		BEGIN
+					SET @error = 0107
+					SET @error_message = 'Please Select Short Supply Warehouse' 
+				END
+				END
+
+--------------------------------------
+IF (@object_type = '15' AND @transaction_type IN ('A','U'))
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM ODLN T0 
+		Inner Join DLN1 T1 On T1.DocEntry=T0.DocEntry 
+		Where T0.DocEntry = @list_of_cols_val_tab_del And T1.BaseType not in ('17','23') AND T0.U_ChallanType ='Shortage' ))
+		BEGIN
+					SET @error = 0107
+					SET @error_message = 'Please Select Challan Type '
+				END
+				END
+				
+---------------------------------------------------------------
+IF @object_type = '23' AND @transaction_type IN ('A','U')
+BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM OQUT T0 
+				WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.U_AppType,'') = ''))
+				BEGIN
+					SET @error = 1515
+					SET @error_message = 'Please Select Approval Note Type' 
+				END
+				
+		ELSE IF(EXISTS(SELECT T0.DocEntry FROM OQUT T0 
+				WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+						AND ISNULL(T0.U_AppType,'') = 'Short Supply' AND ISNULL(T0.U_SONo,'') = ''))
+				BEGIN
+					SET @error = 1515
+					SET @error_message = 'Sales Order No should not be blank' 
+				END 
+		ELSE IF(EXISTS(SELECT T0.DocEntry FROM OQUT T0 
+				WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+						AND ISNULL(T0.U_AppType,'') = 'Short Supply' AND ISNULL(T0.U_PRDNo,'') = ''))
+				BEGIN
+					SET @error = 1515
+					SET @error_message = 'Production Order No should not be blank' 
+				END  		 
+		  
+END 
+-------------------------------------------------------------
+		   IF (@object_type = '17' AND @transaction_type in ('A','U'))  
+BEGIN 
+If  (select COUNT(a.DocEntry)
+    from DLN1 a 
+    inner join DPI1 b on a.BaseEntry = b.DocEntry and a.BaseLine=b.LineNum
+    where a.DocEntry =  @list_of_cols_val_tab_del
+    AND (b.Quantity) <	 a.Quantity
+				
+	)>0
+Begin  
+SET @Error =31  
+SET @Error_message = 'Quantity is greater then Sales Order quantity'  
+END
+END
+----------------------------------------------------
+--IF @object_type = '22' AND @transaction_type in ('A','U')
+
+--BEGIN
+
+--IF exists (SELECT T0.DocEntry from POR1 T0
+-- LEFT OUTER JOIN OITM T1 On T1.ItemCode=T0.ItemCode
+-- where T0.Price<>T1.LastPurPrc And T1.LastPurPrc >0 And T0.DocEntry=@list_of_cols_val_tab_del )
+
+--BEGIN
+
+--SELECT @Error = 22
+
+--SELECT @error_message = 'Purchase Order Unit Price Should be eual to the Last Purchase Price'
+
+--END
+
+--END
+----======================================================================================================================
+-- IF @object_type = '13' AND @transaction_type In ('A')
+--	BEGIN
+--		IF(EXISTS(SELECT T0.DocEntry FROM INV1 T0 
+--			WHERE T0.DocEntry =@list_of_cols_val_tab_del AND ISNULL(T0.BaseRef,'') = ''  )) 
+--				BEGIN
+--					SET @error = 1003
+--					SET @error_message = 'Invoice must be based on Sales Order or Delivery challan' 
+--				END 
+--		ELSE IF(EXISTS(SELECT T0.DocEntry FROM INV1 T0 
+---						INNER JOIN DLN1 T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseLine = T1.LineNum	
+--						INNER JOIN RDR1 T2 ON T1.BaseEntry = T2.DocEntry AND T1.BaseLine = T2.LineNum
+--						WHERE T0.DocEntry =@list_of_cols_val_tab_del AND ISNULL(T0.Price,0) <> ISNULL(T2.Price,0) )) 
+--				BEGIN
+--					SET @error = 1003
+--					SET @error_message = 'Invoice item price must same as sales order item price' 
+--				END 
+		
+--		ELSE IF(EXISTS(SELECT T2.DocEntry FROM INV1 T0 
+--						INNER JOIN DLN1 T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseLine = T1.LineNum	
+--						INNER JOIN RDR1 T2 ON T1.BaseEntry = T2.DocEntry AND T1.BaseLine = T2.LineNum
+--						INNER JOIN ORDR T3 ON T2.DocENtry = T3.DocEntry
+--						WHERE T0.DocEntry =@list_of_cols_val_tab_del AND ISNULL(T3.U_PIBlock,'Y') = 'Y') )
+--				BEGIN
+--					SET @error = 1003
+--					SET @error_message = 'Sales order is blocked, please release first' 
+--				END
+--		 	END
+IF @object_type = '15' AND @transaction_type In ('A','U')
+	BEGIN 
+		IF(EXISTS(SELECT T0.DocEntry FROM DLN1 T0 
+			WHERE T0.DocEntry =@list_of_cols_val_tab_del AND T0.Quantity > T0.BaseOpnQty)) 
+				BEGIN 
+					SET @error = 1003
+					SET @error_message = 'Delivery Qty should not be greater than So Open Qty' 
+				END 
+				
+		ELSE IF(EXISTS(SELECT T0.DocEntry FROM DLN1 T0 
+						INNER JOIN QUT1 T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseLine = T1.LineNum
+						INNER JOIN OQUT T2 ON T1.DocEntry = T2.DocEntry
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T2.U_QuotStatus,'')= 'Blocked'
+						AND T2.DocDate > '20200920'))
+				BEGIN
+					SET @error = 444545;
+					SET @error_message = 'Please unblock the Sale Quatation first' ;
+				END
+				
+	END
+	
+IF @object_type = '23' AND @transaction_type IN ('U')
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM OQUT T0 
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+					AND ISNULL(T0.U_QuotStatus,'')= 'Unblocked'
+					AND T0.UserSign2 <> 16 AND T0.DocDate = '20200920')) 
+				
+				BEGIN
+					SET @error = 1003;
+					SET @error_message = 'You can not Unblock the sales Quatation ' ;
+				END
+		END
+	
+--IF @object_type = '4' AND @transaction_type IN ('A','U')
+--BEGIN
+--	IF(EXISTS(SELECT T0.ItemCode FROM OITM T0 
+--				WHERE T0.ItemCode = @list_of_cols_val_tab_del 
+--						AND T0.ItmsGrpCod = 103 and T0.ManSerNum = 'N' )) 
+				
+--				BEGIN
+--					SET @error = 1003;
+--					SET @error_message = 'FG Item must be SERIAL manage' ;
+--				END
+--	ELSE 	IF(EXISTS(SELECT T0.ItemCode FROM OITM T0 
+--				WHERE T0.ItemCode = @list_of_cols_val_tab_del 
+--						AND T0.ItmsGrpCod = 103 and T0.ManSerNum = 'Y' AND ISNULL(T0.WarrntTmpl,'')='' )) 
+				
+--				BEGIN
+--					SET @error = 1004;
+--					SET @error_message = 'Warranty Template should not blank of serial manage items' ;
+--				END 
+ 
+--END
+--================================================================================================================
+ 
+-------------------Project Notification--------------------
+
+---Purchase Request
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '1470000113')
+
+BEGIN
+
+  if Exists (SELECT T0.DocEntry FROM PRQ1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+ 
+
+---Purchase Order
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '22')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM POR1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---Purchase Quotation
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '540000006')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM PQT1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---Goods Receipt PO
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '20')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM PDN1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---A/P Invoice
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '18')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM PCH1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---Goods Return Request
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '234000032')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM PRR1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---Goods Return
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '21')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RPD1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+ 
+
+---A/P Down Payment Invoice
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '204')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM DPO1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---A/P Down Payment Invoice
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '204')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM DPO1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---A/P Credit Memo
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '19')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RPC1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---Landed Costs
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '69')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM IPF1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---Sales Quotation
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '23')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM QUT1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---Sales Order
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '17')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RDR1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+           
+
+
+---Delivery
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '15')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM DLN1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---Return Request
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '234000031')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RRR1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---Return
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '16')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RDN1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---A/R Down Payment Invoice
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '203')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM DPI1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---A/R Invoice
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '13')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM INV1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---A/R Credit Memo
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '14')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM RIN1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---Incoming Payments
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '24')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM ORCT T0  WHERE (t0.PrjCode is  null or T0.PrjCode = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+---Outgoing Payments
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '46')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM OVPM T0  WHERE (t0.PrjCode is  null or T0.PrjCode = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+ 
+
+---Goods Receipt
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '59')
+
+BEGIN
+
+ if  Exists (SELECT T0.DocEntry FROM IGN1 T0  
+ WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           
+
+---Goods Issue
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '60')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM IGE1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ end
+
+---Inventory Transfer Request
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '1250000001')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM WTQ1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---Inventory Transfer
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '67')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM WTR1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+
+---Production Order
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '202')
+
+BEGIN
+
+ if Exists (SELECT T0.DocEntry FROM OWOR T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+----BoM 
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '66')
+
+BEGIN
+
+ if Exists (SELECT T0.Code FROM OITT T0  WHERE (t0.project is  null or T0.project = ' ') and T0.Code = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end           
+
+---JE Entry
+
+ 
+
+ 
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '30')
+
+BEGIN
+
+ if Exists (SELECT T0.Project FROM OJDT T0 WHERE (t0.Project is  null or T0.Project = ' ')and T0.TransId = @list_of_cols_val_tab_del  and t0.TransType=30)
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+-----------------------------Base Documents--------------------------
+iF (@object_type = '22' AND @transaction_type IN ('A','U'))
+
+ 
+
+BEGIN
+
+              IF EXISTS (SELECT *  FROM OPOR (NOLOCK) T0
+
+                     INNER JOIN POR1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry 
+
+                    WHERE T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null) 
+                    IF EXISTS(SELECT POR1.DocEntry FROM POR1 WHERE ISNULL(POR1.BaseType, '') <> '')
+                    BEGIN
+                                           SET @error = 112
+
+                                           SET @error_message = 'PO should based on the PR !'
+
+                             END
+
+                             END           
+ --=========================================================GRPO
+ /*iF (@object_type = '20' AND @transaction_type IN ('A','U'))
+
+ 
+
+BEGIN
+
+              IF EXISTS (SELECT *  FROM OPDN (NOLOCK) T0
+
+                     INNER JOIN PDN1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry 
+
+                    WHERE T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null) 
+                    IF EXISTS(SELECT PDN1.DocEntry FROM PDN1 WHERE ISNULL(PDN1.BaseType, '') <> '')
+                    BEGIN
+                                           SET @error = 112
+
+                                           SET @error_message = 'GRPO should based on the PO !'
+
+                             END
+
+                             END   */
+--===================================================================AP Invoice
+--   IF (@object_type = '18' AND @transaction_type IN ('A','U'))
+
+--BEGIN
+
+--              IF EXISTS (SELECT *  FROM OPCH (NOLOCK) T0
+
+--                     INNER JOIN PCH1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry 
+
+--                    WHERE T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null) 
+--                    IF EXISTS(SELECT PCH1.DocEntry FROM PCH1 WHERE ISNULL(PCH1.BaseType, '') <> '')
+--                    BEGIN
+--                                           SET @error = 112
+
+--                                           SET @error_message = 'AP should based on the GRPO !'
+
+--                             END
+
+--                             END 
+---------------------Sandeep--------------------------
+If @object_type = '18' and @transaction_type in ('A','U')
+Begin
+IF Exists (Select t0.DocEntry
+From OPCH t0 
+Inner join PCH1 t1 on t1.DocEntry = t0.DocEntry
+Inner join OITM t2 on t2.ItemCode =  t1.ItemCode
+Where t0.DocEntry = @list_of_cols_val_tab_del and t1.BaseType not in ( '20','540000006') and t0.GSTTranTyp In ('GA','--') and t2.ItmsGrpCod Not In ('105') and t0.CANCELED = 'N')
+Begin
+Set @error = 30
+Set @error_message = 'AP should be based on the GRPO !'
+end 
+end
+--------------------Sandeep------------------------------
+/*If @object_type = '18' and @transaction_type in ('A','U')
+Begin
+IF Exists (Select t0.DocEntry
+From OPCH t0 
+Inner join PCH1 t1 on t1.DocEntry = t0.DocEntry
+Inner join OITM t2 on t2.ItemCode =  t1.ItemCode
+Where t0.DocEntry = @list_of_cols_val_tab_del and t1.BaseType <> '22' and t0.GSTTranTyp In ('GA','--') and t2.ItmsGrpCod  In ('105'))
+Begin
+Set @error = 30
+Set @error_message = 'AP should be based on the PO Beacuse Your Item is Service type!'
+end 
+end*/
+---====================================================================GRPO Quantity Less than Equal to PO
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'20')
+begin 
+     if exists (SELECT T0.BaseEntry
+      FROM [dbo].[PDN1] T0 INNER JOIN [dbo].[POR1] T1 ON T1.DOCENTRY = T0.BASEENTRY
+     WHERE T0.BaseType = 22 AND T0.ItemCode = T1.ItemCode AND T0.BaseLine = T1.LineNum and T0.DOCENTRY =  @list_of_cols_val_tab_del
+     GROUP BY T0.BaseEntry
+	 HAVING SUM(T0.Quantity)> SUM(T1.Quantity))
+     begin
+          select @Error = 106, @error_message = 'GRPO Quantity  Should not greater than PO Quantity'
+     end
+end
+                                                                         
+--===================================================PoPrice equal price=============================================================
+/* amit
+If @object_type='20' and @transaction_type='A'
+
+BEGIN
+
+If Exists (Select T0.DocEntry from [dbo].[OPDN] T0
+
+Inner Join PDN1 T1 On T0.DocEntry=T1.DocEntry
+
+Inner Join POR1 T2 ON T2.DocEntry = T1.BaseEntry and T1.BaseLine = T2.LineNum
+
+Inner Join OPOR T3 ON T3.DocEntry = T2.DocEntry
+
+Where T0.DocEntry = @list_of_cols_val_tab_del and T1.Price > T2.Price)
+
+BEGIN
+
+Select @error = -1,
+
+@error_message = 'You can not Add GRPO as GRPO Price must be same as PO Price'
+
+End
+
+End
+amit
+*/
+-------------------------------------------
+------------------------Draft PO------------------------------------------------------------------------ 
+
+			if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where  (t1.Project is  null or T1.Project = ' ')
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'Project/ Sales Order No should not be blank !'  
+    end
+end
+
+
+			if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where  
+     T0.[DocEntry] =cast(@list_of_cols_val_tab_del as int) and T1.BaseEntry is null and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'Purchase Order Should be Based on the Purchase Request !'  
+    end
+end
+
+
+			if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where  
+     T0.[DocEntry] =cast(@list_of_cols_val_tab_del as int) and Isnull(T1.unitMsr,0)='' and T0.ObjType = @draft_object)
+    begin
+     set @error = 10001
+     set @error_message = 'UOM is not Blank'  
+    end
+end
+
+
+		if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where   T0.DocDate>T0.DocDueDate
+    AND
+     T0.[DocEntry] =cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'PO Delivery Date should be greater tnan or equal to posting date !'  
+    end
+end
+
+
+		if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where   T0.DocDate>T1.ShipDate
+    AND
+     T0.[DocEntry] =cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'PO Delivery Date should be greater tnan or equal to posting date !'  
+    end
+end
+
+		if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where   (t1.U_Production_No is  null or t1.U_Production_No = '') 
+    AND
+     T0.[DocEntry] =cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'Production Order Should not be Blank!! !'  
+    end
+end
+-------------------------SO Draft-----------------------
+
+			if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 17 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where  (t1.Project is  null or T1.Project = ' ')
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'Project should not be blank !'  
+    end
+end
+
+-------------------DraftPurchase_REquest----------------------
+
+		if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 1470000113 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where  (t1.Project is  null or T1.Project = ' ') and t0.OriginType<>'R'
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'Project should not be blank !'  
+    end
+end
+
+
+		if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 1470000113 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where  (t1.U_Production_No is  null or t1.U_Production_No = '') and  t0.OriginType<>'R'
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'Production Order should not be Blank '  
+    end
+end
+
+
+/*
+		if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 1470000113 -- Draft PO
+   if  exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where  (t1.U_SONo is  null or t1.U_SONo = '') and  t0.OriginType<>'R'
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'SO Number should not be Blank ' 
+    end
+end
+*/
+------------BOM App---------------------
+
+IF @transaction_type IN ( 'A') AND (@Object_type = '66')
+BEGIN 
+            if   Exists (SELECT T0.Code FROM OITT T0  
+            
+             WHERE t0.U_JOBAPP='Yes' and t0.UserSign not in (1,81,66,60)
+                and T0.Code = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'You are not authorized to approved the Job' 
+           END 
+           end
+           
+ IF @transaction_type IN ( 'U') AND (@Object_type = '66')
+BEGIN 
+            if   Exists (SELECT T0.Code FROM OITT T0  
+            
+             WHERE t0.U_JOBAPP='Yes' and  t0.UserSign2 not in (1,81,66,60)
+                and T0.Code = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'You are not authorized to approved the Job' 
+           END 
+           end
+----------------------PO QTY-------------------
+ IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'22')  
+	BEGIN   
+		IF EXISTS (SELECT T0.BaseEntry,T0.Quantity
+					FROM [dbo].[POR1] (NOLOCK) T0 
+					INNER JOIN [dbo].[PRQ1] (NOLOCK) T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseLine = T1.LineNum  
+					INNER JOIN [dbo].OPOR (NOLOCK) T2 ON T0.DocEntry = T2.DocEntry  
+					--inner join [dbo].OITM (NOLOCK) T3 ON T1.ItemCode=T3.ITEMCODE
+					
+					WHERE T0.DOCENTRY = @list_of_cols_val_tab_del and t2.UserSign2 not in (62) 
+					 
+					 	     
+					
+					GROUP BY T0.BaseEntry  ,t0.Quantity,t0.BaseOpnQty,t1.Quantity
+					HAVING (T0.Quantity) > (T1.Quantity) --+(((T1.Quantity) *isnull(0,0.00))/100))
+					
+					 or (T0.Quantity) > ((T0.BaseOpnQty) + (((T0.BaseOpnQty) *isnull(0,0.00))/100)))  
+		BEGIN  
+				SELECT @error = 10, @error_message = 'Purchase Order quantity is not greater than the PR Quantity'  
+		END  
+	END       
+	
+---------------------------------------------------
+---------------Service Mandatory-------------------
+If @object_type = '1470000113' and @transaction_type in ('A', 'U')
+
+BEGIN
+
+If Exists (Select T0.DocEntry from OPRQ T0 
+Inner Join  PRQ1 T1 on T0.DocEntry = T1.DocEntry
+Where ISNULL(T0.U_Service, '')= ''and T0.UserSign in (1,10) And T0.DocEntry = @list_of_cols_val_tab_del )
+
+Begin 
+
+Select @error = -1,
+@error_message = 'ERROR: Service Should not be blank'
+
+END
+
+END
+----------------------------------------------------
+-------------------PR HSN Mandatory-----------------
+IF @object_type = '112' and @transaction_type in ('A', 'U')
+
+BEGIN
+
+If Exists (Select T0.DocEntry from ODRF T0 
+Inner Join DRF1 T1 on T0.DocEntry = T1.DocEntry
+Inner Join OITM T2 on T1.ItemCode = T2.ItemCode
+Inner JOIn OITB T3 on T2.ItmsGrpCod = T3.ItmsGrpCod
+Where isnull(T1.HsnEntry ,'')= '' And T3.ItemClass = '2' And T1.ObjType = '1470000113' And T0.DocEntry =@list_of_cols_val_tab_del ) 
+
+BEGIN
+
+Select @error = -1, 
+@error_message = 'ERROR: HSN Should not be blank'
+
+END
+
+END
+----------------------------------------------------
+-----------------AP Invoice Twice Vendor------------
+iF (@object_type = '18' AND @transaction_type IN ('A','U'))
+BEGIN
+DECLARE @VendorRefNo1 AS VarChar (20)
+DECLARE @BPCode AS VarChar (20)
+DECLARE @PIndicator AS nvarchar (20)
+
+SELECT @VendorRefNo1 = NumAtCard 
+FROM dbo.OPCH
+ WHERE DocEntry = @list_of_cols_val_tab_del
+SELECT @BPCode = CardCode FROM dbo.OPCH
+ WHERE DocEntry = @list_of_cols_val_tab_del
+
+ SELECT @PIndicator = PIndicator FROM dbo.OPCH
+ WHERE DocEntry = @list_of_cols_val_tab_del
+
+IF 1 ! = (SELECT COUNT(DocEntry)
+FROM OPCH WITH(NOLOCK) WHERE NumAtCard = @VendorRefNo1 and
+CardCode= @BPCode and PIndicator= @PIndicator and CANCELED <> 'Y'
+ ) AND (@VendorRefNo1 IS NOT NULL OR @VendorRefNo1 <> '' )
+
+BEGIN
+SELECT @ERROR = 1
+SELECT @ERROR_MESSAGE = 'Vendor Ref Already Exist'
+END
+end 
+
+
+------- gateentry ------
+
+ -------------------------------------------------------------GAte Entry
+ IF @transaction_type IN ('A') AND (@Object_type = '20')
+BEGIN 
+    -- Update T1 with base entry and base line from subquery
+    UPDATE T1 
+    SET T1.BaseEntry = T2.DocEntry ,
+        T1.BaseLine = T2.LineNum,t1.BaseType=22,t1.BaseRef=t2.DocNum
+    FROM OPDN T0
+    INNER JOIN PDN1 T1 ON T1.DocEntry = T0.DocEntry
+    LEFT JOIN (
+        SELECT A.DocEntry, A.LineNum, B.DocNum, A.ItemCode, A.Quantity,
+               SUM(ISNULL(C.Quantity, 0)) AS 'GRPO',
+               ISNULL(A.Quantity, 0) - SUM(ISNULL(C.Quantity, 0)) AS 'Remaining'
+        FROM POR1 A
+        INNER JOIN OPOR B ON A.DocEntry = B.DocEntry
+        LEFT JOIN PDN1 C ON A.DocEntry = C.BaseEntry 
+                        AND C.BaseLine = A.LineNum 
+                        AND A.ItemCode = C.ItemCode
+        GROUP BY A.DocEntry, A.LineNum, B.DocNum, A.ItemCode, A.Quantity
+    ) T2 ON T2.DocEntry = T1.U_GIENTRY 
+        AND T2.LineNum = T1.U_GILINE 
+        AND T2.ItemCode = T1.ItemCode
+    WHERE t0.CANCELED='N' and T0.U_GINUM <> '' and t0.DocEntry=@list_of_cols_val_tab_del  ;
+
+    -- Update T3 with remaining quantities and line status
+    UPDATE T3 
+    SET T3.OpenInvQty = CASE WHEN (T2.Remaining ) < 0 THEN 0 ELSE (T2.Remaining ) END,
+        T3.OpenCreQty = CASE WHEN (T2.Remaining ) < 0 THEN 0 ELSE (T2.Remaining ) END,
+        T3.OpenQty = CASE WHEN (T2.Remaining ) < 0 THEN 0 ELSE (T2.Remaining ) END,
+        T3.LineStatus = CASE WHEN (T2.Remaining ) <= 0 THEN 'C' ELSE 'O' END,t3.TrgetEntry=t0.DocEntry,t3.TargetType=20
+    FROM OPDN T0
+    INNER JOIN PDN1 T1 ON T1.DocEntry = T0.DocEntry
+    INNER JOIN POR1 T3 ON T3.DocEntry = T1.U_GIENTRY 
+                      AND T3.LineNum = T1.U_GILINE 
+                      AND T3.ItemCode = T1.ItemCode
+    LEFT JOIN (
+        SELECT A.DocEntry, A.LineNum, B.DocNum, A.ItemCode, A.Quantity,
+               SUM(ISNULL(C.Quantity, 0)) AS 'GRPO',
+               ISNULL(A.Quantity, 0) - SUM(ISNULL(C.Quantity, 0)) AS 'Remaining'
+        FROM POR1 A
+        INNER JOIN OPOR B ON A.DocEntry = B.DocEntry
+        LEFT JOIN PDN1 C ON A.DocEntry = C.BaseEntry 
+                        AND C.BaseLine = A.LineNum 
+                        AND A.ItemCode = C.ItemCode
+        GROUP BY A.DocEntry, A.LineNum, B.DocNum, A.ItemCode, A.Quantity
+    ) T2 ON T2.DocEntry = T1.U_GIENTRY 
+        AND T2.LineNum = T1.U_GILINE 
+        AND T2.ItemCode = T1.ItemCode
+    WHERE t0.CANCELED='N' and T0.U_GINUM <> '' and t0.DocEntry=@list_of_cols_val_tab_del ;
+	-------------
+	UPDATE t4
+    SET t4.DocStatus= 'C',t4.InvntSttus='C'
+    FROM OPDN T0
+    INNER JOIN PDN1 T1 ON T1.DocEntry = T0.DocEntry
+    INNER JOIN POR1 T3 ON T3.DocEntry = T1.U_GIENTRY 
+                      AND T3.LineNum = T1.U_GILINE 
+                      AND T3.ItemCode = T1.ItemCode
+   Inner Join OPOR T4 On T4.DocEntry=T3.DocEntry
+   WHERE t0.CANCELED='N' and T0.U_GINUM <> '' 
+   and (Select SUM(ISNULL(a.OpenCreQty, 0)) From POR1 A Where a.DocEntry=t3.DocEntry)=0 
+   and t0.DocEntry=@list_of_cols_val_tab_del ;
+  
+END
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------Production Order Close And dt.17.04.23 Approved By Jha Sir----------------------------------
+--IF @object_type='202' AND (  @transaction_type = 'U')    
+--BEGIN
+--SELECT @avvvvv = SUM(PlannedQty)  FROM OWOR Where DocEntry = @list_of_cols_val_tab_del
+--Select @b = SUM(CmpltQty) FROM OWOR  Where DocEntry = @list_of_cols_val_tab_del
+--Select @c = SUM(IssuedQty) From Wor1 Where DocEntry=@list_of_cols_val_tab_del
+--Select @d = SUM(PlannedQty) From WOR1 Where DocEntry=@list_of_cols_val_tab_del
+-- If (@C=@D) and (@avvvvv =@b)
+
+-- Begin
+
+-- update OWOR set status='L' Where DocEntry = @list_of_cols_val_tab_del
+-- End
+-- END
+
+ -------------------------------------------------------
+--IF @object_type='202' AND (  @transaction_type = 'U')
+--BEGIN
+--Select @c = SUM(IssuedQty) From Wor1 Where DocEntry=@list_of_cols_val_tab_del
+--Select @d = SUM(PlannedQty) From WOR1 Where DocEntry=@list_of_cols_val_tab_del
+
+-- If (@C!= @D)
+-- Begin
+-- update OWOR set status='R' Where DocEntry = @list_of_cols_val_tab_del
+-- End
+
+-- END
+ --------------------Ishan 270722--------------------------
+ /*If @Transaction_Type IN ('A', 'U') And (@Object_type = '60')
+Begin
+If Exists (Select T0.DocEntry From OIGE T0
+Inner Join IGE1 T1 on T0.DocEntry = T1.DocEntry
+Where T0.U_ChallanType = 'Shortage' And T1.BaseType='202' And T0.UserSign2 != '1'  and T0.DocEntry = @list_of_cols_val_tab_del)
+Begin
+Select @Error = 1,
+@Error_Message = 'You Are Not Authorised to approved 1'
+End
+End
+-----------------------------------------------------------------------
+If @Transaction_Type IN ('A', 'U') And (@Object_type = '60')
+Begin
+If Exists (Select T0.DocEntry From OIGE T0
+Inner Join IGE1 T1 on T0.DocEntry = T1.DocEntry
+Where   T0.UserSign2 != '18'  And T0.U_ChallanType = 'Shortage' --and T0.U_App2<>'Y'
+and T0.DocEntry = @list_of_cols_val_tab_del)
+Begin
+Select @Error = 1,
+@Error_Message = 'You Are Not Authorised to approved2'
+End
+End
+-----------------------------------------------------------------------
+If @Transaction_Type IN ('A', 'U') And (@Object_type = '60')
+Begin
+If Exists (Select T0.DocEntry From OIGE T0
+Inner Join IGE1 T1 on T0.DocEntry = T1.DocEntry
+Where T0.U_ChallanType = 'Shortage' And T0.UserSign2 != '13'  and T0.DocEntry = @list_of_cols_val_tab_del)
+Begin
+Select @Error = 1,
+@Error_Message = 'You Are Not Authorised to approved3'
+End
+End
+
+*/
+/*
+If @Transaction_Type IN ( 'U') And (@Object_type = '60')
+Begin
+If not Exists (Select T0.DocEntry From OIGE T0
+Inner Join IGE1 T1 on T0.DocEntry = T1.DocEntry
+Where T0.UserSign2 in( '1') And T0.U_App1='Y' and T0.U_App2='N' and T0.U_App3='N' and T0.DocEntry = @list_of_cols_val_tab_del)
+Begin
+Select @Error = 1,
+@Error_Message = 'You Are Not Authorised to approved1'
+End
+End
+If @Transaction_Type IN ( 'U') And (@Object_type = '60')
+Begin
+If  Exists (Select T0.DocEntry From OIGE T0
+Inner Join IGE1 T1 on T0.DocEntry = T1.DocEntry
+Where T0.U_ChallanType = 'Shortage' And T0.UserSign2 in( '42') And T0.U_App1='N' and T0.U_App2='Y' and T0.U_App3='N' and T0.DocEntry = @list_of_cols_val_tab_del)
+Begin
+Select @Error = 2,
+@Error_Message = 'You Are Not Authorised to approved2'
+End
+End
+
+ */
+
+
+ -- GATE Entry Addons Process
+
+ 
+
+
+
+
+ -- END
+ --------------------------Sandeep--------------------------
+/*IF @transaction_type IN ('A', 'U') AND (@Object_type = '24')
+BEGIN 
+            if Exists (SELECT T0.DocEntry 
+			FROM ORCT T0 
+            WHERE T0.DocEntry = @list_of_cols_val_tab_del and Isnull(t0.PayNoDoc,'') = 'Y'  and t0.DocType Not In ('A'))
+ BEGIN 
+   SELECT @Error = 13, @error_message = 'You can not add payment on Account' 
+           
+END                      
+END*/
+---------------------------Sandeep------------------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '46')
+BEGIN 
+            if Exists (SELECT T0.DocEntry 
+			FROM OVPM T0 
+             WHERE T0.DocEntry = @list_of_cols_val_tab_del and Isnull(t0.PayNoDoc,'') = 'Y' and t0.DocType Not In ('A') )
+ BEGIN 
+   SELECT @Error = 14, @error_message = 'You can not add payment on account' 
+           
+END                      
+END
+------------------------Sandeep------------------------------
+IF @transaction_type IN ( 'A') AND (@Object_type = '22')
+
+BEGIN 
+
+  UPDATE T0 set t0.DocStatus = 'C'
+	
+from OPOR T0 
+Inner Join POR1 T1 On t1.DocEntry=T0.DocEntry
+Left Join(
+Select Sum(t1.Quantity) 'PurQty', Sum(t2.Quantity) 'GrQty',t1.DocEntry,t0.DocDate
+
+from OPOR T0 
+Inner Join POR1 T1 On t1.DocEntry=T0.DocEntry
+Left Join PDN1 T2 On T1.DocEntry = t2.BaseEntry and T1.LineNum = t2.BaseLine 
+Where t0.DocEntry = @list_of_cols_val_tab_del
+Group by t1.DocEntry,T0.DocDate)a on a.DocEntry = t0.DocEntry
+
+Where Isnull(a.PurQty,0) <> Isnull(a.GrQty,0) and 
+ t0.DocStatus = 'O' and DATEDIFF(DAY, T0.DocDate, GETDATE()) > 90 and t0.DocEntry = @list_of_cols_val_tab_del;
+END 
+-------------------------------------------------------
+IF @transaction_type IN ( 'A') AND (@Object_type = '59')
+BEGIN 
+    UPDATE T0 set T0.Status='L' from OWOR t0 inner Join IGN1 T1 On T1.BaseEntry=T0.DocEntry where t0.PlannedQty<=t0.CmpltQty and T0.PostDate>='20230401' and t1.DocEntry=@list_of_cols_val_tab_del;
+ 
+           END 
+--------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '202')
+BEGIN 
+    UPDATE T0 set T0.U_PL=T0.PlannedQty from OWOR t0  where t0.Status='P' and t0.DocEntry=@list_of_cols_val_tab_del;
+	UPDATE T0 set T0.U_PL=T0.PlannedQty from WOR1 t0 Inner Join OWOR t1 on T1.DocEntry=T0.DocEntry  where t1.Status='P' and t0.DocEntry=@list_of_cols_val_tab_del;
+	UPDATE T0 set T0.U_Status=T1.Status from WOR1 t0 Inner Join OWOR t1 on T1.DocEntry=T0.DocEntry where t0.DocEntry=@list_of_cols_val_tab_del;
+           END 
+		   --------------------------
+		/*  IF @transaction_type IN ( 'A','U') AND (@Object_type = '59')
+BEGIN 
+    UPDATE T2 set T2.U_Shortage='02',t2.U_ShortageQty=Isnull(T2.PlannedQty,0)-Isnull(T2.IssuedQty,0) from IGN1 T0 
+Inner Join OWOR T1 On t1.ItemCode=T0.ItemCode and T1.DocEntry=T0.BaseEntry
+Inner Join wor1 T2 On t2.DocEntry=t1.DocEntry
+Where T2.PlannedQty<>T2.IssuedQty and t0.DocEntry=@list_of_cols_val_tab_del;
+           END */
+
+------------------------------------------
+ /* IF @transaction_type IN ( 'A') AND (@Object_type = '15')
+BEGIN 
+    UPDATE T2 set t2.U_Rem=(Select sum(B.Quantity) From ODLN A Inner Join DLN1 B On B.Docentry=A.DocEntry Where A.U_Prod=T0.U_Prod and b.U_Line=T1.U_Line and T1.ItemCode=B.ItemCode) from ODLN T0 
+	Inner Join Dln1 T1 On t1.DocEntry=T0.DocEntry
+--Inner Join OWOR T1 On t1.ItemCode=T0.ItemCode and T1.DocEntry=T0.BaseEntry
+Inner Join wor1 T2 On t2.DocEntry=t0.U_Prod and t2.LineNum=t1.U_Line and T2.ItemCode=t1.ItemCode
+Where T2.PlannedQty<>T2.IssuedQty and T2.U_Shortage='02' and t0.DocEntry=@list_of_cols_val_tab_del;
+           END */
+------------------
+/*IF @transaction_type IN ( 'A','U') AND (@Object_type = '202')
+BEGIN 
+    if Exists (select t0.DocEntry from OWOR t0 --inner join PDN1 t1 on t0.DocEntry=t1.DocEntry 
+             WHERE T0.Status='R' and T0.PostDate>='20240826' and T0.PlannedQty<>T0.U_PL
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'After Relaeased Fg Planned Qty Not Changed' 
+           END 
+           end*/
+-------------------------------------------------------------------
+/*IF @transaction_type IN ( 'A','U') AND (@Object_type = '202')
+BEGIN 
+    if Exists (select t1.DocEntry from wor1 t1
+	Inner Join owor T2 On T2.DocEntry=T1.DocEntry
+             WHERE T1.U_Status='R' and T2.PostDate>='20240826' and T1.U_PL<>T1.PlannedQty
+                and T1.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'After Relaeased Child Planned Qty Not Changed' 
+           END 
+end*/
+-------------------------
+
+  If @Transaction_Type IN ('A', 'U') And (@Object_type = '59')
+Begin
+If Exists (Select T0.DocEntry From IGN1 T0
+inner Join OWOR T1 on t1.DocEntry=t0.BaseEntry and t1.ItemCode=T0.ItemCode
+
+Where T0.BaseType='202' and T1.PlannedQty<>t1.CmpltQty and t1.PostDate>='20230401' and T0.DocEntry = @list_of_cols_val_tab_del)
+Begin
+Select @Error = 1,
+@Error_Message ='Partially Not Receipt'
+End
+End
+----------
+  /*IF @transaction_type IN ( 'A','U') AND (@Object_type = '23')
+BEGIN 
+    if Exists (select t1.DocEntry from OQUT t1
+	
+             WHERE t1.U_CT='01' and isnull(t1.U_Prod,'')=''
+                and T1.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'Select Production Order No In Case Of Non-Returnable Challan' 
+           END End
+--------------------------------------------------
+   IF @transaction_type IN ( 'A','U') AND (@Object_type = '23')
+BEGIN 
+    if Exists (select t1.DocEntry from OQUT t1
+	
+             WHERE isnull(t1.U_CT,'')=''
+                and T1.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'Select Type of Approval Note' 
+           END End
+
+----------------------------------------------------------------------------
+   IF @transaction_type IN ( 'A','U') AND (@Object_type = '23')
+BEGIN 
+    if Exists (select t1.DocEntry from OQUT t1
+
+	
+             WHERE  t1.U_CT='01' and T1.CardCode<>(Select A.CardCode From OWOR A Where A.DocEntry=isnull(t1.U_Prod,''))
+                and T1.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'Select Correct Production Order Or Customer Code' 
+           END End
+---------------------------------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '23')
+BEGIN
+    -- Check if there is an item in OQUT that does not match the shortage condition
+    IF EXISTS (
+        SELECT T1.DocEntry
+        FROM OQUT T0
+        INNER JOIN QUT1 T1 ON T1.DocEntry = T0.DocEntry
+        WHERE T0.U_CT = '01'
+        AND T0.DocDate >= '20240826'
+        AND T1.ItemCode <> ISNULL((
+            SELECT MAX(B.ItemCode)
+            FROM OWOR (NOLOCK) A
+            INNER JOIN WOR1 (NOLOCK) B ON A.DocEntry = B.DocEntry
+            WHERE B.PlannedQty <> B.IssuedQty
+            AND T0.U_Prod = A.DocEntry
+            GROUP BY B.DocEntry, B.ItemCode  -- Group by DocEntry and ItemCode
+            HAVING ISNULL(SUM(B.PlannedQty) - SUM(B.IssuedQty), 0)
+                    - ISNULL((
+                        SELECT SUM(BB.Quantity)
+                        FROM ODLN AA
+                        INNER JOIN DLN1 BB ON BB.DocEntry = AA.DocEntry
+                        WHERE AA.U_Prod = B.DocEntry
+                        AND BB.ItemCode = B.ItemCode
+                        AND AA.CANCELED = 'N'
+                    ), 0) <> 0
+            AND T1.ItemCode = B.ItemCode
+        ), '')
+        AND T0.DocEntry = @list_of_cols_val_tab_del
+    )
+    BEGIN
+        SELECT @Error = 1, @error_message = 'Select Correct Shortage Item';
+    END
+END
+
+ /* IF @transaction_type IN ( 'A','U') AND (@Object_type = '23')
+BEGIN
+    if Exists (
+Select  T1.DocEntry from OQUT t0
+Inner Join Qut1 t1 on t1.DocEntry=T0.DocEntry
+Where  t0.U_CT='01' and t0.DocDate>='20240826' and T1.ItemCode<>Isnull((Select Max( b.ItemCode) from OWOR (nolock)A
+inner Join WOR1(Nolock) b on a.DocEntry= b.DocEntry
+Where   b.PlannedQty<>b.IssuedQty and T0.U_Prod=a.dOCeNTRY AND
+(isnull((Isnull(b.PlannedQty,0)-isnull(b.IssuedQty,0)),0)-isnull((Select sum(bb.Quantity) From ODLN aa
+inner Join DLN1 bb on bb.Docentry=aa.DocEntry Where aa.U_Prod=b.DocEntry  and bb.ItemCode=b.ItemCode and aa.CANCELED='N'),0) )<>0    and T1.ItemCode=b.ItemCode),'')
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN
+   SELECT @Error = 1, @error_message = 'Select Correct Shortage Item'
+           END End*/
+----------------------------------------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '23')
+BEGIN
+    -- Declare a table variable to store intermediate results
+    DECLARE @ShortageTable TABLE (
+        DocEntry INT,
+        ItemCode NVARCHAR(50),
+        PlannedQty DECIMAL(18, 2),
+        IssuedQty DECIMAL(18, 2),
+        DeliveredQty DECIMAL(18, 2),
+        ShortageQty DECIMAL(18, 2)
+    );
+
+    -- Insert into the table variable with separated calculations
+    INSERT INTO @ShortageTable (DocEntry, ItemCode, PlannedQty, IssuedQty, DeliveredQty, ShortageQty)
+    /*SELECT
+        b.DocEntry,
+        b.ItemCode,
+        SUM(b.PlannedQty) AS PlannedQty,
+        SUM(b.IssuedQty) AS IssuedQty,
+        ISNULL(DeliveredQty.DeliveredQty, 0) AS DeliveredQty,
+        ISNULL(SUM(b.PlannedQty - isnull(b.IssuedQty ,0)), 0)- Isnull(DeliveredQty.DeliveredQty,0) AS ShortageQty
+    FROM OWOR (NOLOCK) a
+    INNER JOIN WOR1 (NOLOCK) b ON a.DocEntry = b.DocEntry
+    LEFT JOIN (
+        -- Subquery for DeliveredQty
+        SELECT aa.U_Prod, bb.ItemCode, SUM(bb.Quantity) AS DeliveredQty
+        FROM ODLN aa
+        INNER JOIN DLN1 bb ON bb.Docentry = aa.DocEntry
+        WHERE aa.CANCELED = 'N'
+        GROUP BY aa.U_Prod, bb.ItemCode
+    ) AS DeliveredQty ON DeliveredQty.U_Prod = b.DocEntry AND DeliveredQty.ItemCode = b.ItemCode
+      --Inner Join OQUT tt on tt.U_Prod=a.DocEntry
+    WHERE b.PlannedQty <> b.IssuedQty   AND A.DocEntry=(Select tt.U_Prod From OQUT tt Where tt.DocEntry = @list_of_cols_val_tab_del )
+    GROUP BY b.DocEntry, b.ItemCode, DeliveredQty.DeliveredQty;*/
+       SELECT
+        b.DocEntry,
+        b.ItemCode,
+        SUM(b.PlannedQty) AS PlannedQty,
+        SUM(b.IssuedQty) AS IssuedQty,
+        ISNULL(DeliveredQty.DeliveredQty, 0) AS DeliveredQty,
+        ISNULL(SUM(b.PlannedQty - isnull(b.IssuedQty,0) ), 0)-( ISNULL(DeliveredQty.DeliveredQty, 0)) AS ShortageQty
+    FROM OWOR (NOLOCK) a
+    INNER JOIN WOR1 (NOLOCK) b ON a.DocEntry = b.DocEntry
+    LEFT JOIN (
+        -- Subquery for DeliveredQty
+        SELECT aa.U_Prod, bb.ItemCode, SUM(bb.Quantity) AS DeliveredQty
+        FROM ODLN aa
+        INNER JOIN DLN1 bb ON bb.Docentry = aa.DocEntry
+        WHERE aa.CANCELED = 'N'
+        GROUP BY aa.U_Prod, bb.ItemCode
+    ) AS DeliveredQty ON DeliveredQty.U_Prod = b.DocEntry AND DeliveredQty.ItemCode = b.ItemCode
+      --Inner Join OQUT tt on tt.U_Prod=a.DocEntry
+    WHERE b.PlannedQty <> b.IssuedQty   AND a.DocEntry =9093 --(Select tt.U_Prod From OQUT tt Where tt.DocEntry = @list_of_cols_val_tab_del )--'9093'--@list_of_cols_val_tab_del
+    GROUP BY b.DocEntry, b.ItemCode, DeliveredQty.DeliveredQty;
+    -- Now use the table variable in the IF EXISTS condition
+    IF EXISTS (
+        SELECT T1.DocEntry
+        FROM OQUT T0
+        INNER JOIN QUT1 T1 ON T1.DocEntry = T0.DocEntry
+        INNER JOIN @ShortageTable st ON T1.ItemCode = st.ItemCode
+        WHERE T0.U_CT = '01'
+        AND T0.DocDate >= '20240826'
+            --and T1.ItemCode<>st.ItemCode
+        AND T1.Quantity > st.ShortageQty
+        AND T0.DocEntry = @list_of_cols_val_tab_del
+    )
+    BEGIN
+        SELECT @Error = 1, @error_message = 'Select Correct Shortage Item Quantity is Exceed';
+    END
+END*/
+
+----------------------Item Repeat
+/*IF @object_type = '23' AND @transaction_type in ('A','U')
+BEGIN
+    -- Check if there are repeated ItemCodes for the specific document
+    IF  EXISTS (
+        SELECT QUT1.ItemCode
+        FROM QUT1
+		Inner Join OITM On QUT1.ItemCode=OITM.ItemCode
+        WHERE oitm.InvntItem='Y' and QUT1.DocEntry = @list_of_cols_val_tab_del
+        GROUP BY QUT1.ItemCode
+        HAVING COUNT(QUT1.ItemCode) > 1
+    )
+    BEGIN
+        -- Set error if ItemCode is repeated
+        SET @error = 259;
+        SET @error_message = 'ItemCode cannot be repeated';
+    END
+END*/
+
+  /*IF @transaction_type IN ( 'A','U') AND (@Object_type = '23')
+BEGIN 
+    if Exists (
+Select  T1.DocEntry from OQUT t0
+Inner Join Qut1 t1 on t1.DocEntry=T0.DocEntry
+Where  t0.U_CT='01' and t0.DocDate>='20240826' and T1.ItemCode<>Isnull((Select  b.ItemCode from OWOR (nolock)A 
+inner Join WOR1(Nolock) b on a.DocEntry= b.DocEntry
+Where   b.PlannedQty<>b.IssuedQty and T0.U_Prod=a.dOCeNTRY AND
+(isnull((Isnull(b.PlannedQty,0)-isnull(b.IssuedQty,0)),0)-isnull((Select sum(bb.Quantity) From ODLN aa 
+inner Join DLN1 bb on bb.Docentry=aa.DocEntry Where aa.U_Prod=b.DocEntry and bb.U_Line=b.LineNum and bb.ItemCode=b.ItemCode and aa.CANCELED='N'),0) )<>0    and T1.ItemCode=b.ItemCode),'')
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'Select Correct Shortage Item' 
+           END End
+----------------------------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '23')
+BEGIN 
+    if Exists (
+Select  T1.DocEntry from OQUT t0
+Inner Join Qut1 t1 on t1.DocEntry=T0.DocEntry
+Where  t0.U_CT='01'and t0.DocDate>='20240826' and  T1.Quantity>Isnull((Select isnull((Isnull(b.PlannedQty,0)-isnull(b.IssuedQty,0)),0)-isnull((Select sum(bb.Quantity) From ODLN aa 
+inner Join DLN1 bb on bb.Docentry=aa.DocEntry Where aa.U_Prod=b.DocEntry and bb.U_Line=b.LineNum and bb.ItemCode=b.ItemCode and aa.CANCELED='N'),0) from OWOR (nolock)A 
+inner Join WOR1(Nolock) b on a.DocEntry= b.DocEntry
+Where  b.PlannedQty<>b.IssuedQty and T0.U_Prod=a.dOCeNTRY and
+(isnull((Isnull(b.PlannedQty,0)-isnull(b.IssuedQty,0)),0)-isnull((Select sum(bb.Quantity) From ODLN aa 
+inner Join DLN1 bb on bb.Docentry=aa.DocEntry Where aa.U_Prod=b.DocEntry and bb.U_Line=b.LineNum and bb.ItemCode=b.ItemCode and aa.CANCELED='N'),0) )<>0    and T1.ItemCode=b.ItemCode),0)
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'Select Correct Shortage Item Quatity is Exceed' 
+           END End*/
+------------------------------
+/* IF @transaction_type IN ( 'A','U') AND (@Object_type = '60')
+BEGIN 
+    if Exists (select t1.DocEntry from IGE1 t0
+	Inner Join WOR1 T1 On t1.DocEntry=T0.BaseEntry and T1.LineNum=T0.BaseLine
+	
+
+	
+             WHERE t0.BASEType='202' and  T1.PlannedQty<= iSNULL((Select sum(A.Quantity) From IGE1 A Where A.BaseEntry=T0.BaseEntry and T0.BaseLine=a.BaseLine )
+                and T0.DocEntry = @list_of_cols_val_tab_del),0 )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'Issued Qty is greater than planned Qty' 
+           END End*/
+-----------------------------------------------
+ iF @transaction_type IN ( 'A','U') AND (@Object_type = '15')
+BEGIN 
+    if Exists (select t1.DocEntry from DLN1 t0
+	Inner Join QUT1 T1 On t1.DocEntry=T0.BaseEntry and T1.LineNum=T0.BaseLine
+	
+
+	
+             WHERE t0.BASEType='23' and  T1.Quantity<>T0.Quantity
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'Approved Qty Is Not Match with Delivery Qty ' 
+           END End
+----------------------------------------------------------------------------------------------------------------------------------------------------
+    IF @transaction_type IN ( 'A','U') AND (@Object_type = '13')
+BEGIN 
+    if Exists (select t1.DocEntry from OINV t0
+	Inner Join INV1 T1 On t1.DocEntry=T0.DocEntry --and T1.LineNum=T0.BaseLine
+	
+
+	
+             WHERE t1.BASEType='15' and T0.UserSign not in ('TSG021','TSG008') and T0.U_CT='01'
+			 and T0.U_Approved<>'YES'
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 1, @error_message = 'Delivery Challan is not approved.kindly First Approved then Create Bill ' 
+  
+           END End
+-------------------------------------------------------------------------------------------------------
+IF (@object_type = '20' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+Begin 
+    If Exists (Select T0.DocEntry FROM OPDN T0
+       where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+	   and T0.DocDate<>T0.CreateDate ) 
+	Begin
+		Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+	END
+END
+------------------------------------------------------------
+/*IF (@object_type = '59' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM OIGN T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END*/
+---------------------------------------------
+IF (@object_type = '14' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM ORIN T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20241010'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+-------------------------------------------------
+IF (@object_type = '16' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM ORDN T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+-------------------------------------------------
+/*IF (@object_type = '60' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM OIGE T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END*/
+------------------------------------------------------------------------------------------------------------------------------
+IF (@object_type = '21' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM ORPD t0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+-----------------------------------------------------------------
+/*IF (@object_type = '15' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM odln T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END*/
+------------------------------------------------------------------------
+IF (@object_type = '19' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin If Exists (Select T0.DocEntry FROM ORPC T0
+
+where T0."DocEntry" = @list_of_cols_val_tab_del and T0.CANCELED='N' and t0.CreateDate>'20240420'
+and T0.DocDate<>T0.CreateDate ) 
+Begin
+Select  @error = 2301, @error_message = 'Posting Date Is Current Date'
+
+END
+
+END
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '59')
+BEGIN 
+    if Exists (select t0.DocEntry from OIGN t0
+             WHERE T0.UserSign2 not in ('64') and case when T0.UserSign2='74' then '' else Isnull(T0.U_Approval1,'') end<>'' 
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 111, @error_message = 'Not Authorised' 
+           END 
+end
+
+/*IF @transaction_type IN ( 'A','U') AND (@Object_type = '59')
+BEGIN 
+    IF Exists (select t0.DocEntry from OIGN t0
+             WHERE 
+                -- Check if Level 1 approval is not done by user '64' or is empty
+                (T0.UserSign2 not in ('64') and Isnull(T0.U_Approval1,'')<>'' )
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+    BEGIN 
+       SELECT @Error = 111, @error_message = 'Not Authorised' 
+    END 
+    ELSE IF Exists (select t0.DocEntry from OIGN t0
+             WHERE 
+                -- Check if Level 1 approval is done by user '64' and Level 2 approval is not done by user '74' or is empty
+                (Isnull(T0.U_Approval1,'')<>'' and T0.UserSign2 = '64' and T0.UserSign2 not in ('74') and Isnull(T0.U_Approval2,'')<>'' )
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+    BEGIN 
+       SELECT @Error = 111, @error_message = 'Not Authorised' 
+    END 
+END*/
+-----------------------------------------------------------------------------------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '59')
+BEGIN 
+    if Exists (select t0.DocEntry from OIGN t0
+             WHERE T0.UserSign2 not in ('74')and  Isnull(T0.U_Approval1,'')<>'Y' and  Isnull(T0.U_Approval2,'')<>''
+                and T0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN 
+   SELECT @Error = 112, @error_message = 'Not Authorised' 
+           END 
+end
+-------------------------------------------------
+/*IF (@object_type = '4' and (@transaction_type = 'A' OR @transaction_type = 'U'))
+
+Begin 
+If Exists (Select t0.ItemCode
+From OITM t0
+Inner Join OITB t1 on t1.ItmsGrpCod = t0.ItmsGrpCod
+Where T0.ItemCode =  @list_of_cols_val_tab_del and t1.ItmsGrpNam = 'Finished Goods' and isnull(t0.ManSerNum,'N') Not In ('Y'))
+
+Begin
+Select  @error = 551, @error_message = 'Please manage Serial'
+
+END
+
+END*/
+
+---------------------------Sandeep---------------------------
+--IF @object_type='67' AND @transaction_type IN ( 'A','U')      
+
+--BEGIN
+--If  Exists
+--(select t0.DocEntry
+--from  OWTR t0 
+--Left Join OWHS t1 on t1.WhsCode = t0.Filler
+--Inner Join OLCT t2 on t2.Code = t1.Location
+--Left Join 
+--(select t3.DocEntry,t5.Location
+--from  OWTR t3
+--Left Join OWHS t4 on t4.WhsCode = t3.ToWhsCode
+--Inner Join OLCT t5 on t5.Code = t4.Location
+--Where t3.DocEntry = @list_of_cols_val_tab_del)kk on kk.DocEntry = t0.DocEntry
+
+--where  t0.DocEntry=@list_of_cols_val_tab_del and (isnull(t2.Location,'') <> isnull(kk.Location,'')) and t0.userSign2 IN (5,6,7,8,18,19,24,25,26,49,50,83,89,91,92,93))
+
+--Begin
+--set @error = 420
+--set @error_message = 'Please select Same Plant of Warehouse'  
+--End
+--END	
+-------------------------------------------------------
+/*DECLARE @APENT int,
+@POENT int	, @DPENTRY int , @DPENTRY_ATT int,@OUTPAY int
+IF (@object_type = '18' and @transaction_type in ('A'))
+
+BEGIN
+Declare @DOCT nvarchar(5)
+SET @DOCT = (Select a.Doctype from OPCH a where a.DocEntry = @list_of_cols_val_tab_del )
+
+Declare @Itms int
+SET @Itms = (Select distinct top(1) b.ItmsGrpCod  from PCH1 a inner join OITM b on a.ItemCode =b.ItemCode where a.DocEntry = @list_of_cols_val_tab_del )
+
+IF @DOCT = 'I' and @Itms <> 105
+BEGIN
+			Select @APENT = L.APENT, @POENT = l.PO_ENT,@DPENTRY = l.DPENTRY,@DPENTRY_ATT =  L.DPENTRY_ATT, @OUTPAY = L.OutGoing_Pay 
+			FROM 
+			(Select Distinct a.DocEntry'APENT',isnull(t0.DocEntry,0) 'PO_ENT',ISNULL(M.DPENTRY,0) 'DPENTRY',N.DPENTRY_ATT,M.OutGoing_Pay from OPCH a 
+				Inner Join PCH1 b on a.DocEntry = b.DocEntry
+			LEFT Join PDN1 c on b.BaseEntry = C.DocEntry and b.BaseLine = c.LineNum and b.BaseType = c.ObjType
+				LEFT Join OPOR t0 on c.BaseEntry = t0.DocEntry and c.BaseType = t0.ObjType
+
+				LEFT JOIN (Select distinct t0.DocEntry,ISNULL(t3.DocEntry,0) 'DPENTRY',ISNULL(t5.DocEntry,0) 'OutGoing_Pay' from OPOR t0
+			Inner Join PoR1 t1 on t0.DocEntry = t1.DocEntry
+			Inner Join DPO1 t2 on t1.DocEntry = t2.BaseEntry and t1.LineNum = t2.BaseLine
+			Inner Join ODPO t3 on t2.DocEntry = t3.DocEntry
+			Left Join VPM2 t4 on t3.DocEntry = t4.DocEntry and t3.ObjType = t4.InvType
+			Left Join OVPM t5 on t4.DocNum = t5.DocEntry
+			) M on t0.DocEntry = M.DocEntry
+
+			LEFT JOIN  (Select Distinct b.DocEntry,ISNULL(a.Baseabs,0) 'DPENTRY_ATT' from OPCH b
+			Left Join PCH9	a on a.DocEntry = b.DocEntry
+			left Join PCH1 c on a.DocEntry = c.DocEntry
+			where b.DocEntry = @list_of_cols_val_tab_del ) N on a.DocEntry = N.DocEntry
+
+			where a.DocEntry = @list_of_cols_val_tab_del) L
+IF 	@POENT != 0 AND @DPENTRY != 0 AND @OUTPAY != 0 AND @DPENTRY != @DPENTRY_ATT
+begin
+SET @error = 1801
+SET @error_message = 'Please SELECT CORRECT Downpayment Invoice/request '
+END
+End
+
+ELSE IF @DOCT = 'S' or @Itms = 105
+BEGIN
+Select @APENT = L.APENT, @POENT = l.PO_ENT,@DPENTRY = l.DPENTRY,@DPENTRY_ATT =  L.DPENTRY_ATT,@OUTPAY = L.OutGoing_Pay FROM 
+			(Select Distinct a.DocEntry'APENT',isnull(t0.DocEntry,0) 'PO_ENT',ISNULL(M.DPENTRY,0) 'DPENTRY',N.DPENTRY_ATT,M.OutGoing_Pay 
+				from OPCH a 
+				Inner Join PCH1 b on a.DocEntry = b.DocEntry
+			    LEFT Join POR1 c on b.BaseEntry = C.DocEntry and b.BaseLine = c.LineNum and b.BaseType = c.ObjType
+				LEFT Join OPOR t0 on c.DocEntry = t0.DocEntry 
+
+				LEFT JOIN (Select distinct t0.DocEntry,ISNULL(t3.DocEntry,0) 'DPENTRY',ISNULL(t5.DocEntry,0) 'OutGoing_Pay' from OPOR t0
+			Inner Join PoR1 t1 on t0.DocEntry = t1.DocEntry
+			Inner Join DPO1 t2 on t1.DocEntry = t2.BaseEntry and t1.LineNum = t2.BaseLine
+			Inner Join ODPO t3 on t2.DocEntry = t3.DocEntry
+			Left Join VPM2 t4 on t3.DocEntry = t4.DocEntry and t3.ObjType = t4.InvType
+			Left Join OVPM t5 on t4.DocNum = t5.DocEntry
+			) M on t0.DocEntry = M.DocEntry
+
+				LEFT JOIN  (Select Distinct b.DocEntry,ISNULL(a.Baseabs,0) 'DPENTRY_ATT' from OPCH b
+				Left Join PCH9	a on a.DocEntry = b.DocEntry
+				left Join PCH1 c on a.DocEntry = c.DocEntry
+				where b.DocEntry = @list_of_cols_val_tab_del) N on a.DocEntry = N.DocEntry
+
+			where a.DocEntry = @list_of_cols_val_tab_del) L
+			IF 	@POENT != 0 AND @DPENTRY != 0 AND @OUTPAY != 0  AND @DPENTRY != @DPENTRY_ATT
+begin
+SET @error = 1802
+SET @error_message = 'Please SELECT CORRECT Downpayment Invoice/request '
+END
+End
+
+end
+------
+
+DECLARE @ARENT int,
+@SOENT int	, @DPIENTRY int , @DPIENTRY_ATT int,@INPAY int
+
+IF (@object_type = '13' and @transaction_type in ('A'))
+BEGIN
+Declare @DOCT2 nvarchar(5)
+SET @DOCT2 = (Select a.Doctype from OINV a where a.DocEntry = @list_of_cols_val_tab_del )
+
+Declare @Itms2 int
+SET @Itms2 = (Select distinct top(1) b.ItmsGrpCod  from INV1 a inner join OITM b on a.ItemCode =b.ItemCode where a.DocEntry = @list_of_cols_val_tab_del )
+
+IF @DOCT2 = 'I' and @Itms2 <> 105
+BEGIN
+			
+			Select @ARENT = L.APENT, @SOENT = l.PO_ENT,@DPIENTRY = L.DPENTRY,@DPIENTRY_ATT =  L.DPENTRY_ATT,@INPAY = L.Incoming_pay  FROM 
+			(Select Distinct a.DocEntry'APENT',isnull(t0.DocEntry,0) 'PO_ENT',ISNULL(M.DPENTRY,0) 'DPENTRY',N.DPENTRY_ATT,M.InComing_Pay from OINV a 
+				Inner Join INV1 b on a.DocEntry = b.DocEntry
+				LEFT Join DLN1 c on b.BaseEntry = C.DocEntry and b.BaseLine = c.LineNum and b.BaseType = c.ObjType
+				LEFT Join ORDR t0 on c.BaseEntry = t0.DocEntry 
+
+				LEFT JOIN (Select distinct t0.DocEntry,ISNULL(t3.DocEntry,0) 'DPENTRY',ISNULL(t5.DocEntry,0) 'InComing_Pay' from ORDR t0
+			Inner Join RDR1 t1 on t0.DocEntry = t1.DocEntry
+			Inner Join DPI1 t2 on t1.DocEntry = t2.BaseEntry and t1.LineNum = t2.BaseLine
+			Inner Join ODPI t3 on t2.DocEntry = t3.DocEntry
+			Left Join  RCT2 t4 on t3.DocEntry = t4.DocEntry and t3.ObjType = t4.InvType
+			Left Join ORCT t5 on t4.DocNum = t5.DocEntry
+			) M on t0.DocEntry = M.DocEntry
+
+			LEFT JOIN  (Select Distinct b.DocEntry,ISNULL(a.Baseabs,0) 'DPENTRY_ATT' from OINV b
+			Left Join INV9	a on a.DocEntry = b.DocEntry
+			left Join INV1 c on a.DocEntry = c.DocEntry
+			
+			where b.DocEntry = @list_of_cols_val_tab_del ) N on a.DocEntry = N.DocEntry
+
+			where a.DocEntry = @list_of_cols_val_tab_del) L
+IF 	@SOENT != 0 AND @DPIENTRY != 0 AND @INPAY != 0 AND @DPIENTRY != @DPIENTRY_ATT
+begin
+SET @error = 1801
+SET @error_message = 'Please SELECT CORRECT Downpayment Invoice/request '
+END
+End
+
+ELSE IF @DOCT2 = 'S' or @Itms2 = 105
+BEGIN
+			Select @ARENT = L.APENT, @SOENT = l.PO_ENT,@DPIENTRY = l.DPENTRY,@DPIENTRY_ATT =  L.DPENTRY_ATT,@INPAY = L.Incoming_pay FROM 
+			(Select Distinct a.DocEntry'APENT',isnull(t0.DocEntry,0) 'PO_ENT',ISNULL(M.DPENTRY,0) 'DPENTRY',N.DPENTRY_ATT,M.InComing_Pay 
+				from OINV a 
+				Inner Join INV1 b on a.DocEntry = b.DocEntry
+			    LEFT Join RDR1 c on b.BaseEntry = C.DocEntry and b.BaseLine = c.LineNum and b.BaseType = c.ObjType
+				LEFT Join ORDR t0 on c.DocEntry = t0.DocEntry 
+
+				LEFT JOIN (Select distinct t0.DocEntry,ISNULL(t3.DocEntry,0) 'DPENTRY',ISNULL(t5.DocEntry,0) 'InComing_Pay' from ORDR t0
+				Inner Join RDR1 t1 on t0.DocEntry = t1.DocEntry
+				Inner Join DPI1 t2 on t1.DocEntry = t2.BaseEntry and t1.LineNum = t2.BaseLine
+				Inner Join ODPI t3 on t2.DocEntry = t3.DocEntry
+				Left Join  RCT2 t4 on t3.DocEntry = t4.DocEntry and t3.ObjType = t4.InvType
+				Left Join ORCT t5 on t4.DocNum = t5.DocEntry
+				) M on t0.DocEntry = M.DocEntry
+
+				LEFT JOIN  (Select Distinct b.DocEntry,ISNULL(a.Baseabs,0) 'DPENTRY_ATT' from OINV b
+				Left Join INV9	a on a.DocEntry = b.DocEntry
+				left Join INV1 c on a.DocEntry = c.DocEntry
+				where b.DocEntry = @list_of_cols_val_tab_del) N on a.DocEntry = N.DocEntry
+
+			where a.DocEntry = @list_of_cols_val_tab_del) L
+			IF 	@SOENT != 0 AND @DPIENTRY != 0 AND @INPAY != 0 AND @DPIENTRY != @DPIENTRY_ATT
+begin
+SET @error = 1802
+SET @error_message = 'Please SELECT CORRECT Downpayment Invoice/request '
+END
+End
+
+end*/
+
+
+
+-------------------------------------------------------
+-- Select the return values
+select @error, @error_message
+
+end

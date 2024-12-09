@@ -1,0 +1,81 @@
+USE [Live_Brij_Packaging]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_STOCK_OPEN_CLOSE]    Script Date: 07/12/2024 11:26:10 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROC [dbo].[CIS_STOCK_OPEN_CLOSE]
+
+
+ @FromDate Datetime,
+@ToDate Datetime,
+ @BRANCH nvarchar(255)
+
+ AS
+
+ BEGIN
+
+ SeleCT * from 
+ 
+ (
+select
+	t0.ItemCode,t0.ItemName,t0.FrgnName,t0.InvntryUom, t0.LastPurPrc, Case When T0.QryGroup1='Y' Then 'Other Consumable' 
+When T0.QryGroup2='Y' Then 'Board INK'
+When t0.QryGroup3='Y' Then 'Power & Fuel  For Boiler' 
+When T0.QryGroup4='Y' Then 'Gum'
+When T0.QryGroup5='Y' Then 'Oil & Lube' 
+When T0.QryGroup6='Y' Then 'Kraft Paper' 
+When T0.QryGroup7='Y' Then 'Scap' 
+When T0.QryGroup8='Y' Then 'Spare Parts'
+When t0.QryGroup9='Y' Then 'Stitching Wire'
+When T0.QryGroup10='Y' Then 'Packaging Material'
+When T0.QryGroup11='Y' Then 'FG' 
+When T0.QryGroup12='Y' Then 'Power & Fuel Other'
+When T0.QryGroup13='Y' Then 'Stationary Item' 
+When T0.QryGroup14='Y' Then 'Electrical Spare Parts'
+When T0.QryGroup15='Y' Then 'Vehicle Repair & Maintenance Parts' 
+When t0.QryGroup16='Y' Then 'Die & BLock Parts' 
+When T0.QryGroup17='Y' Then 'Semi Kraft Paper' 
+When T0.QryGroup18='Y' Then 'Virgin Fraft Paper'
+
+Else ''
+END'Category',
+(SELECT MAX(T222.BPLName) FROM OINM t00
+iNNER JOIN owhs t111 oN t111.WhsCode=t00.Warehouse
+iNNER JOIN OBPL T222 ON T222.BPLId=T111.BPLid WHERE T00.ITEMCODE=T0.ITEMCODE and t00.DocDate < @FromDate ) 'BRANCH',
+
+isnull((select sum(IsNUll(t00.InQty, 0) - ISnuLl(t00.OutQty, 0)) from oinm t00 (NOLOCK) whERE
+ t00.ItemCode = T0.ItemCode AND t00.Location=1 and t00.DocDate < @FromDate), 0) as 'Opening Stock',
+isnull((select TOP 1 t00.Price from oinm t00 (NOLOCK) whERE t00.ItemCode = T0.ItemCode AND t00.Location=1 
+and t00.DocDate < @FromDate and T00.Price >0 and isnull(t00.InQty, 0) > 0 
+			OrDer by t00.TransNum desc), 0) as 'Last Purchase Price (Opening) ₹',
+isnull((select sum(IsNUll(t00.TransValue, 0)) from oinm t00 (NOLOCK) whERE t00.ItemCode = T0.ItemCode AND t00.Location=1 and t00.DocDate < @FromDate), 0) as 'Opening Value (₹)',
+
+isnull((select sum(isnulL(t00.InQty, 0)) from oinm t00 (NOLOCK)
+			whERE t00.ItemCode = T0.ItemCode  AND t00.Location=1 and isnull(T00.InQty, 0) > 0 and t00.DocDate >= @FromDate and t00.DocDate <= @ToDate), 0) as 'Inward Stock',
+isnull((select sum(iSnUlL(t00.TransValue, 0)) from oinm t00 (NOLOCK)
+			whERE t00.ItemCode = T0.ItemCode AND t00.Location=1  and isnull(T00.InQty, 0) > 0 and t00.DocDate >= @FromDate and t00.DocDate <= @ToDate), 0) as 'Inward Value (₹)',
+isnull((select (Sum(isnull(t00.OutQty, 0))) from oinm t00 (NOLOCK)
+			whERE t00.ItemCode = T0.ItemCode AND t00.Location=1  and isnull(t00.OutQty, 0) > 0 and t00.DocDate >= @FromDate and t00.DocDate <= @ToDate), 0) as 'Outward Stock',
+isnull((select ((-1)* sum(isnull(t00.TransValue, 0))) from oinm t00 (NOLOCK)
+			whERE t00.ItemCode = T0.ItemCode AND t00.Location=1 and isnull(t00.OutQty, 0) > 0 and t00.DocDate >= @FromDate
+			 and t00.DocDate <= @ToDate), 0) as 'Outward Value (₹)',
+isnull((select sum(IsNUll(t00.InQty, 0) - ISnuLl(t00.OutQty, 0)) from oinm t00 (NOLOCK)whERE t00.ItemCode = T0.ItemCode AND t00.Location=1 and t00.DocDate <= @ToDate), 0) as 'Closing Stock',
+isnull((select TOP 1 t00.Price from oinm t00 (NOLOCK) whERE t00.ItemCode = T0.ItemCode AND t00.Location=1 and t00.DocDate <= @ToDate and T00.Price > 0 and isnull(t00.InQty, 0) > 0  
+	OrDer by t00.TransNum desc), 0) as 'Last Purchase Price (Closing) ₹',
+/*isnull((select sum(IsNUll(t00.TransValue, 0)) from oinm t00 (NOLOCK) whERE t00.ItemCode = T0.ItemCode AND t00.Location=1 and t00.DocDate <= @ToDate), 0)*/
+((isnull((select sum(IsNUll(t00.TransValue, 0)) from oinm t00 (NOLOCK) whERE t00.ItemCode = T0.ItemCode AND t00.Location=1 and t00.DocDate < @FromDate), 0)+isnull((select sum(iSnUlL(t00.TransValue, 0)) from oinm t00 (NOLOCK)
+			whERE t00.ItemCode = T0.ItemCode AND t00.Location=1  and isnull(T00.InQty, 0) > 0 and t00.DocDate >= @FromDate and t00.DocDate <= @ToDate), 0)) - isnull((select ((-1)* sum(isnull(t00.TransValue, 0))) from oinm t00 (NOLOCK)
+			whERE t00.ItemCode = T0.ItemCode AND t00.Location=1 and isnull(t00.OutQty, 0) > 0 and t00.DocDate >= @FromDate
+			 and t00.DocDate <= @ToDate), 0)) as 'Closing Value (₹)'
+	
+from OITM t0 (NOLOCK)
+inner join OITB(NOLOCK) t1 on t0.ItmsGrpCod=t1.ItmsGrpCod	
+left outer join OMRC(NOLOCK) t2 on t0.FirmCode=t2.FirmCode
+--WHERE t1.ItmsGrpCod<>104
+) KL
+Where KL.BRANCH = @BRANCH
+
+END

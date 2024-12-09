@@ -1,0 +1,541 @@
+USE [Live_Brij_Packaging]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_TransactionNotification]    Script Date: 07/12/2024 11:17:05 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[SBO_SP_TransactionNotification] 
+
+@object_type nvarchar(30), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+select @error_message = N'Ok'
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--	ADD	YOUR	CODE	HERE
+------------------------------------------------------------------------------------------------------------
+IF @object_type = '59' AND @transaction_type IN ( 'A','U')
+      BEGIN
+
+
+      IF EXISTS (SELECT (T0."DocEntry")
+FROM "OIGN" T0
+INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" AND T1."BaseType" = '202'
+INNER JOIN "WOR1" T3 ON T2."DocEntry" = T3."DocEntry"
+Inner Join "OITM" T4 On T4.ItemCode=T3.ItemCode
+                           WHERE T0.DocEntry = @list_of_cols_val_tab_del and T3.IssueType='M'  AND ISNULL(T3."PlannedQty", 0.0000)/ISNULL(T2."PlannedQty", 0.0000) <> 0.0000
+AND Round((ISNULL(T3."IssuedQty", 0.0000) / (IsNULL(T3."PlannedQty", 0.0000)/ISNULL(T2."PlannedQty", 0.0000))),0) < ISNULL(T2."CmpltQty", 0.0000) + ISNULL(T2."RjctQty", 0.00)  )
+            BEGIN
+
+                  SET @error = 10001
+                  SET @error_message = 'Component/s quantity is not issued fully for receipt quantity'
+            END
+      END
+-------------------------------------------------------------------------------------------------------------------------------------
+IF (@object_type = '59' AND @transaction_type IN ('A', 'U'))
+BEGIN
+    DECLARE @UDFValue NVARCHAR(100)
+    
+    SELECT @UDFValue = U_BoardQty FROM IGN1 WHERE DocEntry = @list_of_cols_val_tab_del;
+    
+    IF (@UDFValue IS NULL OR @UDFValue = '')
+    BEGIN
+        SET @error = 1
+        SET @error_message = 'UDF field must not be empty on row level.'
+    END
+END
+--------------------------------------------------------------------------------------------------------------------------------
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+    IF EXISTS (
+        SELECT T0.BaseEntry, SUM(T0.Quantity) 
+        FROM [dbo].[INV1] T0
+        INNER JOIN [dbo].[OINV] T2 ON T0.DOCENTRY = T2.DOCENTRY
+        INNER JOIN [dbo].[OCRD] T4 ON T4.CardCode = T2.CardCode
+        INNER JOIN [dbo].[RDR1] T1 ON T1.DOCENTRY = T0.BASEENTRY
+        WHERE T0.BaseType = 17
+            AND T0.ItemCode = T1.ItemCode
+            AND T0.BaseLine = T1.LineNum
+            AND T0.DOCENTRY = @list_of_cols_val_tab_del
+        GROUP BY T0.BaseEntry
+        HAVING SUM(T0.Quantity) > SUM(T1.Quantity) + SUM((T1.Quantity) * (T4.U_TQty / 100)))
+    
+    BEGIN
+        SET @Error = 10
+        SET @error_message = 'The total quantity on the A/R Invoice varies significantly from the Sales Order quantity.'
+    END
+END
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+/*IF (@object_Type = '59' AND @transaction_Type in ( 'A','U'))
+
+BEGIN
+
+If exists
+
+(Select T2.docentry
+
+From OIGN T0
+
+inner join IGN1 T1 On T0.DocEntry=T1.DocEntry and T1.LineNum=0
+
+inner join OWOR T2 On T2.DocEntry=T1.BaseEntry
+
+left join OCRD T4 on T2.CardCode = T4.CardCode
+
+inner join WOR1 T3 on T2.DocEntry = T3.DocEntry
+
+Where T0.DocEntry = @list_of_cols_val_tab_del
+
+and T2.Type= 'S'
+
+and T1.BaseType=202 and  T1.Quantity > (T3.PlannedQty + (T3.PlannedQty*(T4.U_Tqty/100))) or 
+T1.Quantity < (T3.PlannedQty - (T3.PlannedQty*(T4.U_Tqty/100)))
+)
+
+Begin
+
+set @error =1
+
+set @error_message = 'Material Quantity Vary than recommended  Quantity'
+
+End
+
+END
+*/
+
+--------------------Sandeep------------------------------------
+IF (@object_Type = '59' AND @transaction_Type in ( 'A','U'))
+
+BEGIN
+
+If exists (Select t0.DocEntry
+from OIGN t0
+Inner join IGN1 t1 on t1.DocEntry = t0."DocEntry"
+Left join(
+Select ((k.PlannedQty*Isnull(l.U_Tqty,0))/100) 'DD' ,k.CmpltQty,PlannedQty,K.DocEntry,l.CardCode
+from OWOR k
+left join OCRD l on k.CardCode = l.CardCode) A on a.DocEntry = t1.BaseEntry and t1.BaseType = '202'
+Where t0.DocEntry = @list_of_cols_val_tab_del and a.CmpltQty > (a.PlannedQty+a.DD) and t1.BaseType = '202')
+
+Begin
+
+set @error =1
+
+set @error_message = 'Material Quantity Vary than recommended  Quantity'
+
+End
+END
+----------------Sandeep---------------------------
+If @object_type = '202' and @transaction_type in ('A','U')
+Begin
+IF Exists (
+Select t0.DocEntry
+from OWOR T0
+Inner Join WOr1 t1 on t1.DocEntry = t0.DocEntry
+Left Join(
+Select (B.BaseQty) AS 'BaseQty',B.DocEntry
+from OWOR A
+Inner Join WOR1 B on A.DocEntry = B.DocEntry
+Left Join ITT1 D on D.Father = a.ItemCode and b.ItemCode = D.Code
+where A.DocEntry = @list_of_cols_val_tab_del and b.ItemCode = 'Wastage')M on M.DocEntry =  T0.DocEntry
+where t0.DocEntry = @list_of_cols_val_tab_del and  T1.BaseQty <> -m.BaseQty and t1.ItemCode In ('Wastage'))
+Begin
+Set @error = 32
+Set @error_message = 'Wastage Base Quantity should be Negative'
+end 
+end
+-------------------------------------------------------------------------------------------------------------------------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+    -- Update sequence number
+    UPDATE a
+    SET a.U_Seq = t1.seq_no
+    FROM INV1 a
+    JOIN (
+        SELECT 
+            t0.DocEntry,
+            t0.ItemCode,
+            t0.Linenum,
+            ROW_NUMBER() OVER (PARTITION BY t0.ItemCode ORDER BY t0.Linenum) AS seq_no
+        FROM INV1 t0
+        WHERE t0.DocEntry = @list_of_cols_val_tab_del
+          AND t0.TreeType = 'i'
+    ) t1 ON a.DocEntry = t1.DocEntry AND a.ItemCode = t1.ItemCode AND a.Linenum = t1.Linenum
+    WHERE a.TreeType = 'i'
+      AND a.DocEntry = @list_of_cols_val_tab_del;
+
+    -- Check if vehicle field is empty
+    IF EXISTS (
+        SELECT 1
+        FROM OINV t0
+        WHERE ISNULL(t0.U_Vechile, '') = '' 
+          AND t0.DocEntry = @list_of_cols_val_tab_del and t0.GSTTranTyp = 'GA'
+    )
+    BEGIN
+        SET @error = -13;
+        SET @error_message = 'Please Enter Vehicle, Field Is Empty';
+    END
+END;
+------------------------------------------------------------
+
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+IF EXISTS (
+SELECT t0.docentry from OINV t0
+where ISNULL(t0.U_DriverName,'') = '' and t0.DocEntry = @list_of_cols_val_tab_del
+and t0.GSTTranTyp = 'GA')
+BEGIN
+SET @error = -133
+SET @error_message = 'Please Enter Driver Name, Field Is Empty'
+END
+END
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+IF EXISTS (
+SELECT t0.docentry from OINV t0
+where ISNULL(t0.U_DriverMbN,'') = '' and t0.DocEntry = @list_of_cols_val_tab_del
+and t0.GSTTranTyp = 'GA')
+BEGIN
+SET @error = -134
+SET @error_message = 'Please Enter Driver Mobile no., Field Is Empty'
+END
+END
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+IF EXISTS (
+SELECT t0.docentry from OINV t0
+where ISNULL(t0.U_TransporterName,'') = '' and t0.DocEntry = @list_of_cols_val_tab_del
+and t0.GSTTranTyp = 'GA')
+BEGIN
+SET @error = -135
+SET @error_message = 'Please Enter Transporter Name, Field Is Empty'
+END
+END
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+IF EXISTS (
+SELECT t0.docentry from OINV t0
+where ISNULL(t0.U_VehicleSize,'') = '' and t0.DocEntry = @list_of_cols_val_tab_del 
+and t0.GSTTranTyp = 'GA')
+BEGIN
+SET @error = -136
+SET @error_message = 'Please Enter Vehicle Size, Field Is Empty'
+END
+END
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '202')
+BEGIN
+IF EXISTS (
+SELECT t0.docentry from OWOR t0
+where ISNULL(t0.OriginNum,'') = '' and t0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN
+SET @error = -137
+SET @error_message = 'Kindly select Sales Order No!'
+END
+END
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+IF EXISTS (
+SELECT t0.docentry from OINV t0
+where ISNULL(t0.U_RelforJob,'') = '' and t0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN
+SET @error = -1400
+SET @error_message = 'Please Enter  Loading Slip No. , Field Is Empty'
+END
+END
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+IF EXISTS (
+SELECT t0.docentry from OINV t0
+Inner Join INV1 T1 On t1.Docentry=T0.DocEntry
+Inner Join RDR1 T2 On t2.DocEntry=T1.BaseEntry and T2.LineNum=T1.BaseLine and T2.ItemCode=T1.ItemCode
+Inner Join ORDR T3 On T3.DocEntry=t2.DocEntry
+where ISNULL(t3.NumAtCard,'') = '' and t0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN
+SET @error = -138
+SET @error_message = 'Kindly select Sales Order Ref on SO!'
+END
+END
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+IF EXISTS (
+SELECT t0.docentry from OINV t0
+
+where ISNULL(t0.NumAtCard,'') = '' and t0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN
+SET @error = -139
+SET @error_message = 'Kindly select Sales Order Ref on SO!'
+END
+END
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN
+Update t2 set T2.U_ProdNo=T4.DocEntry
+from OINV t0
+Inner Join INV1 T1 On t1.Docentry=T0.DocEntry
+Inner Join RDR1 T2 On t2.DocEntry=T1.BaseEntry and T2.LineNum=T1.BaseLine and T2.ItemCode=T1.ItemCode
+Inner Join ORDR T3 On T3.DocEntry=t2.DocEntry
+Inner Join OWOR T4 On T4.OriginAbs=T3.DocEntry and T2.ItemCode=T4.ItemCode
+Where t0.BPLId=1 and  t0.DocEntry = @list_of_cols_val_tab_del 
+IF EXISTS (
+SELECT t0.docentry from OINV t0
+Inner Join INV1 T1 On t1.Docentry=T0.DocEntry
+Inner Join RDR1 T2 On t2.DocEntry=T1.BaseEntry and T2.LineNum=T1.BaseLine and T2.ItemCode=T1.ItemCode
+Inner Join ORDR T3 On T3.DocEntry=t2.DocEntry
+--Inner Join OWOR T4 On T4.OriginAbs=T3.DocEntry
+where T1.TreeType in ('I','P')  and ISNULL(T2.U_ProdNo,'') = ''  and t0.BPLId=1  and t0.DocEntry = @list_of_cols_val_tab_del )
+BEGIN
+SET @error = -139
+SET @error_message = 'Kindly select Production order!'
+END
+END
+
+
+---------------------------------------------------------------------------HIM------21/06/2024
+-----------Blocking planned quantity being more than 5% of sales order quantity
+
+--IF @object_type = '202' And @transaction_type in ('U')
+--BEGIN
+--IF EXISTS
+--(SELECT t0.docEntry from OWOR t0
+--		LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+--		WHERE t0.DocEntry = @list_of_cols_val_tab_del and t0.Status = 'R' and t0.PlannedQty > (t1.Quantity + (t1.Quantity*0.05)) )
+
+--BEGIN
+--SET @error = 777
+--SET @error_message = 'Production Order Quantity is more than Sales order quantity'
+--END
+--END
+------------------------------------------------------------------------------------
+IF @object_type = '202' And @transaction_type in ('U')
+BEGIN
+IF EXISTS
+(SELECT t0.docEntry from OWOR t0
+		--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+		Left join (Select Sum(Quantity) 'Qty',RDR1.DocEntry,RDr1.ItemCode
+		From ORDR
+		Inner Join RDR1 on rdr1.Docentry = Ordr.Docentry
+		Group By RDR1.DocEntry,RDr1.ItemCode )kk on kk.DocEntry = t0.OriginAbs and kk.ItemCode = t0.ItemCode
+
+		WHERE t0.DocEntry = @list_of_cols_val_tab_del and t0.Status = 'R' and t0.PlannedQty > (kk.Qty + (KK.Qty*0.10)) )
+
+BEGIN
+SET @error = 777
+SET @error_message = 'Production Order Quantity is more than Sales order quantity'
+END
+END
+--------------------
+IF @object_type = '60' And @transaction_type in ('a','U')
+BEGIN
+IF EXISTS
+(SELECT t0.docEntry from OIGE t0
+		--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+		Inner Join IGE1 T1 On T1.DocEntry=t0.DocEntry
+		--Inner Join IGE21 t2 On t2.DocEntry=T1.DocEntry
+		
+
+		WHERE t1.baseType='-1' and isnull((Select top 1 A.DocEntry From IGE21 a where a.docEntry=T1.DocEntry),'')='' and  t0.DocEntry = @list_of_cols_val_tab_del  )
+
+BEGIN
+SET @error = 777
+SET @error_message = 'Ref Document Mandatory'
+END
+END
+------------------------------------------------------------------------
+/*IF @transaction_type IN ( 'A') AND (@Object_type = '59')
+BEGIN
+    UPDATE T0 set T0.Status='L' from OWOR t0 inner Join IGN1 T1 On T1.BaseEntry=T0.DocEntry
+where t0.PlannedQty<=t0.CmpltQty and T0.PostDate>='20230401' and t1.DocEntry=@list_of_cols_val_tab_del;
+ 
+           END*/
+----------------------------------------------------------------------------------------------------------
+/*IF @object_type = '202' And @transaction_type in ('A')
+BEGIN
+IF EXISTS
+(SELECT t0.docEntry from OWOR t0
+--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+--Inner Join IGE1 T1 On T1.DocEntry=t0.DocEntry
+--Inner Join IGE21 t2 On t2.DocEntry=T1.DocEntry
+
+
+WHERE T0.U_Credit_Balance<0 and  t0.DocEntry = @list_of_cols_val_tab_del  )
+
+BEGIN
+SET @error = 778
+SET @error_message = 'Credit Limit is not available(Get approval from  Managing Director)'
+END
+END
+
+--------------------
+IF @object_type = '202' And @transaction_type in ('A')
+BEGIN
+IF EXISTS
+(SELECT t2.docEntry from Owor t2
+
+--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+--Inner Join IGE1 T1 On T1.DocEntry=t0.DocEntry
+--Inner Join IGE21 t2 On t2.DocEntry=T1.DocEntry
+
+
+WHERE T2.Status='P' and Isnull((select count(t0.DocEntry) from OINV t0 Inner Join OCTG T1 On T1.GroupNum=T0.GroupNum
+Where
+T0.DocTotal <> T0.Paidsys and t0.DocDate>='20240401' and t0.DocType='i' and t0.CardCode=t2.CardCode and Datediff(day,T0.DocDate,getDate())-(t1.ExtraDays+10)>0),0)>0 and  t2.DocEntry = @list_of_cols_val_tab_del )--and T0.DocTotal <> T0.Paidsys and t0.DocDate>='20240401' and t0.DocType='i' and t0.CardCode=T2.CardCode and Datediff(day,T0.DocDate,getDate())-t1.ExtraDays>0 and  t2.DocEntry = @list_of_cols_val_tab_del)--T0.DocEntry='8462'   )
+
+BEGIN
+SET @error = 778
+SET @error_message = 'Payment is not received or adjusted due to job card is blocked. Kindly get approval from MD'
+END
+END*/
+-------------------------------------------------------
+/*IF @object_type = '202' And @transaction_type in ('a','U')
+BEGIN
+Declare  @BomTable table(Itemcode nvarchar(50),bomqty decimal(25,4));-- DECIMAL(25,2)
+--SET @BOMQTY=SELECT SUM(B.Quantity)/100 fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%') AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+insert into @bomtable(Itemcode,bomqty)
+SELECT a.code 'Itemcode',SUM(B.Quantity)/100'bomqty' fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code
+wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%')
+AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+Group By A.code;
+
+IF EXISTS
+(SELECT T0.ItemCode,t0.docEntry from OWOR t0
+--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+Inner Join WOR1 T1 On T1.DocEntry=t0.DocEntry
+inner join @BomTable t2 on t2.ItemCode=T0.ItemCode
+--Inner Join IGE21 t2 On t2.DocEntry=T1.DocEntry
+
+
+WHERE t0.PostDate>='20241017' and  t1.ItemCode NOT LIKE ('%wASTAGE%') AND t1.ItemCode NOT LIKE('%aLL%') and  t0.DocEntry = @list_of_cols_val_tab_del
+group By t0.ItemCode,t0.DocEntry
+Having
+sum(t1.BaseQty)>=sum(t2.bomqty)+((sum(t2.bomqty)*10.8)/100)
+)
+
+BEGIN
+SET @error = 777
+SET @error_message = 'Production Order Qty is not Equal to Bom Qty '
+END
+END*/
+---------------------------------------------------------------------------
+-------------------------------------------------------
+/*
+IF @object_type = '202' And @transaction_type in ('a','U')
+BEGIN
+Declare  @BomTable1 table(Itemcode nvarchar(50),bomqty decimal(25,4));-- DECIMAL(25,2)
+--SET @BOMQTY=SELECT SUM(B.Quantity)/100 fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%') AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+insert into @bomtable1(Itemcode,bomqty)
+SELECT a.code 'Itemcode',SUM(B.Quantity)/100'bomqty' fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code
+wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%')
+AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+Group By A.code;
+
+IF EXISTS
+(SELECT T0.ItemCode,t0.docEntry from OWOR t0
+--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+Inner Join WOR1 T1 On T1.DocEntry=t0.DocEntry
+inner join @BomTable1 t2 on t2.ItemCode=T0.ItemCode
+--Inner Join IGE21 t2 On t2.DocEntry=T1.DocEntry
+
+
+WHERE  t1.ItemCode NOT LIKE ('%wASTAGE%') AND t1.ItemCode NOT LIKE('%aLL%') and  t0.DocEntry = @list_of_cols_val_tab_del
+group By t0.ItemCode,t0.DocEntry
+Having
+sum(t1.BaseQty)<=sum(t2.bomqty)-((sum(t2.bomqty)*10.8)/100)
+)
+
+BEGIN
+SET @error = 777
+SET @error_message = 'Production Order Qty is not Equal to Bom Qty Less '
+END
+END*/
+-------------------------------------------------------------------------------------------------
+IF @object_type = '202' And @transaction_type in ('a','U')
+BEGIN
+Declare  @BomTable1 table(Itemcode nvarchar(50),bomqty decimal(25,4));-- DECIMAL(25,2)
+--SET @BOMQTY=SELECT SUM(B.Quantity)/100 fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%') AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+insert into @bomtable1(Itemcode,bomqty)
+SELECT a.code 'Itemcode',SUM(B.Quantity)/100'bomqty' fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code
+wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%')
+AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+Group By A.code;
+
+IF EXISTS
+(SELECT t0.docEntry from OWOR t0
+--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+--Inner Join WOR1 T1 On T1.DocEntry=t0.DocEntry
+inner join @BomTable1 t2 on t2.ItemCode=T0.ItemCode
+--Inner Join IGE21 t2 On t2.DocEntry=T1.DocEntry
+
+
+WHERE T0.PostDate>='20241022' and --t1.ItemCode NOT LIKE ('%wASTAGE%') AND t1.ItemCode NOT LIKE('%aLL%') and  
+t0.DocEntry = @list_of_cols_val_tab_del and  
+(Select sum(t1.BaseQty) From WOR1 t1 WHERE  t1.ItemCode NOT LIKE ('%wASTAGE%') AND t1.ItemCode NOT LIKE('%aLL%') and t1.DocEntry = @list_of_cols_val_tab_del)
+
+<=(t2.bomqty)-(((t2.bomqty)*10.8)/100)
+)
+
+BEGIN
+SET @error = 778
+SET @error_message = 'Production Order Qty is not Equal to Bom Qtyless '
+END
+END
+---------------------------------------------------------
+IF @object_type = '202' And @transaction_type in ('a','U')
+BEGIN
+Declare  @BomTable table(Itemcode nvarchar(50),bomqty decimal(25,4));-- DECIMAL(25,2)
+--SET @BOMQTY=SELECT SUM(B.Quantity)/100 fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%') AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+insert into @bomtable(Itemcode,bomqty)
+SELECT a.code 'Itemcode',SUM(B.Quantity)/100'bomqty' fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code
+wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%')
+AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+Group By A.code;
+
+IF EXISTS
+(SELECT t0.docEntry from OWOR t0
+--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+--Inner Join WOR1 T1 On T1.DocEntry=t0.DocEntry
+inner join @BomTable t2 on t2.ItemCode=T0.ItemCode
+--Inner Join IGE21 t2 On t2.DocEntry=T1.DocEntry
+
+
+WHERE  T0.PostDate>='20241022' and  t0.DocEntry = @list_of_cols_val_tab_del and
+
+(Select sum(t1.BaseQty) From WOR1 t1 WHERE  t1.ItemCode NOT LIKE ('%wASTAGE%') AND t1.ItemCode NOT LIKE('%aLL%') and t1.DocEntry = @list_of_cols_val_tab_del)
+>=(t2.bomqty)+(((t2.bomqty)*20.8)/100)
+)
+
+BEGIN
+SET @error = 777
+SET @error_message = 'Production Order Qty is not Equal to Bom Qty Greater '
+END
+END
+-----------------------
+-- Select the return values
+select @error, @error_message
+
+end
+

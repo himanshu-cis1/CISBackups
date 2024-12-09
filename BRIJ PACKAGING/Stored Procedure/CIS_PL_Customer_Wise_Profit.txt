@@ -1,0 +1,304 @@
+USE [Live_Brij_Packaging]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_PL_Customer_Wise_Profit]    Script Date: 07/12/2024 11:23:51 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[CIS_PL_Customer_Wise_Profit]
+(
+	 @From Date,
+	 @ToDate Date
+)
+AS
+BEGIN/*
+Declare @From Datetime
+
+Declare @ToDate Datetime
+
+ 
+
+Set @From =(Select min(S0.DocDate ) from dbo.OINV S0 where S0.DocDate >='[%0]'
+)
+
+Set @ToDate = (Select max(S1.DocDate) from dbo.OINV s1 where S1.DocDate <='[%1]'
+)*/
+Select dd.PIndicator,dd.CardCode,dd.CardName,dd.[Invoice Value],dd.InvQty,dd.TotalWeight,dd.[Per Kg Net Sale Cost],dd.IssuedQtyKraft,dd.IssuedValueKraft,dd.[KraftPer Unit],
+(Select sum(T1.Debit)'Debit'from OJDT t0 inner Join JDt1 T1 On T1.TransID=T0.TransId where t0.TransType='46' and t0.RefDate>=@From and t0.RefDate<=@ToDate and T1.ShortName in ('521101','531106'))'Electricity bill',
+(Select Sum(t5.Quantity) 'Cunsumption in KG'
+From OWOR t0
+Inner join WOR1 t1 on t1.DocEntry = t0.DocEntry
+Left Join IGE1 t5 On t1.DocEntry = t5.BaseEntry and t1.LineNum = t5.BaseLine
+Inner join OIGE t6 on t6.DocEntry = t5.DocEntry
+Left Join OITM t7 on t7.ItemCode = t5.ItemCode
+Left join OMRC t8 on t8.FirmCode = t7.FirmCode
+Inner join OITM t3 on t3.ItemCode = t0.ItemCode
+LEFT JOIN OCRD k on t3.U_CustomerCode = k.CardCode
+where t5.ItemCode not in('AllConsumable','wastage5') and t6.DocDate >= @From and t6.DocDate <= @ToDate and t0.PIndicator=dd.PIndicator --and t3.U_CustomerCode=dd.CardCode
+)'TotalCons',
+(Select sum(T1.Debit)'Debit'from OJDT t0 inner Join JDt1 T1 On T1.TransID=T0.TransId where t0.TransType='46' and t0.RefDate>=@From and t0.RefDate<=@ToDate and T1.ShortName in ('521101','531106'))
+/(Select Sum(t5.Quantity) 'Cunsumption in KG'
+From OWOR t0
+Inner join WOR1 t1 on t1.DocEntry = t0.DocEntry
+Left Join IGE1 t5 On t1.DocEntry = t5.BaseEntry and t1.LineNum = t5.BaseLine
+Inner join OIGE t6 on t6.DocEntry = t5.DocEntry
+Left Join OITM t7 on t7.ItemCode = t5.ItemCode
+Left join OMRC t8 on t8.FirmCode = t7.FirmCode
+Inner join OITM t3 on t3.ItemCode = t0.ItemCode
+LEFT JOIN OCRD k on t3.U_CustomerCode = k.CardCode
+where t5.ItemCode not in('AllConsumable','wastage5') and t6.DocDate >= @From and t6.DocDate <= @ToDate and t0.PIndicator=dd.PIndicator--and t3.U_CustomerCode=dd.CardCode
+)'Elec per' ,
+(Select Sum(T1.Debit)'Debit' from OJDT t0 inner Join JDt1 T1 On T1.TransID=T0.TransId where t0.TransType='46' and T1.ShortName in ('223301','223304') and t0.RefDate>=@From and t0.RefDate<=@ToDate )'Salary'
+,(Select sum(T1.Debit)'Debit'from OJDT t0 inner Join JDt1 T1 On T1.TransID=T0.TransId where t0.TransType='46' and t0.RefDate>=@From and t0.RefDate<=@ToDate and T1.ShortName in ('521101','531106'))'Electricity bill',
+((Select Sum(T1.Debit)'Salary' from OJDT t0 inner Join JDt1 T1 On T1.TransID=T0.TransId where t0.TransType='46' and T1.ShortName in ('223301','223304') and t0.RefDate>=@From and t0.RefDate<=@ToDate )/(Select Sum(t5.Quantity) 'Cunsumption in KG'
+From OWOR t0
+Inner join WOR1 t1 on t1.DocEntry = t0.DocEntry
+Left Join IGE1 t5 On t1.DocEntry = t5.BaseEntry and t1.LineNum = t5.BaseLine
+Inner join OIGE t6 on t6.DocEntry = t5.DocEntry
+Left Join OITM t7 on t7.ItemCode = t5.ItemCode
+Left join OMRC t8 on t8.FirmCode = t7.FirmCode
+Inner join OITM t3 on t3.ItemCode = t0.ItemCode
+LEFT JOIN OCRD k on t3.U_CustomerCode = k.CardCode
+where t5.ItemCode not in('AllConsumable','wastage5') and t6.DocDate >= @From and t6.DocDate <= @ToDate and t0.PIndicator=dd.PIndicator --and t3.U_CustomerCode=dd.CardCode
+))'Labour Cost',(dd.BoardInk/dd.[TotalIssued Qty])'BoardInk',(dd.[Die&BLockParts]/dd.[TotalIssued Qty])'Die&BLockParts',
+(dd.Gum/dd.[TotalIssued Qty])'Gum',(dd.[Oil&Lube]/dd.[TotalIssued Qty])'Oil&Lube',
+(dd.OtherConsumable/dd.[TotalIssued Qty])'OtherConsumable',(dd.PackagingMaterial/dd.[TotalIssued Qty])'PackagingMaterial'
+,(dd.[Power&FuelForBoiler]/dd.[TotalIssued Qty])'Power&FuelForBoiler',(dd.[Power&fuelOther]/dd.[TotalIssued Qty])'Power&fuelOther',
+(dd.SpareParts/dd.[TotalIssued Qty])'SpareParts',(dd.StitchingWire/dd.[TotalIssued Qty])'StitchingWire'
+from(
+Select bb.PIndicator,bb.CardCode,bb.CardName,Sum(bb.InvoiceValue)'Invoice Value',sum(bb.InvQty)'InvQty',sum(bb.TotalWeight)'TotalWeight',
+Sum(bb.InvoiceValue)/Case When Isnull(sum(bb.TotalWeight),0)=0 Then 1 Else Isnull(sum(bb.TotalWeight),0) End'Per Kg Net Sale Cost',sum(bb.IssuedQtyKraft)'IssuedQtyKraft',
+sum(bb.IssuedValueKraft)'IssuedValueKraft'
+,sum(bb.IssuedValueKraft)/sum(bb.IssuedQtyKraft)'KraftPer Unit',Sum(bb.BoardINK)'BoardInk',sum(bb.[Die&BLockParts])'Die&BLockParts',
+sum(bb.GUM )'Gum',sum(bb.[Oil&Lube]) 'Oil&Lube',sum(bb.OtherConsumable)'OtherConsumable',sum(bb.PackagingMaterial)'PackagingMaterial',
+sum(bb.[Power&FuelForBoiler])'Power&FuelForBoiler',
+sum(bb.[Power&fuelOther])'Power&fuelOther',sum(bb.SpareParts)'SpareParts',sum(bb.StitchingWire)'StitchingWire',
+(
+Select sum(bb.IssuedQtyKraft)'IssuedQtyKraft'
+from(
+Select  ab.CardCode,ab.CardName,sum(ab.LineTotal)'InvoiceValue',sum(ab.[FG Quantity])'InvQty',sum(ab.[Issued Qty])'IssuedQtyKraft',
+sum(ab.[Issued Value])'IssuedValueKraft',sum(ab.[Total Weight])'TotalWeight'
+
+From(
+Select T0.DocEntry,T0.DocNum,T0.CardCode,T0.CardName,T1.ItemCode,T1.Quantity'FG Quantity',T1.LineTotal,T6.TotalWT*(T1.Quantity)'Total Weight',
+(Sum(T12.[Issue Qty])/T15.[FG PlannedQty])*T1.Quantity'Issued Qty',sum(T12.[Issued Value])/Sum(T12.[Issue Qty])*((Sum(T12.[Issue Qty])/T15.[FG PlannedQty])*T1.Quantity)'Issued Value'
+
+From OINV T0
+Inner Join Inv1 T1 on T1.DocEntry=T0.DocEntry
+Inner Join RDR1 T2 on T1.BaseEntry=t2.DocEntry and T1.BaseLine=T2.LineNum and T1.ItemCode=T2.ItemCode
+Left Join (Select A.Code,(Isnull(A.U_WTFluteB,0)+isnull(A.U_WTGM_Top,0)+isnull(A.U_WTGMBOttom,0)+isnull(A.U_WTGMFluteA,0)+isnull(A.U_WTGMMiddle,0))/100 'TotalWT' from OITT A) t6 on T6.Code=t1.ItemCode
+Left Join OWOR t3 on t2.ItemCode=T3.ItemCode and T3.OriginAbs=T2.DocEntry 
+Left Join (Select sum(A.PlannedQty)'FG PlannedQty',A.OriginAbs,a.ItemCode From OWOR A Group By A.ItemCode,A.OriginAbs) t15 on t15.ItemCode=t2.itemCode and t15.OriginAbs=T2.DocEntry
+Left Join WOR1 T4 On t4.DocEntry=t3.DocEntry
+Inner Join (Select a.ItemCode From OITM a Where a.QryGroup6='Y') t11 on t11.ItemCode=T4.ItemCode
+Left Join (Select A.BaseEntry,A.BaseLine,A.ItemCode,SUM(a.Quantity)'Issue Qty',Sum(A.LineTotal)'Issued Value' From IGE1 a Group By A.BaseEntry,a.BaseLine,a.ItemCode ) t12 on t12.BaseEntry=T4.DocEntry and T12.BaseLine=T4.LineNum and t4.itemCode=T12.ItemCode
+Where --T0.DocEntry='6647' and--'6647' 
+--t0.CardCode='C0017' and 
+t0.DocDate>'20240615' and T0.DocDate between @From and @toDate 
+and T0.BPLId='1' and
+ t0.CANCELED='N'and t0.DocType='I' and
+T1.TreeType='P'
+Group By  T0.DocEntry,T0.DocNum,T0.CardCode,T0.CardName,T1.ItemCode,T1.Quantity,T6.TotalWT,T1.LineTotal,T15.[FG PlannedQty])ab
+--Where ab.CardCode='C0025'
+Group By ab.CardCode,ab.CardName
+
+Union All
+Select ab.CardCode,ab.CardName,sum(ab.LineTotal)'InvoiceValue',sum(ab.[FG Quantity])'InvQty',sum(ab.[Issued Qty])'IssuedQtyKraft',
+sum(ab.[Issued Value])'IssuedValueKraft',sum(ab.[Total Weight])'TotalWeight'
+
+from (Select aa.DocEntry,Aa.DocNum,aa.CardCode,Aa.CardName,aa.ItemCode,aa.[FG Quantity],aa.LineTotal,aa.[Total Weight],T7.LineNum,Sum(T12.[Issue Qty])'Issued Qty',sum(T12.[Issued Value])'Issued Value'
+from (
+select  T0.DocEntry,T0.DocNum,T0.CardCode,T0.CardName,T3.Code 'ItemCode',
+(T1.Quantity*T3.Quantity)'FG Quantity',t1.Price/t5.SumQty'Price',(T1.Quantity*T3.Quantity)*t1.Price/t5.SumQty'LineTotal',
+T6.TotalWT*(T1.Quantity/T3.Quantity)'Total Weight',
+Isnull((T1.Quantity*T3.Quantity)*t1.Price/t5.SumQty,0)/Case When Isnull(T6.TotalWT*(T1.Quantity*T3.Quantity),0)=0 then 1 else  Isnull(T6.TotalWT*(T1.Quantity*T3.Quantity),0) end   'Per Kg Net Sale Cost'
+--,(Select Distinct A.LineNum From inv1 A Where A.TreeType<>'S' and  a.ItemCode=t3.Code and T0.DocEntry=A.DocEntry)
+,ROW_NUMBER() OVER (PARTITION BY T3.Code,T1.DocEntry ORDER BY t3.Code) AS seq_no
+
+From OINV T0
+Inner Join Inv1 T1 on T1.DocEntry=T0.DocEntry 
+Inner Join OITT T2 On T2.Code=T1.ItemCode
+inner Join Itt1 t3 On t3.Father=T2.Code 
+Left Join (select Sum(d.Quantity)'SumQty',C.Code,A.CardCode,B.DocEntry
+From OINV A
+Inner Join Inv1 b on A.DocEntry=b.DocEntry 
+Inner Join OITT C On C.Code=b.ItemCode
+inner Join Itt1 d On d.Father=c.Code 
+Where b.TreeType='S' and A.CANCELED='N'
+Group By C.Code,A.CardCode,B.DocEntry
+
+) t5 on T5.CardCode=t0.CardCode and   t5.DocEntry=T1.Docentry 
+and T1.ItemCode=t5.Code 
+Left Join (Select A.Code,(Isnull(A.U_WTFluteB,0)+isnull(A.U_WTGM_Top,0)+isnull(A.U_WTGMBOttom,0)+isnull(A.U_WTGMFluteA,0)+isnull(A.U_WTGMMiddle,0))/100 'TotalWT' from OITT A) t6 on T6.Code=t3.Code
+--Left Join (Select Distinct A.LineNum,A.Itemcode,A.DocEntry From inv1 A Where A.TreeType='I') t7 on t7.ItemCode=t3.Code and t7.DocEntry=T0.DocEntry
+Where --T0.DocEntry='6647' and--'6647' 
+--t0.CardCode='C0017' and 
+t0.DocDate>'20240615' and T0.DocDate between @From and @toDate 
+and T0.BPLId='1' and
+ t0.CANCELED='N'and T0.DocType='I' and 
+T1.TreeType='S'
+
+) aa
+Left Join (Select A.docEntry,A.U_Seq,A.LineNum,A.ItemCode,A.BaseEntry,A.BaseLine From INV1 A Where A.TreeType='I') t7 on T7.DocEntry=aa.DocEntry and aa.ItemCode=t7.ItemCode and Aa.seq_no=t7.U_Seq
+Left Join RDR1 T8 on t8.DocEntry=T7.BaseEntry and t8.LineNum=t7.BaseLine and t8.ItemCode=t7.ItemCode and T8.TreeType='I'
+Left Join OWOR T9 on t9.ItemCode=T8.ItemCode and T9.OriginAbs=T8.DocEntry 
+Left Join WOR1 T10 On t10.DocEntry=T9.DocEntry
+Inner Join (Select a.ItemCode From OITM a Where a.QryGroup6='Y') t11 on t11.ItemCode=T10.ItemCode
+Left Join (Select A.BaseEntry,A.BaseLine,A.ItemCode,SUM(a.Quantity)'Issue Qty',Sum(A.LineTotal)'Issued Value' From IGE1 a Group By A.BaseEntry,a.BaseLine,a.ItemCode ) t12 on t12.BaseEntry=T10.DocEntry and T12.BaseLine=T10.LineNum and t10.itemCode=T12.ItemCode
+Group By aa.DocEntry,Aa.DocNum,aa.CardCode,Aa.CardName,aa.ItemCode,aa.[FG Quantity],aa.LineTotal,aa.[Total Weight],T7.LineNum--,T9.ItemCode,t9.PlannedQty
+)AB
+--Where ab.CardCode='C0025'
+Group By ab.CardCode,Ab.CardName) bb)'TotalIssued Qty'
+
+from(
+Select  ab.PIndicator,ab.CardCode,ab.CardName,sum(ab.LineTotal)'InvoiceValue',sum(ab.[FG Quantity])'InvQty',sum(ab.[Issued Qty])'IssuedQtyKraft',
+sum(ab.[Issued Value])'IssuedValueKraft',sum(ab.[Total Weight])'TotalWeight',Sum(ab.BoardINK)'BoardInk',sum(ab.[Die&BLockParts])'Die&BLockParts'
+,sum(ab.GUM )'Gum',sum(ab.[Oil&Lube]) 'Oil&Lube',sum(ab.OtherConsumable)'OtherConsumable',sum(ab.PackagingMaterial)'PackagingMaterial',
+sum(ab.[Power&FuelForBoiler])'Power&FuelForBoiler',
+sum(ab.[Power&fuelOther])'Power&fuelOther',sum(ab.SpareParts)'SpareParts',sum(ab.StitchingWire)'StitchingWire'
+
+From(
+
+Select t0.PIndicator,T0.DocEntry,T0.DocNum,T0.CardCode,T0.CardName,T1.ItemCode,T17.Name,T1.Quantity'FG Quantity',T15.[FG PlannedQty],T1.LineTotal,T6.TotalWT*(T1.Quantity)'Total Weight',
+(Sum(T12.[Issue Qty])/T15.[FG PlannedQty])*T1.Quantity'Issued Qty',sum(T12.[Issued Value])/Sum(T12.[Issue Qty])*((Sum(T12.[Issue Qty])/T15.[FG PlannedQty])*T1.Quantity)'Issued Value',Sum(T14.BoardINK)'BoardInk',sum(t14.[Die&BLockParts])'Die&BLockParts'
+,sum(t14.GUM )'Gum',sum(t14.[Oil&Lube]) 'Oil&Lube',sum(t14.OtherConsumable)'OtherConsumable',sum(t14.PackagingMaterial)'PackagingMaterial',
+sum(t14.[Power&FuelForBoiler])'Power&FuelForBoiler',
+sum(t14.[Power&fuelOther])'Power&fuelOther',sum(t14.SpareParts)'SpareParts',sum(t14.StitchingWire)'StitchingWire'
+
+From OINV T0
+Inner Join Inv1 T1 on T1.DocEntry=T0.DocEntry
+Inner Join RDR1 T2 on T1.BaseEntry=t2.DocEntry and T1.BaseLine=T2.LineNum and T1.ItemCode=T2.ItemCode
+Left Join OITM T16 ON T16.ItemCode=T1.ItemCode
+left Join [@SUBGROUP1] t17 On t17.Code=T16.U_FGsubGrp1
+Left Join (Select A.Code,(Isnull(A.U_WTFluteB,0)+isnull(A.U_WTGM_Top,0)+isnull(A.U_WTGMBOttom,0)+isnull(A.U_WTGMFluteA,0)+isnull(A.U_WTGMMiddle,0))/100 'TotalWT' from OITT A) t6 on T6.Code=t1.ItemCode
+Left Join OWOR t3 on t2.ItemCode=T3.ItemCode and T3.OriginAbs=T2.DocEntry 
+Left Join WOR1 T4 On t4.DocEntry=t3.DocEntry
+Inner Join (Select a.ItemCode From OITM a Where a.QryGroup6='Y') t11 on t11.ItemCode=T4.ItemCode
+Left Join (Select A.BaseEntry,A.BaseLine,A.ItemCode,SUM(a.Quantity)'Issue Qty',Sum(A.LineTotal)'Issued Value' From IGE1 a Group By A.BaseEntry,a.BaseLine,a.ItemCode ) t12 on t12.BaseEntry=T4.DocEntry and T12.BaseLine=T4.LineNum and t4.itemCode=T12.ItemCode
+Left Join (Select sum(A.PlannedQty)'FG PlannedQty',A.OriginAbs,a.ItemCode From OWOR A Group By A.ItemCode,A.OriginAbs) t15 on t15.ItemCode=t2.itemCode and t15.OriginAbs=T2.DocEntry
+Left Join IGE21 T13 on t13.RefDocEntr=T3.DocEntry
+Left Join ( 
+select Distinct cc.DocEntry,sum(cc.OtherConsumable) 'OtherConsumable',sum(cc.BoardINK)'BoardINK',sum(cc.[Power&FuelForBoiler])'Power&FuelForBoiler',
+sum(cc.GUM)'GUM',sum(cc.[Oil&Lube])'Oil&Lube',sum(cc.Scap)'Scap',sum(cc.SpareParts)'SpareParts',sum(cc.StitchingWire)'StitchingWire',
+Sum(Cc.PackagingMaterial)'PackagingMaterial',sum(cc.[Power&fuelOther])'Power&fuelOther',sum(cc.StationaryItem)'StationaryItem',
+sum(cc.ElectricalSpareParts)'ElectricalSpareParts',sum(cc.[VehicleRepair&MaintenanceParts])'VehicleRepair&MaintenanceParts',sum([Die&BLockParts])'Die&BLockParts'
+
+from(Select  T0.DocEntry,Case When t3.QryGroup1='Y' then sum(t0.LineTotal) else 0 end 'OtherConsumable', 
+Case When t3.QryGroup2='Y' then sum(t0.LineTotal) else 0 end 'BoardINK',
+Case When t3.QryGroup3='Y' then sum(t0.LineTotal) else 0 end 'Power&FuelForBoiler',
+Case When t3.QryGroup4='Y' then sum(t0.LineTotal) else 0 end 'GUM',
+Case When t3.QryGroup5='Y' then sum(t0.LineTotal) else 0 end 'Oil&Lube',
+Case When t3.QryGroup7='Y' then sum(t0.LineTotal) else 0 end 'Scap',
+Case When t3.QryGroup8='Y' then sum(t0.LineTotal) else 0 end 'SpareParts',
+Case When t3.QryGroup9='Y' then sum(t0.LineTotal) else 0 end 'StitchingWire',
+Case When t3.QryGroup10='Y' then sum(t0.LineTotal) else 0 end 'PackagingMaterial',
+Case When t3.QryGroup12='Y' then sum(t0.LineTotal) else 0 end 'Power&fuelOther',
+Case When t3.QryGroup13='Y' then sum(t0.LineTotal) else 0 end 'StationaryItem',
+Case When t3.QryGroup14='Y' then sum(t0.LineTotal) else 0 end 'ElectricalSpareParts',
+Case When t3.QryGroup15='Y' then sum(t0.LineTotal) else 0 end 'VehicleRepair&MaintenanceParts',
+Case When t3.QryGroup16='Y' then sum(t0.LineTotal) else 0 end'Die&BLockParts'
+From IGE1 T0 
+Inner Join OIGE T2 on t2.DocEntry=T0.DocEntry
+--Inner Join IGE21 T1 on T1.DocEntry=T0.DocEntry 
+Inner Join OITM T3 on T3.ItemCode=T0.ItemCode
+Where T2.DocDate>='20240725' and t0.BaseType='-1' 
+--and T0.DocEntry='17663' --and t3.QryGroup1='Y'
+Group by  T0.DocEntry,t3.QryGroup1,t3.QryGroup2,T3.QryGroup3,T3.QryGroup14,t3.QryGroup4,t3.QryGroup5,t3.QryGroup6,t3.QryGroup12,t3.QryGroup9,t3.QryGroup7,t3.QryGroup5,
+t3.QryGroup8,t3.QryGroup9,t3.QryGroup10,t3.QryGroup15,t3.QryGroup13,t3.QryGroup16,t3.QryGroup17,t3.QryGroup18,t3.QryGroup19)cc
+Group By cc.DocEntry) T14 on t14.DocEntry=T13.DocEntry
+Where -- T0.DocEntry='6891' and--'6647' 
+--t0.CardCode='C0017' and 
+t0.DocDate>'20240615' and T0.DocDate between @From and @ToDate
+and T0.BPLId='1' and
+ t0.CANCELED='N'and t0.DocType='I' and
+T1.TreeType='P'
+Group By  T0.DocEntry,T0.DocNum,T0.CardCode,T0.CardName,T1.ItemCode,T1.Quantity,T6.TotalWT,T1.LineTotal,T15.[FG PlannedQty],t17.Name,t0.PIndicator)ab
+--Where ab.CardCode='C0025'
+Group By ab.CardCode,ab.CardName,ab.PIndicator
+
+Union All
+Select ab.PIndicator,ab.CardCode,ab.CardName,sum(ab.LineTotal)'InvoiceValue',sum(ab.[FG Quantity])'InvQty',sum(ab.[Issued Qty])'IssuedQtyKraft',
+sum(ab.[Issued Value])'IssuedValueKraft',sum(ab.[Total Weight])'TotalWeight',Sum(ab.BoardINK)'BoardInk',sum(ab.[Die&BLockParts])'Die&BLockParts'
+,sum(ab.GUM )'Gum',sum(ab.[Oil&Lube]) 'Oil&Lube',sum(ab.OtherConsumable)'OtherConsumable',sum(ab.PackagingMaterial)'PackagingMaterial',
+sum(ab.[Power&FuelForBoiler])'Power&FuelForBoiler',
+sum(ab.[Power&fuelOther])'Power&fuelOther',sum(ab.SpareParts)'SpareParts',sum(ab.StitchingWire)'StitchingWire'
+
+from (Select aa.PIndicator,aa.DocEntry,Aa.DocNum,aa.CardCode,Aa.CardName,aa.ItemCode,aa.[FG Quantity],t15.[FG PlannedQty],aa.LineTotal,aa.[Total Weight],T7.LineNum,(Sum(T12.[Issue Qty])) 'Issued Qty',(sum(T12.[Issued Value])) 'Issued Value'
+,Sum(T14.BoardINK)'BoardInk',sum(t14.[Die&BLockParts])'Die&BLockParts'
+,sum(t14.GUM )'Gum',sum(t14.[Oil&Lube]) 'Oil&Lube',sum(t14.OtherConsumable)'OtherConsumable',sum(t14.PackagingMaterial)'PackagingMaterial',
+sum(t14.[Power&FuelForBoiler])'Power&FuelForBoiler',
+sum(t14.[Power&fuelOther])'Power&fuelOther',sum(t14.SpareParts)'SpareParts',sum(t14.StitchingWire)'StitchingWire'
+from (select  t0.PIndicator,T0.DocEntry,T0.DocNum,T0.CardCode,T0.CardName,T3.Code 'ItemCode',(T1.Quantity*T3.Quantity)'FG Quantity',t1.Price/t5.SumQty'Price',(T1.Quantity*T3.Quantity)*t1.Price/t5.SumQty'LineTotal',
+T6.TotalWT*(T1.Quantity*T3.Quantity)'Total Weight',
+Isnull((T1.Quantity*T3.Quantity)*t1.Price/t5.SumQty,0)/Case When Isnull(T6.TotalWT*(T1.Quantity*T3.Quantity),0)=0 then 1 else  Isnull(T6.TotalWT*(T1.Quantity*T3.Quantity),0) end   'Per Kg Net Sale Cost'
+--,(Select Distinct A.LineNum From inv1 A Where A.TreeType<>'S' and  a.ItemCode=t3.Code and T0.DocEntry=A.DocEntry)
+,ROW_NUMBER() OVER (PARTITION BY T3.Code,T1.DocEntry ORDER BY t3.Code) AS seq_no
+
+From OINV T0
+Inner Join Inv1 T1 on T1.DocEntry=T0.DocEntry 
+Inner Join OITT T2 On T2.Code=T1.ItemCode
+inner Join Itt1 t3 On t3.Father=T2.Code 
+Left Join (select Sum(d.Quantity)'SumQty',C.Code,A.CardCode,B.DocEntry
+From OINV A
+Inner Join Inv1 b on A.DocEntry=b.DocEntry 
+Inner Join OITT C On C.Code=b.ItemCode
+inner Join Itt1 d On d.Father=c.Code 
+Where b.TreeType='S' and A.CANCELED='N'
+Group By C.Code,A.CardCode,B.DocEntry
+
+) t5 on T5.CardCode=t0.CardCode and   t5.DocEntry=T1.Docentry 
+and T1.ItemCode=t5.Code 
+Left Join (Select A.Code,(Isnull(A.U_WTFluteB,0)+isnull(A.U_WTGM_Top,0)+isnull(A.U_WTGMBOttom,0)+isnull(A.U_WTGMFluteA,0)+isnull(A.U_WTGMMiddle,0))/100 'TotalWT' from OITT A) t6 on T6.Code=t3.Code
+--Left Join (Select Distinct A.LineNum,A.Itemcode,A.DocEntry From inv1 A Where A.TreeType='I') t7 on t7.ItemCode=t3.Code and t7.DocEntry=T0.DocEntry
+Where -- T0.DocEntry='6891' and--'6647' 
+--t0.CardCode='C0017' and 
+t0.DocDate>'20240615' and T0.DocDate between @From and @toDate 
+and T0.BPLId='1' and
+ t0.CANCELED='N'and T0.DocType='I' and 
+T1.TreeType='S'
+
+) aa
+Left Join (Select A.docEntry,A.U_Seq,A.LineNum,A.ItemCode,A.BaseEntry,A.BaseLine From INV1 A Where A.TreeType='I') t7 on T7.DocEntry=aa.DocEntry and aa.ItemCode=t7.ItemCode and Aa.seq_no=t7.U_Seq
+Left Join RDR1 T8 on t8.DocEntry=T7.BaseEntry and t8.LineNum=t7.BaseLine and t8.ItemCode=t7.ItemCode and T8.TreeType='I'
+Left Join (Select sum(A.PlannedQty)'FG PlannedQty',A.OriginAbs,a.ItemCode From OWOR A Group By A.ItemCode,A.OriginAbs) t15 on t15.ItemCode=t7.itemCode and t15.OriginAbs=T8.DocEntry
+Left Join OWOR T9 on t9.ItemCode=T8.ItemCode and T9.OriginAbs=T8.DocEntry 
+Left Join WOR1 T10 On t10.DocEntry=T9.DocEntry
+Inner Join (Select a.ItemCode From OITM a Where a.QryGroup6='Y') t11 on t11.ItemCode=T10.ItemCode
+Left Join (Select A.BaseEntry,A.BaseLine,A.ItemCode,SUM(a.Quantity)'Issue Qty',Sum(A.LineTotal)'Issued Value' From IGE1 a Group By A.BaseEntry,a.BaseLine,a.ItemCode ) t12 on t12.BaseEntry=T10.DocEntry and T12.BaseLine=T10.LineNum and t10.itemCode=T12.ItemCode
+Left Join IGE21 T13 on t13.RefDocEntr=T9.DocEntry
+Left Join ( 
+select Distinct cc.DocEntry,sum(cc.OtherConsumable) 'OtherConsumable',sum(cc.BoardINK)'BoardINK',sum(cc.[Power&FuelForBoiler])'Power&FuelForBoiler',
+sum(cc.GUM)'GUM',sum(cc.[Oil&Lube])'Oil&Lube',sum(cc.Scap)'Scap',sum(cc.SpareParts)'SpareParts',sum(cc.StitchingWire)'StitchingWire',
+Sum(Cc.PackagingMaterial)'PackagingMaterial',sum(cc.[Power&fuelOther])'Power&fuelOther',sum(cc.StationaryItem)'StationaryItem',
+sum(cc.ElectricalSpareParts)'ElectricalSpareParts',sum(cc.[VehicleRepair&MaintenanceParts])'VehicleRepair&MaintenanceParts',sum([Die&BLockParts])'Die&BLockParts'
+
+from(Select  T0.DocEntry,Case When t3.QryGroup1='Y' then sum(t0.LineTotal) else 0 end 'OtherConsumable', 
+Case When t3.QryGroup2='Y' then sum(t0.LineTotal) else 0 end 'BoardINK',
+Case When t3.QryGroup3='Y' then sum(t0.LineTotal) else 0 end 'Power&FuelForBoiler',
+Case When t3.QryGroup4='Y' then sum(t0.LineTotal) else 0 end 'GUM',
+Case When t3.QryGroup5='Y' then sum(t0.LineTotal) else 0 end 'Oil&Lube',
+Case When t3.QryGroup7='Y' then sum(t0.LineTotal) else 0 end 'Scap',
+Case When t3.QryGroup8='Y' then sum(t0.LineTotal) else 0 end 'SpareParts',
+Case When t3.QryGroup9='Y' then sum(t0.LineTotal) else 0 end 'StitchingWire',
+Case When t3.QryGroup10='Y' then sum(t0.LineTotal) else 0 end 'PackagingMaterial',
+Case When t3.QryGroup12='Y' then sum(t0.LineTotal) else 0 end 'Power&fuelOther',
+Case When t3.QryGroup13='Y' then sum(t0.LineTotal) else 0 end 'StationaryItem',
+Case When t3.QryGroup14='Y' then sum(t0.LineTotal) else 0 end 'ElectricalSpareParts',
+Case When t3.QryGroup15='Y' then sum(t0.LineTotal) else 0 end 'VehicleRepair&MaintenanceParts',
+Case When t3.QryGroup16='Y' then sum(t0.LineTotal) else 0 end'Die&BLockParts'
+From IGE1 T0 
+Inner Join OIGE T2 on t2.DocEntry=T0.DocEntry
+--Inner Join IGE21 T1 on T1.DocEntry=T0.DocEntry 
+Inner Join OITM T3 on T3.ItemCode=T0.ItemCode
+Where T2.DocDate>='20240725' and t0.BaseType='-1' 
+--and T0.DocEntry='17663' --and t3.QryGroup1='Y'
+Group by  T0.DocEntry,t3.QryGroup1,t3.QryGroup2,T3.QryGroup3,T3.QryGroup14,t3.QryGroup4,t3.QryGroup5,t3.QryGroup6,t3.QryGroup12,t3.QryGroup9,t3.QryGroup7,t3.QryGroup5,
+t3.QryGroup8,t3.QryGroup9,t3.QryGroup10,t3.QryGroup15,t3.QryGroup13,t3.QryGroup16,t3.QryGroup17,t3.QryGroup18,t3.QryGroup19)cc
+Group By cc.DocEntry) T14 on t14.DocEntry=T13.DocEntry
+Group By aa.DocEntry,Aa.DocNum,aa.CardCode,Aa.CardName,aa.ItemCode,aa.[FG Quantity],aa.LineTotal,aa.[Total Weight],T7.LineNum,t15.[FG PlannedQty],aa.PIndicator--,T9.ItemCode,t9.PlannedQty
+)AB
+--Where ab.CardCode='C0025'
+Group By ab.CardCode,Ab.CardName,ab.PIndicator) bb
+Group By  bb.CardCode,bb.CardName,bb.PIndicator)DD
+
+End

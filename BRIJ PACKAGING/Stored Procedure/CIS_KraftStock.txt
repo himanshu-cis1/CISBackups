@@ -1,0 +1,460 @@
+USE [Live_Brij_Packaging]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_KraftStock]    Script Date: 07/12/2024 11:22:39 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[CIS_KraftStock]
+AS
+BEGIN
+Create table #WIPP1
+(ItemCode Nvarchar (250),ItemName Nvarchar (250),Deckle nvarchar(200) null,GSM nvarchar(200) null,BF nvarchar(200) null, InQTY decimal (19,6),OutQTY decimal (19,6) ,
+FullWeight dec(19,6),PartWeight dec(19,6),Stock dec(19,6),MillName Nvarchar (250),RMSHADE Nvarchar (250),)
+
+Insert into #WIPP1 (ItemCode,ItemName,Deckle,GSM,BF,InQTY,OutQTY,FullWeight,PartWeight,Stock,MillName,RMSHADE)
+(
+Select mm.ItemCode,mm.ItemName,mm.Deckle,mm.GSM,mm.BF,sum(mm.Actual)'InQTY',sum(mm.OutQty)'OutQTY',sum(mm.FullReelwEIGHT)'FullWeight',
+sum(mm.pARTrEELWeight)'PartWeight',sum(InStock)'Stock',mm.FirmName,mm.RMSHADE
+
+
+From
+(Select T31.ItemCode,T31.ItemName,T31.DistNumber 'BatchNumber',Sum(Isnull(T31.InQty,0))'Actual',Sum(Isnull(T31.OutQty,0)) 'OutQty',Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0))'InStock',
+Case When Sum(Isnull(T31.InQty,0))=Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) then Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) Else 0.0 End 'FullReelwEIGHT',
+Case When Sum(Isnull(T31.InQty,0))<>Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) then (Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0))) Else 0.0 End'pARTrEELWeight',
+Case When Sum(Isnull(T31.InQty,0))=Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) then T31.DistNumber Else '' End 'FullReelNo',
+Case When Sum(Isnull(T31.InQty,0))<>Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) then T31.DistNumber  Else '' End'pARTrEELno',t31.Deckle,t31.GSM,t31.BF,t31.FirmName,t31.RMSHADE
+From (
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize 'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+
+From OPDN A
+Inner Join PDN1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 20 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF ,j.FirmName,d.U_RMSHADE
+
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+From Oige A
+Inner Join IGE1 B on A.DOcEntry = B.DocEntry 
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod 
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 60 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF ,j.FirmName,d.U_RMSHADE
+Union All
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+From ORPD A
+Inner Join RPD1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 21 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y' --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF,j.FirmName,d.U_RMSHADE
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+
+From Odln A
+Inner Join DLN1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 15 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF ,j.FirmName,d.U_RMSHADE 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+
+From OINV A
+Inner Join INV1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 13 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF ,j.FirmName,d.U_RMSHADE 
+
+Union All
+Select B.ItemCode,B.ItemName'Dscription',E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+From OIQI A
+Inner Join IQI1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 310000001 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."DocLineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,B.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF  ,j.FirmName,d.U_RMSHADE
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+
+From ORDN A
+Inner Join RDN1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 16 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'   --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF  ,j.FirmName,d.U_RMSHADE
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+
+From ORIN A
+Inner Join RIN1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 14 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF ,j.FirmName,d.U_RMSHADE 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+
+From ORPC A
+Inner Join RPC1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 19 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF ,j.FirmName,d.U_RMSHADE 
+
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+From Oign A
+Inner Join IGN1 B on A.DOcEntry = B.DocEntry 
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod 
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 59 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where  E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF  ,j.FirmName,d.U_RMSHADE
+Union All
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+
+From OWTR A
+Inner Join WTR1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 67 AND S0.LocCode='BP-QCIN' group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode"
+
+Where E.ItmsGrpCod = '101' and d.QryGroup6='Y'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam ,D.U_Rmsize ,D.U_GSM ,D.U_RMBF ,j.FirmName,d.U_RMSHADE 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF',j.FirmName,Isnull(D.U_RMSHADE,'') 'RMSHADE'
+
+From OWTR A
+Inner Join WTR1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+Left Join OMRC J ON J.FirmCode = D.FirmCode
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 67 AND S0.LocCode='BP-RM' group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  and d.QryGroup6='Y' --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF  ,j.FirmName,d.U_RMSHADE
+
+) T31
+Where Isnull(T31.DistNumber,'')<>'' 
+Group By T31.ItemCode,T31.ItemName,T31.DistNumber,T31.Color,T31.ItmsGrpNam,t31.Deckle,t31.BF,t31.GSM,t31.FirmName,t31.RMSHADE
+--Having (Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)))>0
+)mm
+--Where mm.ItemCode='RM0122'
+Group By mm.ItemCode,mm.ItemName,mm.Deckle,mm.GSM,mm.BF,mm.FirmName,mm.RMSHADE
+Having sum(InStock)>0)
+
+
+
+
+Create table #WIPP2
+(ItemCode Nvarchar (250),Dscription Nvarchar (250),BatchNumber NVarchar (200), Actual decimal (19,6),OutQty decimal (19,6) ,InStock dec(19,6),FullReelwEIGHT dec(19,6),pARTrEELWeight dec(19,6),FullReelNo NVarchar(10),pARTrEELno NVarchar(10),Deckle nvarchar(200) null ,GSM nvarchar(200) null,BF nvarchar(200) null)
+
+Insert into #WIPP2 (ItemCode,Dscription,BatchNumber,Actual,OutQty,InStock,FullReelwEIGHT,pARTrEELWeight,FullReelNo,pARTrEELno,Deckle,GSM,BF)
+(
+Select T31.ItemCode,T31.ItemName,T31.DistNumber 'BatchNumber',Sum(Isnull(T31.InQty,0))'Actual',Sum(Isnull(T31.OutQty,0)) 'OutQty',Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0))'InStock',
+Case When Sum(Isnull(T31.InQty,0))=Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) then Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) Else 0.0 End 'FullReelwEIGHT',
+Case When Sum(Isnull(T31.InQty,0))<>Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) then (Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0))) Else 0.0 End'pARTrEELWeight',
+Case When Sum(Isnull(T31.InQty,0))=Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) then T31.DistNumber Else '' End 'FullReelNo',
+Case When Sum(Isnull(T31.InQty,0))<>Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)) then T31.DistNumber  Else '' End'pARTrEELno',t31.Deckle,t31.GSM,t31.BF
+From (
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize 'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+
+From OPDN A
+Inner Join PDN1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 20 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+From Oige A
+Inner Join IGE1 B on A.DOcEntry = B.DocEntry 
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod 
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 60 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+From ORPD A
+Inner Join RPD1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 21 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101' --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+
+From Odln A
+Inner Join DLN1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 15 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+
+From OINV A
+Inner Join INV1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 13 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+
+Union All
+Select B.ItemCode,B.ItemName'Dscription',E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+From OIQI A
+Inner Join IQI1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 310000001 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."DocLineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,B.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+
+From ORDN A
+Inner Join RDN1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 16 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'   --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+
+From ORIN A
+Inner Join RIN1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 14 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+
+From ORPC A
+Inner Join RPC1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 19 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+From Oign A
+Inner Join IGN1 B on A.DOcEntry = B.DocEntry 
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod 
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 59 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where  E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',0'InQty',Sum(t5.AllocQty)'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+
+From OWTR A
+Inner Join WTR1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 67 AND S0.LocCode='BP-QCIN' group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode"
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam ,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+Union All
+
+Select B.ItemCode,d.ItemName,E.ItmsGrpNam,t6.DistNumber,T6.MnfSerial'Color',Sum(t5.AllocQty)'InQty',0'OutQty',D.U_Rmsize'Deckle',D.U_GSM'GSM',D.U_RMBF'BF'
+
+From OWTR A
+Inner Join WTR1 B on A.DOcEntry = B.DocEntry  
+Inner Join OITM D ON D.ItemCode=B.ItemCode
+Inner Join OITB E ON E.ItmsGrpCod=D.ItmsGrpCod
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", sum(S1."Quantity") as "AllocQty" from OITL S0 INNER join ITL1 S1
+on S0."LogEntry" = S1."LogEntry" where S0."DocType" = 67 AND S0.LocCode='BP-RM' group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5
+on b."DocEntry" = T5."DocEntry" and b."LineNum" = T5."DocLine"
+LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and b."ItemCode" = T6."ItemCode" 
+
+Where E.ItmsGrpCod = '101'  --A.DocDate<= @ToDate--and T0.TransType='21'
+--and T0.TransType=T4.BaseType and t4.BaseLinNum=t0.DocLineNum --and T0.BaseLine
+Group By B.ItemCode,t6.DistNumber,d.ItemName,T6.MnfSerial,E.ItmsGrpNam,D.U_Rmsize ,D.U_GSM ,D.U_RMBF 
+
+) T31
+Where Isnull(T31.DistNumber,'')<>'' 
+Group By T31.ItemCode,T31.ItemName,T31.DistNumber,T31.Color,T31.ItmsGrpNam,t31.Deckle,t31.BF,t31.GSM
+--Having (Sum(Isnull(T31.InQty,0))+Sum(Isnull(T31.OutQty,0)))>0
+)
+
+Select distinct t1.ItemCode,t1.ItemName,t1.Deckle,t1.GSM,t1.Bf,t1.RMSHADE,t1.MillName,Isnull(kk.ROW1,0) 'FullReel',t1.FullWeight,t1.PartWeight,Isnull(kl.ROW2,0) 'PartReel',t1.Stock 'Total Weight'
+
+
+from #WIPP1 t1 
+Inner join #WIPP2 t2 on t2.ItemCode = t1.ItemCode
+Left Join 
+(Select ItemCode,Count(FullReelwEIGHT)'ROW1' from #WIPP2
+where FullReelwEIGHT <> 0
+Group by ItemCode) KK on t1.ItemCode = KK.ItemCode
+Left Join 
+(Select Itemcode,Count(pARTrEELWeight)'ROW2' from #WIPP2
+where pARTrEELWeight <> 0 
+Group by ItemCode) KL on t1.ItemCode = KL.ItemCode
+Where t1.Stock <> 0
+
+
+Drop table #WIPP1 
+Drop table #WIPP2
+End

@@ -1,0 +1,200 @@
+USE [Live_Brij_Packaging]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_OpeningStock]    Script Date: 07/12/2024 11:23:24 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[CIS_OpeningStock]
+AS
+BEGIN
+DECLARE @CurrentDate DATETIME = GETDATE(); -- Get current date
+DECLARE @FiscalYearStartMonth INT = 4; -- April is the start of the fiscal year
+
+-- Calculate the start of the current fiscal year
+DECLARE @CurrentFiscalYearStart DATETIME = 
+    CASE 
+        WHEN MONTH(@CurrentDate) >= @FiscalYearStartMonth 
+        THEN DATEFROMPARTS(YEAR(@CurrentDate), @FiscalYearStartMonth, 1)
+        ELSE DATEFROMPARTS(YEAR(@CurrentDate) - 1, @FiscalYearStartMonth, 1)
+    END;
+
+-- Calculate the end of the current fiscal year
+DECLARE @CurrentFiscalYearEnd DATETIME = 
+    CASE 
+        WHEN MONTH(@CurrentDate) >= @FiscalYearStartMonth 
+        THEN DATEFROMPARTS(YEAR(@CurrentDate) + 1, @FiscalYearStartMonth - 1, 31)
+        ELSE DATEFROMPARTS(YEAR(@CurrentDate), @FiscalYearStartMonth - 1, 31)
+    END;
+
+-- Calculate the start of previous fiscal years (3 years back)
+DECLARE @FiscalYearStartPrev1 DATETIME = DATEADD(YEAR, -1, @CurrentFiscalYearStart);
+DECLARE @FiscalYearEndPrev1 DATETIME = DATEADD(YEAR, -1, @CurrentFiscalYearEnd);
+
+DECLARE @FiscalYearStartPrev2 DATETIME = DATEADD(YEAR, -2, @CurrentFiscalYearStart);
+DECLARE @FiscalYearEndPrev2 DATETIME = DATEADD(YEAR, -2, @CurrentFiscalYearEnd);
+
+DECLARE @FiscalYearStartPrev3 DATETIME = DATEADD(YEAR, -3, @CurrentFiscalYearStart);
+DECLARE @FiscalYearEndPrev3 DATETIME = DATEADD(YEAR, -3, @CurrentFiscalYearEnd);
+
+-- Select stocks based on fiscal year ranges
+SELECT
+    T0.ItemCode,
+    T0.ItemName,
+    T0.FrgnName,
+    T0.InvntryUom,
+    T0.LastPurPrc,
+
+    CASE 
+        WHEN T0.QryGroup1 = 'Y' THEN 'Other Consumable' 
+        WHEN T0.QryGroup2 = 'Y' THEN 'Board INK'
+        WHEN T0.QryGroup3 = 'Y' THEN 'Power & Fuel For Boiler' 
+        WHEN T0.QryGroup4 = 'Y' THEN 'Gum'
+        WHEN T0.QryGroup5 = 'Y' THEN 'Oil & Lube'
+        WHEN T0.QryGroup6 = 'Y' THEN 'Kraft Paper' 
+        WHEN T0.QryGroup7 = 'Y' THEN 'Scrap' 
+        WHEN T0.QryGroup8 = 'Y' THEN 'Spare Parts'
+        WHEN T0.QryGroup9 = 'Y' THEN 'Stitching Wire'
+        WHEN T0.QryGroup10 = 'Y' THEN 'Packaging Material'
+        WHEN T0.QryGroup11 = 'Y' THEN 'FG'
+        WHEN T0.QryGroup12 = 'Y' THEN 'Power & Fuel Other'
+        WHEN T0.QryGroup13 = 'Y' THEN 'Stationary Item'
+        WHEN T0.QryGroup14 = 'Y' THEN 'Electrical Spare Parts'
+        WHEN T0.QryGroup15 = 'Y' THEN 'Vehicle Repair & Maintenance Parts'
+        WHEN T0.QryGroup16 = 'Y' THEN 'Die & Block Parts'
+        WHEN T0.QryGroup17 = 'Y' THEN 'Semi Kraft Paper'
+        WHEN T0.QryGroup18 = 'Y' THEN 'Virgin Kraft Paper'
+        ELSE ''
+    END AS 'Category',
+
+    -- Opening Stock for Current Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.InQty, 0) - ISNULL(T00.OutQty, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate < @CurrentFiscalYearStart), 0) AS 'Opening Stock (Current Year)',
+
+    -- Opening Value for Current Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.TransValue, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate < @CurrentFiscalYearStart), 0) AS 'Opening Value (Current Year)',
+
+    -- Inward Stock for Current Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.InQty, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate >= @CurrentFiscalYearStart 
+              AND T00.DocDate <= @CurrentFiscalYearEnd), 0) AS 'Inward Stock (Current Year)',
+
+    -- Inward Value for Current Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.TransValue, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND ISNULL(T00.InQty, 0) > 0
+              AND T00.DocDate >= @CurrentFiscalYearStart 
+              AND T00.DocDate <= @CurrentFiscalYearEnd), 0) AS 'Inward Value (Current Year)',
+
+    -- Outward Stock for Current Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.OutQty, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate >= @CurrentFiscalYearStart 
+              AND T00.DocDate <= @CurrentFiscalYearEnd), 0) AS 'Outward Stock (Current Year)',
+
+    -- Outward Value for Current Fiscal Year
+    ISNULL((SELECT (-1) * SUM(ISNULL(T00.TransValue, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND ISNULL(T00.OutQty, 0) > 0 
+              AND T00.DocDate >= @CurrentFiscalYearStart 
+              AND T00.DocDate <= @CurrentFiscalYearEnd), 0) AS 'Outward Value (Current Year)',
+
+    -- Closing Stock for Current Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.InQty, 0) - ISNULL(T00.OutQty, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate <= @CurrentFiscalYearEnd), 0) AS 'Closing Stock (Current Year)',
+
+    -- Closing Value for Current Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.TransValue, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate <= @CurrentFiscalYearEnd), 0) AS 'Closing Value (Current Year)',
+
+    -- Repeat the same logic for previous fiscal years...
+
+    -- Opening Stock for Last Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.InQty, 0) - ISNULL(T00.OutQty, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate < @FiscalYearStartPrev1), 0) AS 'Opening Stock (Last Year)',
+
+    -- Opening Value for Last Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.TransValue, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate < @FiscalYearStartPrev1), 0) AS 'Opening Value (Last Year)',
+
+    -- Inward Stock for Last Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.InQty, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate >= @FiscalYearStartPrev1 
+              AND T00.DocDate <= @FiscalYearEndPrev1), 0) AS 'Inward Stock (Last Year)',
+
+    -- Inward Value for Last Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.TransValue, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND ISNULL(T00.InQty, 0) > 0 
+              AND T00.DocDate >= @FiscalYearStartPrev1 
+              AND T00.DocDate <= @FiscalYearEndPrev1), 0) AS 'Inward Value (Last Year)',
+
+    -- Outward Stock for Last Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.OutQty, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate >= @FiscalYearStartPrev1 
+              AND T00.DocDate <= @FiscalYearEndPrev1), 0) AS 'Outward Stock (Last Year)',
+
+    -- Outward Value for Last Fiscal Year
+    ISNULL((SELECT (-1) * SUM(ISNULL(T00.TransValue, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND ISNULL(T00.OutQty, 0) > 0 
+              AND T00.DocDate >= @FiscalYearStartPrev1 
+              AND T00.DocDate <= @FiscalYearEndPrev1), 0) AS 'Outward Value (Last Year)',
+
+    -- Closing Stock for Last Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.InQty, 0) - ISNULL(T00.OutQty, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate <= @FiscalYearEndPrev1), 0) AS 'Closing Stock (Last Year)',
+
+    -- Closing Value for Last Fiscal Year
+    ISNULL((SELECT SUM(ISNULL(T00.TransValue, 0)) 
+            FROM OINM T00 (NOLOCK) 
+            WHERE T00.ItemCode = T0.ItemCode 
+              AND T00.Location = 1 
+              AND T00.DocDate <= @FiscalYearEndPrev1), 0) AS 'Closing Value (Last Year)'
+
+FROM OITM T0 (NOLOCK)
+INNER JOIN OITB T1 ON T0.ItmsGrpCod = T1.ItmsGrpCod
+LEFT OUTER JOIN OMRC T2 ON T0.FirmCode = T2.FirmCode
+WHERE T1.ItmsGrpCod <> 104;
+END

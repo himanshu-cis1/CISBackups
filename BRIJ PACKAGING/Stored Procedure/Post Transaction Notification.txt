@@ -1,0 +1,121 @@
+USE [Live_Brij_Packaging]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_PostTransactionNotice]    Script Date: 07/12/2024 11:18:17 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[SBO_SP_PostTransactionNotice]
+
+@object_type nvarchar(30), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+select @error_message = N'Ok'
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--	ADD	YOUR	CODE	HERE
+
+--------------------------------------------------------------------------------------------------------------------------------
+IF @object_type = '202' and @transaction_type in ('A','U')
+
+BEGIN
+
+UPDATE A
+SET A.U_CustomerPartNo = b.FrgnName
+
+from OWOR a
+Inner Join OITM  b on a.Itemcode = b.Itemcode
+Where a.DocEntry = @list_of_cols_val_tab_del
+
+END
+
+
+
+IF @object_type = '202' and @transaction_type in ('A')
+BEGIN
+UPDATE a
+SET U_FPLAN = PlannedQty
+
+from OWOR a 
+where a.DocEntry =
+ @list_of_cols_val_tab_del and isnull(a.U_FPLAN,0) = 0
+
+ end
+
+
+IF @object_type = '202' and @transaction_type in ('U')
+BEGIN
+UPDATE a
+SET U_FPLAN = (Select PlannedQty FROM AWOR t where t.DocEntry = a.DocEntry and t.LogInstanc = 1  )
+
+from OWOR a 
+where a.DocEntry =
+ @list_of_cols_val_tab_del and isnull(a.U_FPLAN,0) = 0
+ end
+
+ IF @object_type = '13' and @transaction_type in ('a','U')
+BEGIN
+UPDATE a
+SET a.U_Seq = (select ROW_NUMBER() OVER (PARTITION BY t0.ItemCode order by t0.Linenum) From INV1 T0 Where t0.DocEntry=@list_of_cols_val_tab_del and t0.TreeType='i' )
+
+from INV1 a 
+where  A.TreeType='i' and a.DocEntry =
+ @list_of_cols_val_tab_del 
+
+ 
+END  
+---------------------------------------------------------------------------------------------------------------
+IF @object_type = '13' and @transaction_type in ('a')
+BEGIN
+UPDATE b
+SET b.U_Sale_invoice = (select Top 1 T0.DocNum  From OINV T0 inner join inv1 t1 on t1.DocEntry=T0.DocEntry  Where t0.CANCELED='N' and t1.ItemCode=a.ItemCode and t0.DocEntry=@list_of_cols_val_tab_del order by T0.DocEntry desc  )
+	
+from INV1 a
+Inner Join OITM b on b.ItemCode=A.ItemCode
+where   a.DocEntry =
+ @list_of_cols_val_tab_del
+
+ 
+END
+----------------------------------
+IF @object_type = '13' and @transaction_type in ('a')
+BEGIN
+UPDATE b
+SET b.U_Sale_Date = (select Top 1 T0.DocDate  From OINV T0 inner join inv1 t1 on t1.DocEntry=T0.DocEntry  Where t0.CANCELED='N' and t1.ItemCode=a.ItemCode and t0.DocEntry=@list_of_cols_val_tab_del order by T0.DocEntry desc  )
+	
+from INV1 a
+Inner Join OITM b on b.ItemCode=A.ItemCode
+where   a.DocEntry =
+ @list_of_cols_val_tab_del
+
+ 
+END
+------------------------------------------------------
+IF @object_type = '13' and @transaction_type in ('a')
+BEGIN
+UPDATE b
+SET b.U_Sale_Price = (select Top 1 T1.Price  From OINV T0 inner join inv1 t1 on t1.DocEntry=T0.DocEntry  Where t0.CANCELED='N' and t1.ItemCode=a.ItemCode and t0.DocEntry=@list_of_cols_val_tab_del order by T0.DocEntry desc  )
+	
+from INV1 a
+Inner Join OITM b on b.ItemCode=A.ItemCode
+where   a.DocEntry =
+ @list_of_cols_val_tab_del
+
+ 
+END
+-- Select the return values
+select @error, @error_message
+
+end

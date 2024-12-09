@@ -1,0 +1,69 @@
+USE [Live_Brij_Packaging]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_Production]    Script Date: 07/12/2024 11:25:28 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[CIS_Production]
+AS
+BEGIN
+Select T0.StartDate 'Job Card Date',t0.DocNum 'Job Card No',T5.CardName 'Customer Name', t5.U_CustomerCode 'Customer Code',t0.ItemCode 'FG no',
+t3.ItemName 'Description',t3.FrgnName 'Customer Part No',t0.U_FPLAN 'Planned Qty',t0.PlannedQty 'Produce Board Qty',T0.PIndicator,
+t0.CmpltQty 'Complited Qty',(t0.U_FPLAN-t0.CmpltQty) 'Diffrence',t3.SalUnitMsr 'Unit in Nos',T0.Status,
+(((t0.U_FPLAN* Isnull(t3.U_Cutting,0))/1000)/t3.U_UPS)  'Release Liner Mtr' ,
+((((Isnull(t0.PlannedQty,0)) *Isnull(t3.U_Cutting,0))/1000)/t3.U_UPS)  'Produced Liner Mtr',
+Case When isnull(m.weight,0)=0 then (Select sum(a.Quantity) From Itt1 A Where A.Father=t0.ItemCode and A.Code not Like ('%Wast%') and A.Code not Like ('%all%') ) else M.weight End 'Weight',
+Case When isnull(m.weight,0)=0 then (Select sum(a.Quantity) From Itt1 A Where A.Father=t0.ItemCode and A.Code not Like ('%Wast%') and A.Code not Like ('%all%') )*t0.U_FPLAN else (M.weight*t0.U_FPLAN) end'Planned Qty Wt.'
+,Case When isnull(m.weight,0)=0 then (Select sum(a.Quantity) From Itt1 A Where A.Father=t0.ItemCode and A.Code not Like ('%Wast%') and A.Code not Like ('%all%') )*t0.PlannedQty  else M.weight*t0.PlannedQty END'Board Weight Qty',
+Case When isnull(m.weight,0)=0 then (Select sum(a.Quantity) From Itt1 A Where A.Father=t0.ItemCode and A.Code not Like ('%Wast%') and A.Code not Like ('%all%') )*t0.CmpltQty else M.weight*t0.CmpltQty end'Complete qty wt.',
+(Select sum(a.Quantity) From Itt1 A Where A.Father=t0.ItemCode and A.Code not Like ('%Wast%') and A.Code not Like ('%all%') ),
+(Select sum(A.IssuedQty) From WOR1 A Where A.DocEntry = t0.DocEntry and A.ItemCode not Like ('%Wast%') and A.ItemCode not Like ('%all%'))'Actual Consumption',
+tt.name 'Product Type',ML.WQTY 'Wastage Quantity',t4.USER_CODE 'User',OITB.ItmsGrpNam 'Item  Cotegory',
+Case when t0.Status = 'L' Then 'Close'
+when  t0.Status = 'P' then 'Planed' 
+when  t0.status = 'R' then 'Released' else '' end as 'Status', CASE
+            WHEN MONTH(T0.PostDate) = 1 THEN 'JAN'
+            WHEN MONTH(T0.PostDate) = 2 THEN 'FEB'
+            WHEN MONTH(T0.PostDate) = 3 THEN 'MAR'
+            WHEN MONTH(T0.PostDate) = 4 THEN 'APR'
+            WHEN MONTH(T0.PostDate) = 5 THEN 'MAY'
+            WHEN MONTH(T0.PostDate) = 6 THEN 'JUN'
+            WHEN MONTH(T0.PostDate) = 7 THEN 'JUL'
+            WHEN MONTH(T0.PostDate) = 8 THEN 'AUG'
+            WHEN MONTH(T0.PostDate) = 9 THEN 'SEP'
+            WHEN MONTH(T0.PostDate) = 10 THEN 'OCT'
+            WHEN MONTH(T0.PostDate) = 11 THEN 'NOV'
+            WHEN MONTH(T0.PostDate) = 12 THEN 'DEC'
+        END AS MonthS,CASE
+            WHEN MONTH(t0.PostDate) >= 4 THEN MONTH(t0.PostDate) - 3
+            ELSE MONTH(t0.PostDate) + 9
+        END AS FiscalMonth
+
+From OWOR t0
+--Inner join WOR1 t1 on t1.DocEntry = t0.DocEntry
+Left join  OCRD t2 on t2.CardCode = t0.CardCode
+Inner join OITM t3 on t3.ItemCode = t0.ItemCode
+Left join OUSR t4 on t4.USERID = t0.UserSign
+left Join OITB on oitb.ItmsGrpCod = t3.ItmsGrpCod
+lEFT join (Select code,U_CustomerCode,CardName from OITT
+Left join OCRD on OITT.U_CustomerCode = ocrd.CardCode) T5 ON T0.ItemCode = T5.Code
+lEFT jOIN (select T1.DocNum,t1.ItemCode,SUM(ISNULL(cast (T3.U_BoardQty AS fLOAT) ,0)) 'BQTY' from OWOR t1
+
+--Inner Join Wor1 t2 on t1.DocEntry = t2.DocEntry
+Left join IGN1 t3 on t1.DocEntry = t3.BaseEntry and t1.docnum = t3.Baseref and t1.ItemCode = t3.Itemcode 
+gROUP BY T1.DocNum,T1.ItemCode
+) kl  on t0.DocNum = KL.DocNum and t0.ItemCode = KL.ItemCode
+Left Join (Select code,Round(((Isnull(U_WTGM_Top,0)+isnull(U_WTGMFluteA,0)+isnull(U_WTGMMiddle,0)+isnull(U_WTGMBOttom,0)+isnull(U_WTFluteB,0))/100),3) 'weight' 
+from OITT t0) M on M.Code = t0.ItemCode
+Left Join "@SUBGROUP1" tt on tt.Code = t3.U_FGsubGrp1
+LEFT JOIN (select T1.DocNum,t1.ItemCode,sum(t3.Quantity) 'WQTY' from OWOR t1
+
+Inner Join Wor1 t2 on t1.DocEntry = t2.DocEntry
+Left join IGN1 t3 on t1.DocEntry = t3.BaseEntry and t1.docnum = t3.Baseref and t2.ItemCode = t3.ItemCode--and t1.ItemCode = t3.Itemcode 
+
+where t3.ItemCode = 'wastage5' 
+gROUP BY T1.DocNum,T1.ItemCode) ML on t0.ItemCode  = ML.ItemCode and t0.DocNum = ML.Docnum
+
+--Where t0.StartDate >= '20240801' and t0.StartDate <= '20240831'
+End

@@ -1,0 +1,1224 @@
+USE [Advance_Live_New]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_TransactionNotification]    Script Date: 07/12/2024 11:28:42 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER proc [dbo].[SBO_SP_TransactionNotification]   
+  
+@object_type nvarchar(20),     -- SBO Object Type  
+@transaction_type nchar(1),   -- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose  
+@num_of_cols_in_key int,  
+@list_of_key_cols_tab_del nvarchar(255),  
+@list_of_cols_val_tab_del nvarchar(255)  
+  
+AS  
+  
+begin  
+  
+-- Return values  
+declare @error  int    -- Result (0 for no error)  
+declare @error_message nvarchar (200)   -- Error string to be displayed  
+select @error = 0  
+declare @draft_object int
+select @error_message = N'Ok'  
+  
+--------------------------------------------------------------------------------------------------------------------------------  
+
+-- ADD YOUR CODE HERE  
+
+/*
+
+--------------------------------------------------------------------------------------------------------------------------------  
+--------------------Gate Entry No already Entered---------------------------------- 
+	IF @object_type = '20' AND (@transaction_type = 'A'OR @transaction_type = 'U')
+	BEGIN 
+			DECLARE @Gate AS VARCHAR(16)		
+			SELECT @Gate = T0.U_GateEntryNo FROM OPDN (NOLOCK) T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del
+		
+			IF ISNULL(@Gate, '') <> '' AND 1 != 
+			(SELECT COUNT(DocEntry) FROM OPDN (NOLOCK) T0 WHERE T0.U_GateEntryNo = @Gate)
+			BEGIN
+				SELECT @error='1100' , @error_message='Gate Entry No already Entered'
+				END
+	END 
+
+*/
+
+/*iF (@object_type = '20' AND @transaction_type IN ('A','U'))
+
+BEGIN
+
+DECLARE @VendorRefNo AS VarChar (20)
+
+--DECLARE @BPCode AS VarChar (20)
+
+SELECT @VendorRefNo = U_GateEntryNo FROM dbo.OPDN
+
+     WHERE DocEntry = @list_of_cols_val_tab_del
+
+--SELECT @BPCode = CardCode FROM dbo.OPCH
+
+--     WHERE DocEntry = @list_of_cols_val_tab_del
+
+IF 1 != (SELECT COUNT(DocEntry) 
+FROM opdn WITH(NOLOCK) WHERE U_GateEntryNo = @VendorRefNo ) AND (@VendorRefNo IS NOT NULL OR @VendorRefNo <> ' ')
+
+BEGIN
+
+SELECT @ERROR = 1
+
+SELECT @ERROR_MESSAGE = 'Gate Entry No already Entered'
+
+END
+
+	
+	end
+	
+	iF (@object_type = '20' AND @transaction_type IN ('A','U'))
+
+BEGIN
+	
+		IF not EXISTS  (select t0.DocEntry
+from OPDN t0 
+where  T0.DocEntry = @list_of_cols_val_tab_del and t0.U_GateEntryNo is not null or t0.U_GateEntryNo =''  )
+			Begin
+			
+			select @error =14, @error_message = 'Gate Entry No shuold not be blank !'
+			
+			END  
+	END */
+
+  
+	
+	--Goods Reciept from Production
+	IF (@object_type = '59' AND @transaction_type = 'A') 
+	BEGIN  
+			IF EXISTS (Select top 1 T1.Status From OWOR T1 inner join WOR1 T2
+				 On T1.DocEntry=T2.DocEntry Where T1.DocEntry in (select  T3.BaseEntry from IGN1 T3 where T3.DocEntry =@list_of_cols_val_tab_del and T3.TranType is not null)
+				  and ISNULL(T2.PlannedQty,0.00) <> ISNULL(T2.IssuedQty,0.00) and  t1.UserSign not in(30,37))
+			Begin
+			
+			select @error =11, @error_message = 'Please check, Issue from production not yet done!'
+			
+			END  
+	END  
+	
+	
+	IF @object_type='202' AND (@transaction_type = 'A' OR @transaction_type = 'U')     
+	BEGIN  
+			IF EXISTS(SELECT T1.DocEntry AS 'DocEntry' 
+					  FROM [DBO].[OWOR] (NOLOCK) T1    
+				      WHERE T1.DocEntry NOT IN (SELECT BaseEntry FROM IGN1 (NOLOCK) WHERE BaseType='202')
+				       AND T1.DocEntry = @list_of_cols_val_tab_del AND STATUS = 'L')  
+			BEGIN  
+  
+				SELECT @Error = 1, @error_message = 'Reciepts from production not completed'  
+  
+			END 
+			
+			
+			 
+			IF EXISTS (Select top 1 T1.Status From OWOR T1 inner join WOR1 T2
+				 On T1.DocEntry=T2.DocEntry Where T1.DocEntry = @list_of_cols_val_tab_del 
+				 and T1.Status = 'L'  and T2.PlannedQty <> T2.IssuedQty  )
+			Begin
+			
+			select @error =11, @error_message = ' You Cannot Close the Production Order unless the planned qty is met!'
+			
+			END 
+	END 
+/*  
+if @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U')    
+begin    
+Declare @itemcode1 varchar(40)   
+Declare @Salesord1 varchar(40)   
+declare @Qty     numeric  
+set @itemcode1=(select t0.ItemCode from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)  
+set @Salesord1=(select t0.OriginNum from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)  
+--set @Qty=(select sum(t0.PlannedQty) from OWOR t0 where t0.OriginNum=@Salesord1 and  t0.ItemCode =@itemcode1 and t0.Status !='C')  
+ if  not Exists(select t0.docnum from ORDR t0 inner join RDR1 t1 on t0.DocEntry=t1.DocEntry  
+where t0.DocNum=@Salesord1 and t1.ItemCode=@itemcode1 --and t1.Quantity >= @Qty  
+)  
+     
+   
+ begin    
+     set @error  = 10001   
+  Set @error_message = 'Production Order Qty is more than Sales Order Qty or Selected item is not in sales order !'    
+ end    
+end  
+*/  
+  
+	IF (@object_type = '60' AND @transaction_type = 'A') AND (SELECT TOP 1 i.BaseType FROM IGE1 i  
+														      WHERE i.DocEntry = @list_of_cols_val_tab_del) = 202  
+	BEGIN  
+			IF EXISTS  (SELECT T0.DocEntry
+						FROM IGE1 (NOLOCK) T0
+						INNER JOIN WOR1 (NOLOCK) T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseType = '202' AND T0.BaseLine = T1.LineNum
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T1.IssuedQty, 0.00) > ISNULL(T1.PlannedQty, 0.00))  
+			BEGIN  
+				SET @error = 1  
+				SET @error_message = 'You can not issue more than planned !'  
+			END  
+	END  
+  
+	--GRN Qty should not greater then P.O Qty  
+	IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'20')  
+	BEGIN   
+		IF EXISTS (SELECT T0.BaseEntry,(((SUM(T0.Quantity))*isnull(T3.U_Tolerance,0.00))/100) 
+					FROM [dbo].[PDN1] (NOLOCK) T0 
+					INNER JOIN [dbo].[POR1] (NOLOCK) T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseLine = T1.LineNum AND T0.BaseType = '22'   
+					INNER JOIN [dbo].OPDN (NOLOCK) T2 ON T0.DocEntry = T2.DocEntry
+					inner join [dbo].OITM (NOLOCK) T3 ON T1.ItemCode=T3.ITEMCODE AND T0.ItemCode=T3.ITEMCODE    
+					WHERE T0.DOCENTRY = @list_of_cols_val_tab_del   
+	  			     GROUP BY T0.BaseEntry ,T3.U_Tolerance 
+					HAVING (SUM(T0.Quantity) >( SUM(T1.Quantity)+((SUM(T1.Quantity) *isnull(T3.U_Tolerance,0.00))/100)) 
+					or SUM(T0.Quantity) > SUM(T0.BaseOpnQty)+((SUM(T0.BaseOpnQty) *isnull(T3.U_Tolerance,0.00))/100)))    
+		BEGIN  
+				SELECT @error = 10, @error_message = 'GRPO quantity is greater PO quantity'  
+		END  
+	END  
+-------------------------------------------
+   /*IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'20')  
+	BEGIN   
+		IF EXISTS (SELECT T0.BaseEntry,T0.Quantity
+					FROM [dbo].[PDN1] (NOLOCK) T0 
+					INNER JOIN [dbo].[POR1] (NOLOCK) T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseLine = T1.LineNum AND T0.BaseType = '22'   
+					INNER JOIN [dbo].OPDN (NOLOCK) T2 ON T0.DocEntry = T2.DocEntry  
+					inner join [dbo].OITM (NOLOCK) T3 ON T1.ItemCode=T3.ITEMCODE
+					
+					WHERE T0.DOCENTRY = @list_of_cols_val_tab_del   
+					 
+					 	     
+					
+					GROUP BY T0.BaseEntry  ,T3.U_Tolerance,t0.Quantity,t0.BaseOpnQty,t1.Quantity
+					HAVING (T0.Quantity) > ((T1.Quantity) +(((T1.Quantity) *isnull(T3.U_Tolerance,0.00))/100))
+					
+					 or (T0.Quantity) > ((T0.BaseOpnQty) + (((T0.BaseOpnQty) *isnull(T3.U_Tolerance,0.00))/100)))  
+		BEGIN  
+				SELECT @error = 10, @error_message = 'GRPO quantity is greater PO quantity'  
+		END  
+	END 
+
+--------------------------------------------
+IF (@object_type = '20' AND @transaction_type IN ( 'A','U'))
+BEGIN
+If   exists
+(select t1.WhsCode from  OPDN t0 
+INNER JOIN PDN1 T1 ON T0.DocEntry=t1.DocEntry
+where 
+t1.WhsCode NOT IN ('HY-QCRM','QC_RMD','HD_QC','DL-RM','NE-EINV','N-INV','QCRM-EX','TRD','1')
+and t0.DocEntry=@list_of_cols_val_tab_del)
+   
+Begin
+set @error =1
+set @error_message = 'Pleas Select As per Branch Quality Control Warehouse'  
+End
+END*/
+------------------------Draft PO ----------------
+	---------------------------
+	if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+    where T1.WhsCode NOT IN ('HY-QCRM','QC_RMD','HD_QC','DL-RM','NE-EINV','N-INV','QCRM-EX','TRD','01' ) 
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'Enter HY-QCRM ,QC_RMD, HD_QC ,DL-RM,NE-EINV,N-INV,QCRM-EX,TRD,01 Warehouse Code'  
+    end
+end
+	
+-------------------------------------------   
+	/*IF @object_type = '20' AND @transaction_type = 'A'  
+	BEGIN   
+		IF EXISTS (SELECT * 
+				   FROM [dbo].[OPDN] (NOLOCK) T0 
+				   INNER JOIN PDN1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry  
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null)  
+		BEGIN  
+				Select @error = -1, @error_message = 'Must Raise PO First'  
+		End  
+	end  
+	
+	--Production order receipt qty should not be greater Than planned Qty
+--End*/
+
+-------------------------------------------------------------SAME VENDOR ON ITEM MASTER DATA PICKED ON QUOTATION--------
+--if @object_type = '112' and @transaction_type in ('A', 'U')
+--begin
+--  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+--   if @draft_object = 540000006 -- Draft PO
+--   if exists (select T0.DocEntry from DRF1 T1 inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+--   INNER JOIN OITM T3 ON t3.ItemCode=T1.ItemCode
+--    where T0.CardCode<>t3.CardCode
+--    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+--    begin
+--     set @error = 110
+--     set @error_message = 'You can not Purchase other vendor Please select Preffered vendor'  
+--    end
+--end
+--------------------------------------------------------------------------------------------------------------------------
+
+  ---PO_Delivery_Date_notification---
+  
+  IF  @transaction_type IN (N'A', N'U') AND (@Object_type = N'22')
+BEGIN  
+	
+	
+	IF  EXISTS  (select t0.DocEntry
+from OPOR t0 inner join POR1 t1 on t0.DocEntry=t1.DocEntry
+where  T0.DocEntry = @list_of_cols_val_tab_del and t1.ShipDate < t0.docdate  )
+			Begin
+			
+			select @error =14, @error_message = 'PO can not saved on Past Delivery Date !'
+			
+			END  
+	END 
+	----------------------You Cannot Close the Production Order without total Planned qty-------------
+IF @object_type='202' AND (@transaction_type = 'A' OR @transaction_type = 'U')     
+BEGIN  
+IF EXISTS (Select top 1 T1.Status From OWOR T1 
+			Where T1.DocEntry = @list_of_cols_val_tab_del and T1.Status = 'L'  
+				 and T1.PlannedQty = T1.CmpltQty  and ISNULL(T1.U_Production_Status, '') = '')
+			Begin
+			
+			select @error =12, @error_message = ' You Cannot Close the Production Order without Total 
+			Receipt Planned qty/Production status not null'
+			
+			END
+			END	
+			------------------------------------------------------------------------------------
+			IF @object_type = '59'
+      BEGIN
+            IF ISNULL((SELECT CASE WHEN T0.PlannedQty - SUM(ISNULL(T1.Quantity, 0)) < 0 THEN 1 ELSE 0 END
+                           FROM OWOR T0
+                           LEFT JOIN IGN1 T1 ON T1.BaseEntry = T0.DocEntry AND T1.BaseType = '202'
+                           WHERE T0.DocEntry IN (SELECT C0.BaseEntry FROM IGN1 C0 WHERE C0.DocEntry = @list_of_cols_val_tab_del) and T0.ItemCode = T1.ItemCode
+                           GROUP BY T0.PlannedQty), 0) IN (1)
+            BEGIN
+                  SET @error = 10
+                  SET @error_message = 'Cannot receipt more than "Planned Quantity" in Production Order .'
+            END           
+   
+     END
+
+--	--------------------------Good Issue--------------------
+--If @transaction_type = 'A' And @object_type = '60'
+
+--Begin
+
+--If Exists (Select T0.itemcode from [dbo].[IGE1] T0, [dbo].[OIGE] T1 Inner Join [dbo].[OUSR] T2
+
+--On T1.userSign=T2.UserId where T0.docentry = @list_of_cols_val_tab_del
+-- And T0.whscode in ('HY-QCRM','QC_RMD','DL-RM','HD_QC'))
+
+--Begin
+
+--select @error = 1, @error_message = 'You are not allowed to issue from Warehouse '
+
+--end
+
+--end
+	--------------------------------------
+
+--	IF @transaction_type IN ('A') AND (@Object_type = '20')
+
+--Begin
+
+--declare @dtdiff int
+
+--     Set @dtdiff = ( Select datediff(day, getdate(), T0.[DocDate])
+--      from OPDN t0 where T0.docentry = @list_of_cols_val_tab_del)
+
+--    if @dtdiff < 0
+
+--    begin
+
+--                  select @error = 1, @error_message = 'You are not allowed to enter in earliar posting date'
+
+--end
+
+--End		
+---------------------
+	If @object_type='18' and @transaction_type='A'
+BEGIN 
+If Exists (Select T0.DocEntry from [dbo].[OPDN] T0 
+			Inner Join PDN1 T1 On T0.DocEntry=T1.DocEntry
+			Inner Join OITM T2 On T2.ItemCode=T1.ItemCode
+			Where T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null and T0.DocType='I' 
+			AND ISNULL(T2.InvntItem, 'N') <> 'N' AND T0.CardCode not in ('VEND00408','VEND00410','VEND00411'))
+BEGIN
+Select @error = -1,
+@error_message = 'Please Raise GRN First'
+End
+End	
+-----------------------------------------
+
+  ---PO_Delivery_Date_notification---
+  
+  IF  @transaction_type IN (N'A', N'U') AND (@Object_type = N'22')
+BEGIN  
+	
+	
+	IF  EXISTS  (select t0.DocEntry
+from OPOR t0 inner join POR1 t1 on t0.DocEntry=t1.DocEntry
+where  T0.DocEntry = @list_of_cols_val_tab_del and Isnull(T1.Price,0) =0 )
+			Begin
+			
+			select @error =114, @error_message = 'Kindly fill Price On PO'
+			
+			END  
+	END 
+	---------------------------------------------------------
+ IF  @transaction_type IN (N'A', N'U') AND (@Object_type = N'20')
+BEGIN  
+	
+	
+	IF  EXISTS  (select t0.DocEntry
+from OPDN t0 inner join PDN1 t1 on t0.DocEntry=t1.DocEntry
+where  T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseType=22 and Isnull(t1.Quantity,0) >Isnull(t1.U_OpenQty,0))
+			Begin
+			
+			select @error =115, @error_message = 'GRPO Qty more than PO QTY'
+			
+			END  
+	END
+-----------------------------------------------------------------------------------------------------
+----Sales order no. on production order mandatory.Production order to be = sales order qty.----
+if @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U')  
+begin  
+Declare @itemcode1 varchar(40) 
+Declare @Salesord1 varchar(40) 
+declare @Qty float
+declare @QtyOld float
+--DECLARE @Shotage NVARCHAR(10)
+
+--set @Shotage =(select ISNULL(t0.U_ShortQty, 'N') from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @itemcode1=(select t0.ItemCode from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @Salesord1=(select t0.OriginAbs from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+set @Qty=(select sum(t0.PlannedQty) from OWOR t0 where t0.OriginAbs=@Salesord1 and  t0.ItemCode =@itemcode1 and 
+                t0.DocEntry=@list_of_cols_val_tab_del and t0.Status <>'C')
+set @QtyOld= ISNULL((select sum(t0.PlannedQty) from OWOR t0 where t0.OriginAbs=@Salesord1 and  t0.ItemCode =@itemcode1 and 
+                t0.DocEntry<>@list_of_cols_val_tab_del and t0.Status <>'C' ), 0)
+
+	
+		if  not Exists(select t0.docnum from ORDR t0 
+		inner join RDR1 t1 on t0.DocEntry=t1.DocEntry
+		where t0.DocEntry=@Salesord1 and t1.ItemCode=@itemcode1 and t1.Quantity >= (@Qty + @QtyOld)
+		)
+		AND EXISTS (SELECT T0.DocEntry
+					FROM OWOR T0
+					INNER JOIN OITM T2 ON T0.ItemCode = T2.ItemCode
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T2.ItmsGrpCod NOT IN (106, 107) )
+		begin  
+			set @error  = 10001 
+			Set @error_message ='Production Order Qty is more than Sales Order Qty or Selected item is not in sales order !'  
+		end
+	  
+end
+-----------------------------------------------------------------------------------------------------
+/*iF (@object_type = '20' AND @transaction_type IN ('A','U'))
+
+BEGIN
+
+              IF  EXISTS (SELECT *  FROM OPDN (NOLOCK) T0
+
+                     INNER JOIN PDN1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry
+
+                    WHERE T0.DocEntry = @list_of_cols_val_tab_del and t1.BaseType <> Case When t0.CardCode  In ('VEND00408''VEND00410''VEND00411') Then -1 Else 22 End)
+                  --  IF EXISTS(SELECT PDN1.DocEntry FROM PDN1 inner Join OPDN On PDN1.DocEntry=OPDN.DocEntry WHERE ISNULL(PDN1.BaseType, '') <> '')
+                    BEGIN
+                                           SET @error = 112
+
+                                           SET @error_message = 'GRN should based on the PO !'
+
+                             END
+
+                           END8*/
+----------------------------
+
+--IF (@object_type = '20' )and (@transaction_type IN ('A','U'))
+--BEGIN
+--If Exists (Select T0.DocEntry from OPDN T0 
+--Inner Join PDN1 T1 On T1.DocEntry = T0.DocEntry
+--where  T1.BaseType  <> 22 and T0.DocEntry = @list_of_cols_val_tab_del ) 
+--  Begin
+--  set @error = 112
+--  set @error_message = 'GRN should based on the PO !'
+--  End
+
+--END
+-----------------------
+
+--IF (@object_type = '20' )and (@transaction_type IN ('A','U'))
+--BEGIN
+--If Exists (Select T0.DocEntry from OPDN T0 
+--Inner Join PDN1 T1 On T1.DocEntry = T0.DocEntry
+--where  T1.BaseType  <> -1 and t0.CardCode  In ('VEND00408','VEND00410','VEND00411')and T0.DocEntry = @list_of_cols_val_tab_del ) 
+--  Begin
+--  set @error = 113
+--  set @error_message = 'GRN should based on the PO !'
+--  End
+
+--END
+-----------------------------------------------
+
+--iF (@object_type = '20' AND @transaction_type IN ('A','U'))
+
+ 
+
+--BEGIN
+
+--              IF  EXISTS (SELECT *  FROM OPDN (NOLOCK) T0
+
+--                     INNER JOIN PDN1 (NOLOCK) T1 ON T0.DocEntry = T1.DocEntry 
+
+--                    WHERE  IsNull(T1.BaseEntry,'') is  null and  (T0.U_InterBranch) = Case When  t0.CardCode  In ('VEND00408''VEND00410''VEND00411') Then 'Y' Else 'N' End
+--					and
+--					T0.DocEntry = @list_of_cols_val_tab_del )
+					
+--					--and
+					 
+
+--                   IF EXISTS(SELECT PDN1.DocEntry FROM PDN1 WHERE ISNULL(PDN1.BaseType, '') = '')
+--                    BEGIN
+--                                           SET @error = 11167
+
+--                                           SET @error_message = 'GRPO should based on the PO !'
+
+--                             END
+
+--                             END
+
+IF @transaction_type IN( 'A','U') AND @object_type = '20'
+
+BEGIN
+
+IF  EXISTS (SELECT T0.DocEntry FROM [dbo].[PDN1] T0
+Inner join OPDN on opdn.DocEntry= T0.DocEntry
+
+WHERE OPDN.U_InterBranch='N' and   T0.BaseType ='-1' --and ((T0.BaseEntry is null and OPDN.CardCode  In ('VEND00408''VEND00410''VEND00411') ))  
+AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN
+
+SELECT @Error = 1, @error_message = 'Without PO GRPO not Add' 
+
+END
+END
+---------------------------------------------------------------------------------------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '59')
+
+BEGIN
+
+  if Exists (SELECT T0.DocEntry FROM IGN1 T0  WHERE (t0.project is  null or T0.project = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 11100, @error_message = 'Project should not be Blank '
+
+           END
+
+           end
+
+ 
+--------------------------Sandeep---------------------------------------------
+IF (@object_type = '17' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From ORDR t0
+		 Inner Join RDR1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+-------------------------------------------
+IF (@object_type = '15' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From ODLN t0
+		 Inner Join DLN1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+---------------------------------------------------
+IF (@object_type = '13' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OINV t0
+		 Inner Join INV1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+------------------------------------------------
+IF (@object_type = '14' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From ORIN t0
+		 Inner Join RIN1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+------------------------------------------------------------
+IF (@object_type = '14' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From ORIN t0
+		 Inner Join RIN1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+---------------------------------------------
+IF (@object_type = '24' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From ORCT t0
+		 Inner Join RCT2 t1 on t1.DocNum = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+-------------------------------------------------------
+IF (@object_type = '46' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OVPM t0
+		 Inner Join VPM2 t1 on t1.DocNum = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+----------------------------------------------------------
+IF (@object_type = '1470000113' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OPRQ t0
+		 Inner Join PRQ1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+--------------------------------------------------------------
+IF (@object_type = '22' and @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OPOR t0
+		 Inner Join POR1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+-----------------------------------------------
+IF (@object_type = '20' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OPDN t0
+		 Inner Join PDN1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+-----------------------------------------------------
+IF (@object_type = '18' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OPCH t0
+		 Inner Join PCH1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+----------------------------------------------------
+IF (@object_type = '19' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From ORPC t0
+		 Inner Join RPC1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+----------------------------------------------------
+IF (@object_type = '67' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OWTR t0
+		 Inner Join WTR1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+----------------------------------------------------
+IF (@object_type = '1250000001' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OWTQ t0
+		 Inner Join WTQ1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 
+		
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+----------------------------------------------------
+IF (@object_type = '66' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.Code
+         From OITT t0
+		 Inner Join ITT1 t1 on t1.Father = t0.Code
+		  Left join OWHS  on owhs.WhsCode = t0.ToWH
+         left join OBPL on obpl.bplid = owhs.BPLid
+         where t0.Code = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and isnull(t1.Code,'') <> '' and OBPL.BPLId in (4) and t0.CreateDate > '20241025') 	
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+-----------------------------------------------
+IF (@object_type = '66' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.Code
+         From OITT t0
+		  Left join OWHS  on owhs.WhsCode = t0.ToWH
+         left join OBPL on obpl.bplid = owhs.BPLid
+         where t0.Code = @list_of_cols_val_tab_del  and  (t0.OcrCode is null or t0.OcrCode = '' ) and (t0.OcrCode2 is null or t0.OcrCode2 = '' ) and OBPL.BPLId in (4) and t0.CreateDate > '20241025') 	
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+--------------------------------------------------------
+IF (@object_type = '202' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OWOR t0
+		 Inner Join WOR1 t1 on t1.DocEntry = t0.DocEntry
+		 Left join OWHS  on owhs.WhsCode = t0.Warehouse
+         left join OBPL on obpl.bplid = owhs.BPLid
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and isnull(t1.itemcode,'') <> '' and OBPL.BPLId in (4) and t0.StartDate > '20241025') 	
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+--------------------------------------------------------
+IF (@object_type = '202' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OWOR t0
+		 Left join OWHS  on owhs.WhsCode = t0.Warehouse
+         left join OBPL on obpl.bplid = owhs.BPLid
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t0.OcrCode is null or t0.OcrCode = '' ) and (t0.OcrCode2 is null or t0.OcrCode2 = '' ) and OBPL.BPLId in (4) and t0.StartDate > '20241025') 	
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+--------------------------------------------------------
+IF (@object_type = '59' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OIGN t0
+		 Inner Join IGN1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 	
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+--------------------------------------------------------
+IF (@object_type = '60' and @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (Select t0.DocEntry
+         From OIGE t0
+		 Inner Join IGE1 t1 on t1.DocEntry = t0.DocEntry
+         where t0.DocEntry = @list_of_cols_val_tab_del  and  (t1.OcrCode is null or t1.OcrCode = '' ) and (t1.OcrCode2 is null or t1.OcrCode2 = '' ) and t0.BPLId in (4) and t0.DocDate > '20241025') 	
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+
+/*
+Declare @OCR Nvarchar(20),
+ @OCR2 Nvarchar (20),@Loc int,@date date,@docdate date
+--------------------------Sandeep---------------------------------------------
+IF (@object_type = '17' and @transaction_type in ('A','U'))
+BEGIN
+SET @Loc = (Select Bplid from ORDR  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from ORDR where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from ORDR A
+Left Join RDR1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+-------------------------------------------
+IF (@object_type = '15' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from ODLN  where DocEntry = @list_of_cols_val_tab_del )
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from ODLN where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from ODLN A
+Left Join DLN1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+---------------------------------------------------
+IF (@object_type = '13' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OINV  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OINV where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OINV A
+Left Join INV1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+------------------------------------------------
+IF (@object_type = '14' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from ORIN  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from ORIN where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from ORIN A
+Left Join RIN1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+------------------------------------------------------------
+
+---------------------------------------------
+IF (@object_type = '24' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from ORCT  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from ORCT where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from ORCT A
+Left Join RCT2 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+-------------------------------------------------------
+IF (@object_type = '46' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OVPM  where DocEntry = @list_of_cols_val_tab_del )
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OVPM where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OVPM A
+Left Join VPM2 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+----------------------------------------------------------
+IF (@object_type = '1470000113' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OPRQ  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OPRQ where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OPRQ A
+Left Join PRQ1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+--------------------------------------------------------------
+IF (@object_type = '22' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OPOR  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OPOR where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OPOR A
+Left Join POR1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+-----------------------------------------------
+IF (@object_type = '20' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OPDN  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OPDN where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OPDN A
+Left Join PDN1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+-----------------------------------------------------
+IF (@object_type = '18' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OPCH  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OPCH where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OPCH A
+Left Join PCH1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+----------------------------------------------------
+IF (@object_type = '19' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from ORPC  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from ORPC where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from ORPC A
+Left Join RPC1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+----------------------------------------------------
+IF (@object_type = '67' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OWTR  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OWTR where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OWTR A
+Left Join WTR1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+
+ 
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+----------------------------------------------------
+IF (@object_type = '1250000001' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OWTQ  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OWTQ where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OWTQ A
+Left Join WTQ1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+----------------------------------------------------
+IF (@object_type = '66' and @transaction_type in ('A','U'))
+BEGIN
+SET @Loc = (Select Bplid from OITT Inner join OWHS on OITT.ToWH = OWHS.WhsCode  where OITT.Code = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (CreateDate as DATE) from OITT where Code = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date
+
+BEGIN
+
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(A.OcrCode,'0')'OcrCode',ISNULL(A.OcrCode2,'0') 'OcrCode2' from OITT A
+
+where A.Code =@list_of_cols_val_tab_del) L
+
+ IF   @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+
+-----------------------------------------------
+IF (@object_type = '66' and @transaction_type in ('A','U'))
+BEGIN
+SET @Loc = (Select Bplid from OITT Inner join OWHS on OITT.ToWH = OWHS.WhsCode  where OITT.Code = @list_of_cols_val_tab_del )
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (CreateDate as DATE) from OITT where Code = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date
+
+BEGIN
+
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(A.OcrCode,'0')'OcrCode',ISNULL(A.OcrCode2,'0') 'OcrCode2' from ITT1 A
+
+where A.Father =@list_of_cols_val_tab_del) L
+
+ IF   @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+--------------------------------------------------------
+IF (@object_type = '202' and @transaction_type in ('A','U'))
+BEGIN
+SET @Loc = (Select Bplid from OWOR Inner join OWHS on OWOR.Warehouse = OWHS.WhsCode  where OWOR.DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (PostDate as DATE) from OWOR where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+
+BEGIN
+
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(A.OcrCode,'0')'OcrCode',ISNULL(A.OcrCode2,'0') 'OcrCode2' from OWOR A
+
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+
+ IF   @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center In Header'
+END
+End
+END
+--------------------------------------------------------
+IF (@object_type = '202' and @transaction_type in ('A','U'))
+BEGIN
+SET @Loc = (Select Bplid from OWOR Inner join OWHS on OWOR.Warehouse = OWHS.WhsCode  where OWOR.DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (PostDate as DATE) from OWOR where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(A.OcrCode,'0')'OcrCode',ISNULL(A.OcrCode2,'0') 'OcrCode2' from WOR1 A
+
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+  IF   @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center in Row'
+END
+End
+END
+--------------------------------------------------------
+IF (@object_type = '59' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OIGN  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OIGN where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OIGN A
+Left Join IGN1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+ BEGIN
+ SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END
+--------------------------------------------------------
+IF (@object_type = '60' and @transaction_type in ('A','U'))
+
+BEGIN
+SET @Loc = (Select Bplid from OIGE  where DocEntry = @list_of_cols_val_tab_del ) 
+SET @date = (Select distinct CAST(refdate AS Date) from OJDT where refdate = '20241025')
+SET @docdate = (Select Distinct Cast (Docdate as DATE) from OIGE where Docentry = @list_of_cols_val_tab_del )
+IF @Loc =  4 and @docdate > @date 
+BEGIN
+ 
+Select @OCR = L.OcrCode ,@OCR2 = L.OcrCode2 from (Select ISNULL(B.OcrCode,'0')'OcrCode',ISNULL(B.OcrCode2,'0') 'OcrCode2' from OIGE A
+Left Join IGE1 B on A.DocEntry = B.DocEntry
+where A.DocEntry =@list_of_cols_val_tab_del) L
+
+ IF @OCR = '0' and @OCR2 = '0'
+BEGIN 
+SET @error = 257
+SET @error_message = 'Please select Cost Center'
+END
+End
+END*/
+
+
+
+
+----------------------------------------------------------------------------------------------------
+
+
+	-- Select the return values  
+	select @error, @error_message  
+  
+end

@@ -1,0 +1,374 @@
+USE [VIMAL_PLASTICS_2024]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_Daily Stock Movement]    Script Date: 07/12/2024 11:39:23 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER Procedure [dbo].[CIS_Daily Stock Movement]
+
+(
+@FromDate Datetime ,
+@ToDate Datetime 
+)
+AS Begin
+--Select * From OiTM
+--Declare @FromDate Datetime 
+--Declare @ToDate Datetime 
+--Declare @Loc nvarchar(10)
+--declare @whse nvarchar(50)
+--declare @GroupNum nvarchar(50)
+
+--select @FromDate = min(S0.Docdate) from dbo.OINM S0 where S0.Docdate >= {?FromDate}
+--select @ToDate =max(S1.Docdate) from dbo.OINM s1 where S1.Docdate <={?ToDate}
+--select @Loc=isnull(Max(s4.Location),0) from dbo.OINM S4 Where S4.Location='[%2]'
+--select @Whse = isnull(Max(s2.Warehouse),'All') from dbo.OINM S2 Where S2.Warehouse ='[%3]'
+--select @GroupNum=isnull(max(s3.ItmsGrpNam),'All') from dbo.oitb s3 where s3.ItmsGrpNam ='[%4]'
+
+
+Select /*--@whse as 'WareHouse',*/
+a.WareHouse,max(a.location)as 'Location',a.Itemcode, max(a.Dscription) as ItemName,a.ExtraDesc,max(GroupName) GroupName
+, 
+Case When a.QryGroup1='Y' Then 'ACRYLIC' 
+When a.QryGroup2='Y' Then 'PP'
+When a.QryGroup3='Y' Then 'PP-RL' 
+When a.QryGroup4='Y' Then 'ABS'
+When a.QryGroup5='Y' Then 'SAN' 
+When a.QryGroup6='Y' Then 'PET-G' 
+When a.QryGroup7='Y' Then 'LDPE' 
+When a.QryGroup8='Y' Then 'RANDOM PP'
+When a.QryGroup9='Y' Then 'K-RESIN'
+When a.QryGroup10='Y' Then 'BOMBO FIBRE'
+When a.QryGroup11='Y' Then 'BOMBO FIBRE-BM' 
+When a.QryGroup12='Y' Then 'MLP'
+When a.QryGroup13='Y' Then 'FSP' 
+When a.QryGroup14='Y' Then 'PRP'
+When a.QryGroup15='Y' Then 'ICP' 
+When a.QryGroup16='Y' Then 'SPP' 
+When a.QryGroup17='Y' Then 'MB' 
+When a.QryGroup18='Y' Then 'PR-SFG'
+When a.QryGroup19='Y' Then 'FS-SFG'
+When a.QryGroup20='Y' Then 'SP-SFG'
+When a.QryGroup21='Y' Then 'ML-SFG' 
+When a.QryGroup22='Y' Then 'IC-SFG'
+When a.QryGroup23='Y' Then 'IM-SFG' 
+When a.QryGroup24='Y' Then 'PCK'
+When a.QryGroup25='Y' Then 'SCRAP' 
+When a.QryGroup26='Y' Then 'JOB WORK'
+When a.QryGroup27='Y' Then 'PUMP'
+When a.QryGroup28='Y' Then'Service'
+When a.QryGroup29='Y' Then'PM'
+When a.QryGroup30='Y' Then'Tool_Room'
+When a.QryGroup31='Y' Then'WAD'
+When a.QryGroup32='Y' Then'CUTTING'
+Else ''
+END'SubGroup',
+sum(a.OpeningBalance) as OpeningBalance
+,sum(a.[GRN In]) [GRN In], sum(a.[Sales Return])[Sales Return],sum(a.[RECEIVED FROM Production]) [Good Receipt],
+sum(a.[Production In]) [Receipt From Production],Sum(a.[Inventory Transfer to production])[Inventory Transfer to production],SUM(a.[Inventory Transfer to production Issue])[Inventory Transfer to production Issue],Sum(a.[Inter Branch Transfer Receipt ]) [Inter Branch Transfer Receipt ], Sum(a.[Inter Branch Transfer Issue ]) [Inter Branch Transfer Issue ],
+Sum(a.[JW Transfer Receipt ])[JW Transfer Receipt ],sum(a.[JW Transfer Issue ])[JW Transfer Issue ],sum(a.[Delivery OUT]) [Sale OUT],sum(a.[Purchase Out])[Purchase Return], 
+sum(a.[Other Out]) [Good Issue],
+sum(a.[Issue for Production]) [Issue for Production]
+, ((sum(a.OpeningBalance) + sum(a.[GRN In])+sum(a.[RECEIVED FROM Production])+Sum(a.[JW Transfer Receipt ])+Sum(a.[Inventory Transfer to production])+Sum(a.[Inter Branch Transfer Receipt ])+sum(a.[Sales Return])+sum(a.[Production In])) - (Sum(a.[Delivery OUT])+ sum(a.[JW Transfer Issue ])+SUM(a.[Inventory Transfer to production Issue])+Sum(a.[Inter Branch Transfer Issue ]) + sum(a.[Other Out])+sum(a.[Purchase Out])+sum(a.[Issue for Production]))) as Closing 
+from
+( 
+Select n1.Warehouse,n1.Location,
+N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+,(sum(N1.inqty)-sum(n1.outqty)) as OpeningBalance, 0 as [GRN In],0 as [Sales Return],
+0 [RECEIVED FROM Production],0 [Production In],0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],0[Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ], 0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out],0 [Issue for Production] 
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate < @FromDate /*--and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode, N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+Union All 
+
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,sum(N1.inqty-N1.outqty) [GRN In],0 as [Sales Return],0 [RECEIVED FROM Production],0 [Production In],
+0 [Inventory Transfer to production],0[Inventory Transfer to production Issue], 0[Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out],0 [Issue for Production]  
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate  and N1.TransType IN (20,18)   /*--and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+Union All
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],0 as [Sales Return],0 [RECEIVED FROM Production],0 [Production In],
+Sum(N1.InQty) [Inventory Transfer to production],0[Inventory Transfer to production Issue],0[Inter Branch Transfer Receipt ], 0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out],0 [Issue for Production]  
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left Join WTR1 N2 On N2.DocEntry=n1.CreatedBy AND N1.DocLineNum=n2.LineNum AND N1.ItemCode=N2.ItemCode
+Left Join Owtr N3 On N3.DocEntry=N2.DocEntry
+/*Left Join WTQ1 N3 On N3.DocEntry=n2.BaseEntry And N3.LineNum=N2.BaseLine 
+Left Join WTQ21 N4 On N4 .DocEntry=N3.DocEntry
+Left Join OWOR N5 On N5 .DocEntry=N4.RefDocEntr 
+Left Join WOR1 N6 ON N6.DocEntry=N5.DocEntry And N6.ItemCode=n3.ItemCode*/
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate  and N1.TransType IN (67)And Isnull(N3.U_Cancel,'') in ('NO','')  And Isnull(N3.CardCode,'') ='' /*  --and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+Union All
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],0 as [Sales Return],0 [RECEIVED FROM Production],0 [Production In],'0' [Inventory Transfer to production],
+Sum(N1.OutQty) [Inventory Transfer to production Issue],0[Inter Branch Transfer Receipt ], 0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out],0 [Issue for Production]  
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left Join WTR1 N2 On N2.DocEntry=n1.CreatedBy AND N1.DocLineNum=n2.LineNum AND N1.ItemCode=N2.ItemCode
+Left Join Owtr N3 On N3.DocEntry=N2.DocEntry
+/*Left Join WTQ1 N3 On N3.DocEntry=n2.BaseEntry And N3.LineNum=N2.BaseLine 
+Left Join WTQ21 N4 On N4 .DocEntry=N3.DocEntry
+Left Join OWOR N5 On N5 .DocEntry=N4.RefDocEntr 
+Left Join WOR1 N6 ON N6.DocEntry=N5.DocEntry And N6.ItemCode=n3.ItemCode*/
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate And Isnull(N3.U_Cancel,'') in ('NO','') 
+and N1.TransType IN (67) And Isnull(N3.CardCode,'') ='' /*  --and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+Union All
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],0 as [Sales Return],0 [RECEIVED FROM Production],0 [Production In],0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],
+Sum(n1.InQty) [Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ], 0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out],0 [Issue for Production]  
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left Join WTR1 N2 On N2.DocEntry=n1.CreatedBy AND N1.DocLineNum=n2.LineNum AND N1.ItemCode=N2.ItemCode
+Left Join Owtr N3 On N3.DocEntry=N2.DocEntry
+/*Left Join WTQ1 N3 On N3.DocEntry=n2.BaseEntry And N3.LineNum=N2.BaseLine 
+Left Join WTQ21 N4 On N4 .DocEntry=N3.DocEntry
+Left Join OWOR N5 On N5 .DocEntry=N4.RefDocEntr 
+Left Join WOR1 N6 ON N6.DocEntry=N5.DocEntry And N6.ItemCode=n3.ItemCode*/
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate And Isnull(N3.U_Cancel,'') in ('NO','') 
+ and N1.TransType IN (67) And Isnull(N3.CardCode,'')  in('V00530','V00529') /* --and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+Union All
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],0 as [Sales Return],0 [RECEIVED FROM Production],0 [Production In],0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],
+0 [Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ], Sum(n1.InQty)[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out],0 [Issue for Production]  
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left Join WTR1 N2 On N2.DocEntry=n1.CreatedBy AND N1.DocLineNum=n2.LineNum AND N1.ItemCode=N2.ItemCode
+Left Join Owtr N3 On N3.DocEntry=N2.DocEntry
+/*Left Join WTQ1 N3 On N3.DocEntry=n2.BaseEntry And N3.LineNum=N2.BaseLine 
+Left Join WTQ21 N4 On N4 .DocEntry=N3.DocEntry
+Left Join OWOR N5 On N5 .DocEntry=N4.RefDocEntr 
+Left Join WOR1 N6 ON N6.DocEntry=N5.DocEntry And N6.ItemCode=n3.ItemCode*/
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate  and N1.TransType IN (67)  And Isnull(N3.U_Cancel,'') in ('NO','')  And Isnull(N3.CardCode,'') not in('V00530','V00529','') /* --and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+Union All
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],0 as [Sales Return],0 [RECEIVED FROM Production],0 [Production In],0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],
+0 [Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],Sum(n1.OutQty) [JW Transfer Issue ], 0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out],0 [Issue for Production]  
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left Join WTR1 N2 On N2.DocEntry=n1.CreatedBy AND N1.DocLineNum=n2.LineNum AND N1.ItemCode=N2.ItemCode
+Left Join Owtr N3 On N3.DocEntry=N2.DocEntry
+/*Left Join WTQ1 N3 On N3.DocEntry=n2.BaseEntry And N3.LineNum=N2.BaseLine 
+Left Join WTQ21 N4 On N4 .DocEntry=N3.DocEntry
+Left Join OWOR N5 On N5 .DocEntry=N4.RefDocEntr 
+Left Join WOR1 N6 ON N6.DocEntry=N5.DocEntry And N6.ItemCode=n3.ItemCode*/
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate And Isnull(N3.U_Cancel,'') in ('NO','') 
+  and N1.TransType IN (67) And Isnull(N3.CardCode,'') not in('V00530','V00529','') /*--and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+Union All
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],0 as [Sales Return],0 [RECEIVED FROM Production],0 [Production In],0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],
+0 [Inter Branch Transfer Receipt ],Sum(n1.OutQty) [Inter Branch Transfer Issue ],  0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out],0 [Issue for Production]  
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left Join WTR1 N2 On N2.DocEntry=n1.CreatedBy AND N1.DocLineNum=n2.LineNum AND N1.ItemCode=N2.ItemCode
+Left Join Owtr N3 On N3.DocEntry=N2.DocEntry
+/*Left Join WTQ1 N3 On N3.DocEntry=n2.BaseEntry And N3.LineNum=N2.BaseLine 
+Left Join WTQ21 N4 On N4 .DocEntry=N3.DocEntry
+Left Join OWOR N5 On N5 .DocEntry=N4.RefDocEntr 
+Left Join WOR1 N6 ON N6.DocEntry=N5.DocEntry And N6.ItemCode=n3.ItemCode*/
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate And Isnull(N3.U_Cancel,'') in ('NO','') 
+and N1.TransType IN (67) And Isnull(N3.CardCode,'')  in('V00530','V00529') /*--and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+union ALl
+
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],sum(N1.inqty-n1.OutQty) [Sales Return],0 [RECEIVED FROM Production],0[Inventory Transfer to production Issue],0 [Production In],
+ 0 [Inventory Transfer to production],0[Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ], 0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 as [Purchase Out],0 as [Other Out]  ,0 [Issue for Production]
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate and N1.Inqty >0 and (N1.TransType =16 or N1.TransType=14)  /*--and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+
+Union All 
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],0 [Sales Return],sum(N1.inqty) [RECEIVED FROM Production],0 [Production In], 
+0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],0[Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ], 0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 [Purchase Return],0 as [Other Out] ,0 [Issue for Production]
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate and N1.Inqty >0 and (n1.TransType =310000001 or (n1.TransType=59 and N1.ApplObj<>202)) /*--and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+Union All 
+
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance,0 [GRN In],0 [Sales Return],0 [RECEIVED FROM Production],sum(N1.inqty) [Production In], 
+0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],0[Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],0 [JW Transfer Issue ],0 as [Delivery OUT],0 [Purchase Return],0 as [Other Out] ,0 [Issue for Production]
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <= @ToDate and N1.Inqty >0 and (n1.TransType=59 and N1.ApplObj=202) /*--and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+
+union all
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance, 0 [GRN In],0 [Sales Return],0 [RECEIVED FROM Production],0 [Production In],0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],
+ 0[Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],0 [JW Transfer Issue ],sum(N1.outqty-n1.InQty) as [Delivery OUT],0 as [Other Out] ,0 as [Other Out] ,0 [Issue for Production]
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <=@ToDate and TransType in(15,13)  /* --and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+
+Union All 
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance, 0 [GRN In],0 [Sales Return],0 [RECEIVED FROM Production],0 [Production In],0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],
+0[Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],0 [JW Transfer Issue ], 0 [Delivery OUT],sum(N1.outqty-n1.InQty) as [Purchase Out],0 as [Other Out] ,0 [Issue for Production]
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <=@ToDate --and N1.OutQty > 0
+ and TransType in (21,19)   /*--and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+
+Union All 
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance, 0 [GRN In],0 [Sales Return],0 [RECEIVED FROM Production],0 [Purchase Out],0 [Production In],
+0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],0[Inter Branch Transfer Receipt ],0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],0 [JW Transfer Issue ], 0 as [Delivery OUT],sum(N1.outqty) as [Other Out] ,0 [Issue for Production]
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <=@ToDate and N1.OutQty > 0  and (TransType=310000001 or TransType=60) and ApplObj<>202/* and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+
+Union All 
+select n1.Warehouse,n1.Location,N1.Itemcode, N1.Dscription,o1.U_ExtraDesc [ExtraDesc],b1.ItmsGrpNam GroupName
+, 0 as OpeningBalance, 0 [GRN In],0 [Sales Return],0 [RECEIVED FROM Production],0 [Purchase Out],0 [Production In],
+0 [Inventory Transfer to production],0[Inventory Transfer to production Issue],
+0[Inter Branch Transfer Receipt ],
+0 [Inter Branch Transfer Issue ],0[JW Transfer Receipt ],0 [JW Transfer Issue ], 0 as [Delivery OUT],0 as [Other Out] ,sum(N1.outqty) [Issue for Production]
+,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+From dbo.OINM N1 
+Left join OITM o1 on o1.ItemCode =n1.ItemCode 
+Left join OITB b1 on b1.ItmsGrpCod =o1.ItmsGrpCod 
+Where N1.DocDate >= @FromDate and N1.DocDate <=@ToDate and N1.OutQty > 0  and (TransType=60 and ApplObj=202) /*and (n1.Warehouse=@whse OR @whse='All') AND (b1.ItmsGrpNam=@groupnum OR @groupnum='All') and (n1.Location=@Loc or @Loc=0)
+*/Group By N1.ItemCode,N1.Dscription,b1.ItmsGrpNam ,n1.Warehouse,n1.Location,o1.U_ExtraDesc,o1.QryGroup1,o1.QryGroup2,o1.QryGroup3,o1.QryGroup4,o1.QryGroup5,o1.QryGroup6,o1.QryGroup7,o1.QryGroup8,o1.QryGroup9,o1.QryGroup10,
+ o1.QryGroup11,o1.QryGroup12,o1.QryGroup13,o1.QryGroup14,o1.QryGroup15,o1.QryGroup16,o1.QryGroup17,o1.QryGroup18,o1.QryGroup19,o1.QryGroup20,
+  o1.QryGroup21,o1.QryGroup22,o1.QryGroup23,o1.QryGroup24,o1.QryGroup25,o1.QryGroup26,o1.QryGroup27,o1.QryGroup28,o1.QryGroup29,o1.QryGroup30,o1.QryGroup31,o1.QryGroup32,o1.QryGroup33,
+  o1.QryGroup34
+) a, dbo.OITM I1 
+where a.ItemCode=I1.ItemCode 
+Group By a.ExtraDesc,a.WareHouse,a.QryGroup1,a.QryGroup2,a.QryGroup3,a.QryGroup4,a.QryGroup5,a.QryGroup6,a.QryGroup7,a.QryGroup8,a.QryGroup9,a.QryGroup10,
+ a.QryGroup11,a.QryGroup12,a.QryGroup13,a.QryGroup14,a.QryGroup15,a.QryGroup16,a.QryGroup17,a.QryGroup18,a.QryGroup19,a.QryGroup20,
+  a.QryGroup21,a.QryGroup22,a.QryGroup23,a.QryGroup24,a.QryGroup25,a.QryGroup26,a.QryGroup27,a.QryGroup28,a.QryGroup29,a.QryGroup30,a.QryGroup31,a.QryGroup32,
+a.Itemcode Having sum(a.OpeningBalance) + sum(a.[GRN In]) + sum(a.[RECEIVED FROM Production])+sum(a.[Production In]) + Sum(a.[JW Transfer Receipt ])+Sum(a.[Inventory Transfer to production])+Sum(a.[Inter Branch Transfer Receipt ])+sum(a.[JW Transfer Issue ])+SUM(a.[Inventory Transfer to production Issue])+Sum(a.[Inter Branch Transfer Issue ]) + sum(a.[Delivery OUT])+ sum(a.[Other Out])+SUM(a.[Issue for Production])+sum(a.[Sales Return]) > 0 Order By a.Itemcode
+
+END

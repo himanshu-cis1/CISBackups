@@ -1,0 +1,616 @@
+USE [VIMAL_PLASTICS_2024]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_TransactionNotification]    Script Date: 07/12/2024 11:37:52 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[SBO_SP_TransactionNotification] 
+
+@object_type nvarchar(30), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+select @error_message = N'Ok'
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--------------------------------Delivery quantity is only 3% greater than SO quantity-------------------------------------------------------------
+--IF @transaction_type IN ('A', 'U') AND (@Object_type = '15')  
+--      BEGIN  
+--            IF EXISTS (SELECT T0.BaseEntry,T0.Quantity
+--                              FROM [dbo].DLN1 (NOLOCK) T0
+--                              INNER JOIN [dbo].RDR1 (NOLOCK) T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseLine = T1.LineNum AND T0.BaseType = '17'  
+--                              INNER JOIN [dbo].ODLN (NOLOCK) T2 ON T0.DocEntry = T2.DocEntry  
+--                              inner join [dbo].OITM (NOLOCK) T3 ON T1.ItemCode=T3.ITEMCODE
+                              
+--                              WHERE T0.DOCENTRY = @list_of_cols_val_tab_del  
+                              
+                                        
+                              
+--                             GROUP BY T0.BaseEntry  ,t0.Quantity,t0.BaseOpnQty,t1.Quantity,t1.BaseOpnQty
+--                              HAVING  (sum(t0.quantity) > (sum(T1.Quantity)+ sum(t1.Quantity)*3/100)))  
+--            BEGIN  
+--                        SELECT @error = 112, @error_message = 'Delivery quantity is greater SO quantity'  
+--            END  
+--      END
+
+-------Item Master---------
+--IF (@object_type = '4' AND @transaction_type IN ( 'A','U'))
+--BEGIN
+--If   exists
+--(select t0.chapterid from  OITM t0 where 
+--(t0.chapterid= -1 )and t0.ItmsGrpCod not in (113,115)
+--and t0.ItemCode=@list_of_cols_val_tab_del)
+   
+--Begin
+--set @error =1
+--set @error_message = 'HSN Code should not be blank !'
+--End
+--END
+----------------------------Item Addon Notificatio--------------
+	--IF @object_type = '4' AND @transaction_type IN ('A', 'U')
+	--BEGIN
+
+	--	IF EXISTS (SELECT T0.ItemName
+	--			   FROM OITM T0
+	--			   INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+	--			   WHERE T0.ItemCode = @list_of_cols_val_tab_del)
+	--	BEGIN
+
+	--		SET @error = 10000
+	--		SET @error_message = 'Item Name already exists.'
+	--	END
+	--END
+----------------------------Without TaxCode In Po-----------------------------
+IF @object_type = '22' AND @transaction_type IN ('A', 'U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM POR1 T0
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And IsNull(T0.TaxCode,'')='')
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select TaxCode.'
+		END
+	END
+----------------------Without TaxCode In So----------------------
+	IF @object_type = '17' AND @transaction_type IN ('A', 'U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM RDR1 T0
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And IsNull(T0.TaxCode,'')='' And  T0.Price<>'0')
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select TaxCode.'
+		END
+	END
+	-------------------------------------------------------Production2 ID--------------------------------------------------------------
+	--IF @object_type = '60' AND @transaction_type IN ('A', 'U')
+	--BEGIN
+
+	--	IF EXISTS (SELECT T0.DocEntry
+	--			   FROM OIGE T0
+	--			   Inner Join IGE1 T1 on T1.DocEntry = T0."DocEntry"
+	--			  -- INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+	--			 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+	--			   WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T1.BaseType = '202' And T0.UserSign2 = '11' AND T1.WhsCode<>'PCK&AM-N' )
+	--	BEGIN
+
+	--		SET @error = 10001
+	--		SET @error_message = 'Please Select PCK&AM-N Warehouse.' 
+	--	END
+	--END
+	-----------------------------------------------------Production3 ID--------------------------------------------------------------
+	--IF @object_type = '60' AND @transaction_type IN ('A', 'U')
+	--BEGIN
+
+	--	IF EXISTS (SELECT T0.DocEntry
+	--			   FROM IGE1 T0
+	--			   Inner Join OIGE T2 on t2.DocEntry=T0."DocEntry"
+	--			 --  INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+	--			 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+	--			   WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T2.BaseType='202' And T2.UserSign2='13' AND T0.WhsCode<>'ML-N-PF' )
+	--	BEGIN
+
+	--		SET @error = 10001
+	--		SET @error_message = 'Please Select ML-N-PF Warehouse.'
+	--	END
+	--END
+------------------------------Production1 ID------------------------
+	--IF @object_type = '59' AND @transaction_type IN ('A')
+	--   BEGIN
+
+	--	IF EXISTS (SELECT T0.DocEntry
+	--			   FROM OIGN T0
+	--			   Inner Join IGN1 T2 on t2.DocEntry=T0."DocEntry"
+	--			   INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+	--			 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+	--			   WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T2.BaseType='202' And T1.USERID = '11' AND T2.WhsCode<>'FG-N' )
+	--	BEGIN
+
+	--		SET @error = 10002
+	--		SET @error_message = 'Please not Select PCK&AM-N Warehouse.'
+	--	END
+	--END 
+	----------------------Sandeep1-------------------
+	IF @object_type = '60' AND @transaction_type IN ('A', 'U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OIGE T0
+				   Inner Join IGE1 T1 on T1.DocEntry = T0."DocEntry"
+				  -- INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T1.BaseType = '202' And T0.UserSign2 = '8' AND T1.WhsCode <> 'PCK&AM-N' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select PCK&AM-N Warehouse.' 
+		END
+	END
+	-------------------------Sandeep2--------------------------------------
+IF @object_type = '60' AND @transaction_type IN ('A', 'U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OIGE T0
+				   Inner Join IGE1 T1 on T1.DocEntry = T0."DocEntry"
+				  -- INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T1.BaseType = '202' And T0.UserSign2 = '9' AND T1.WhsCode<>'IM-S-PF' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select IM-S-PF Warehouse.'
+		END
+	END
+-----------------------------Sandeep3-----------------------------------
+	IF @object_type = '67' AND @transaction_type IN ('A', 'U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OWTR T0
+				   --Inner Join WTR1 T2 on t2.DocEntry=T0."DocEntry"
+				  -- Left JOIN OUSR T1 ON T1.USERID = T0.UserSign
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And T0.UserSign2 = '8' AND T0.Filler <> 'PCK&AM-N' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select PCK&AM-N Warehouse.' 
+		END
+	END
+-------------------------------Sandeep4-----------------------------------
+	IF @object_type = '67' AND @transaction_type IN ('A', 'U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OWTR T0
+				   --Inner Join WTR1 T2 on t2.DocEntry=T0."DocEntry"
+				  -- Left JOIN OUSR T1 ON T1.USERID = T0.UserSign
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And T0.UserSign2 = '9' AND T0.Filler <> 'IM-S-PF' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select IM-S-PF Warehouse.'
+		END
+	END
+	-----------------------------------------------------Production3 ID--------------------------------------------------------------
+	--IF @object_type = '67' AND @transaction_type IN ('A', 'U')
+	--BEGIN
+
+	--	IF EXISTS (SELECT T0.DocEntry
+	--			   FROM OWTR T0
+	--			   Inner Join WTR1 T2 on t2.DocEntry=T0."DocEntry"
+	--			   INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+	--			 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+	--			   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And T1.USERID='13' AND T2.FromWhsCod<>'ML-N-PF' )
+	--	BEGIN
+
+	--		SET @error = 10001
+	--		SET @error_message = 'Please Select ML-N-PF Warehouse.'
+	--	END
+	--END
+-----------------------------------------------------Production process--------------------------------------------------------------
+	IF @object_type = '202' AND @transaction_type IN ('A')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OWOR T0
+			
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And 
+				 Isnull (T0.U_ProductionProcess,'')='' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select Production Process'
+		END
+	END
+------------------------------------------------------Production Machine---------------------------------------------------------
+	IF @object_type = '202' AND @transaction_type IN ( 'A','U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OWOR T0
+			
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del And T0.Status='R' And Isnull(T0.U_MachineNo,'')='' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select Machine No.'
+		END
+	END
+	----------------------------------------------------------------------------------MB%---------------------------------------------------------------------------------
+	IF @object_type = '202' AND @transaction_type IN ( 'A','U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OWOR T0
+			Inner Join WOR1 T1 On T1.DocEntry=T0.DocEntry
+			Inner Join OITM T2 On T2.ItemCode=T1.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del And T0.Status='R' And T1.ItemCode Like('MB%')  And T0.U_MBPerCent='0' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select MB%.'
+		END
+	END
+----------------------------------------------------------------------------Remark-----------------------------------------------------------------
+	IF @object_type = '202' AND @transaction_type IN ( 'A') 
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OWOR T0
+			
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And Isnull(T0.U_Remark,'')='' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select Remark'
+		END
+	END
+
+-----------------------------------------------------------------
+	--IF @object_type = '202' AND @transaction_type='U'
+	--BEGIN
+
+	--	IF EXISTS (SELECT T0.DocEntry
+	--			   FROM OWOR T0
+			
+	--			   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And T0.Status='L' )
+	--	BEGIN
+
+	--		SET @error = 10001
+	--		SET @error_message = 'Production Order Already Closed you can not update'
+	--	END
+	--END
+	-----------------------------------------------------Production3 ID--------------------------------------------------------------
+	IF @object_type = '1250000001' AND @transaction_type IN ('A', 'U')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OWTQ T0
+				   Inner Join WTQ1 T2 on t2.DocEntry=T0."DocEntry"
+				   INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And T1.USERID='11' AND T2.FromWhsCod<>'PCK&AM-N' )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select PCK&AM-N Warehouse.'
+		END
+	END
+----------------------------------------------------------------------
+--IF @object_type = '1250000001' AND @transaction_type IN ('A', 'U')
+--	BEGIN
+
+--		IF EXISTS (SELECT T0.DocEntry
+--				   FROM OWTQ T0
+--				   Inner Join WTQ1 T2 on t2.DocEntry=T0."DocEntry"
+--				   INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+--				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+--				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And T1.USERID='12' AND T2.FromWhsCod<>'IM-N-PF' )
+--		BEGIN
+
+--			SET @error = 10001
+--			SET @error_message = 'Please Select IM-N-PF Warehouse.'
+--		END
+--	END
+--	-----------------------------------------------------Production3 ID--------------------------------------------------------------
+--	IF @object_type = '1250000001' AND @transaction_type IN ('A', 'U')
+--	BEGIN
+
+--		IF EXISTS (SELECT T0.DocEntry
+--				   FROM OWTQ T0
+--				   Inner Join WTQ1 T2 on t2.DocEntry=T0."DocEntry"
+--				   INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+--				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+--				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And T1.USERID='13' AND T2.FromWhsCod<>'ML-N-PF' )
+--		BEGIN
+
+--			SET @error = 10001
+--			SET @error_message = 'Please Select ML-N-PF Warehouse.'
+--		END
+--	END
+--	-----------------------------------------------------Production3 ID--------------------------------------------------------------
+--	IF @object_type = '1250000001' AND @transaction_type IN ('A', 'U')
+--	BEGIN
+
+--		IF EXISTS (SELECT T0.DocEntry
+--				   FROM OWTQ T0
+--				   Inner Join WTQ1 T2 on t2.DocEntry=T0."DocEntry"
+--				   INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+--				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+--				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And T1.USERID='11' AND T2.FromWhsCod<>'PCK&AM-N' )
+--		BEGIN
+
+--			SET @error = 10001
+--			SET @error_message = 'Please Select PCK&AM-N Warehouse.'
+--		END
+--	END
+--------------------------------------------------------------------------------------------------------------------------------
+IF @object_type = '59' AND @transaction_type IN ( 'A','U')
+	BEGIN
+
+
+	IF EXISTS (SELECT (T0."DocEntry") 
+FROM "OIGN" T0
+INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry" AND T1."BaseType" = '202'
+INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" 
+INNER JOIN "WOR1" T3 ON T2."DocEntry" = T3."DocEntry"
+Inner Join "OITM" T4 On T4.ItemCode=T3.ItemCode
+
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del and T3.IssueType='M' and T4.ItmsGrpCod <>'104' AND ISNULL(T3."PlannedQty", 0.0000)/(ISNULL(T2."PlannedQty"+(T2."PlannedQty"*10/100), 0.0000)) <> 0.0000
+AND Round((ISNULL(T3."IssuedQty"+(T3."PlannedQty"*10/100), 0.0000) / (IsNULL(T3."PlannedQty"+(T3."PlannedQty"*10/100), 0.0000)/(ISNULL(T2."PlannedQty"+(T2."PlannedQty"*10/100), 0.0000)))),0) < ISNULL(T2."CmpltQty", 0.0000) + ISNULL(T2."RjctQty", 0.00)  )
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Component/s quantity is not issued fully for receipt quantity'
+		END
+	END
+--------------------------------------------------------------------------------------------------------
+--IF @object_type = '59' AND @transaction_type IN ('A')
+--	BEGIN
+
+--		IF EXISTS (SELECT T0.DocEntry
+--				   FROM OIGN T0
+--				   inner join IGN1 on ign1.DocEntry= T0.DocEntry
+			
+--				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And 
+--				 Isnull (IGN1.U_MachineNo,'')=''  and ign1.BaseType  = -1)
+--		BEGIN
+
+--			SET @error = 10001
+--			SET @error_message = 'Please Select Machine No.'
+--		END
+--	END
+	-----------------------------------------Sand-----------------
+		IF @object_type = '59' AND @transaction_type IN ('A')
+	BEGIN
+
+		IF EXISTS (SELECT T0.DocEntry
+				   FROM OIGN T0
+				   inner join IGN1 on ign1.DocEntry= T0.DocEntry
+			
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del  And 
+				  (IGN1.U_MachineNo is Null or IGN1.U_MachineNo = ''))
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select Machine No.'
+		END
+	END
+	------------------------------------------------------------
+	IF @object_type = '67' AND @transaction_type IN ('A','u')
+	BEGIN
+
+		IF  EXISTS (SELECT T0.DocEntry
+				   FROM OWTR T0
+				   Inner Join NNM1 T1 On T1.Series=T0.Series
+				  -- Inner Join WTR1 T2 on t2.DocEntry=T0."DocEntry"
+				  -- INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del and Left(T1.SeriesName,1)= 'S' and t0.CardCode<>'V00529' )
+		BEGIN
+
+			SET @error = 123
+			SET @error_message = 'Please Select vendor code V00529 '
+		END
+	END
+	------------------------------------------------------------
+	IF @object_type = '67' AND @transaction_type IN ('A','u')
+	BEGIN
+
+		IF  EXISTS (SELECT T0.DocEntry
+				   FROM OWTR T0
+				   Inner Join NNM1 T1 On T1.Series=T0.Series
+				  -- Inner Join WTR1 T2 on t2.DocEntry=T0."DocEntry"
+				  -- INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del and Left(T1.SeriesName,1)= 'N' and t0.CardCode<>'V00530'  )
+		BEGIN
+
+			SET @error = 110
+			SET @error_message = 'Please Select vendor code V00530 '
+		END
+	END
+--------------------------------------------------------------------
+IF @object_type = '67' AND @transaction_type IN ('A','u')
+	BEGIN
+
+		IF  EXISTS (SELECT T0.DocEntry
+				   FROM OWTR T0
+				   Inner Join NNM1 T1 On T1.Series=T0.Series
+				  -- Inner Join WTR1 T2 on t2.DocEntry=T0."DocEntry"
+				  -- INNER JOIN OUSR T1 ON T1.USERID=T0.UserSign
+				 --  INNER JOIN OITM EXTITM ON RTRIM(LTRIM(T0.ItemName)) = RTRIM(LTRIM(EXTITM.ItemName)) AND T0.ItemCode <> EXTITM.ItemCode
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del and Left(T1.SeriesName,1)in( 'N','S')   and Isnull(T0.CardCode,'')='')
+		BEGIN
+
+			SET @error = 110
+			SET @error_message = 'Please Select vendor code V00530 '
+		END
+	END
+------------------------Sandeep----------------------------
+IF (@object_type='17') and @transaction_type in ('A','U')
+BEGIN
+IF exists (select t0.DocEntry from ORDR t0
+inner join RDR1 t1 on t0.DocEntry=t1.DocEntry 
+left join RDR3 t2 on t0.DocEntry=t2.DocEntry
+where t2.LineTotal > 0 and (t2.TaxCode is null or t2.taxcode = '') and
+T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+set @error_message='Please Select taxcode in freight'
+set @error=120
+END
+END
+-----------------------------------------------Delivery Quantity is only 3% greater than SO Qty-----Salony---15-11-2023--
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '15')  
+      BEGIN  
+            IF EXISTS (SELECT T0.BaseEntry,T0.Quantity
+                              FROM [dbo].DLN1 (NOLOCK) T0
+                              INNER JOIN [dbo].RDR1 (NOLOCK) T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseLine = T1.LineNum AND T0.BaseType = '17'  
+                              INNER JOIN [dbo].ODLN (NOLOCK) T2 ON T0.DocEntry = T2.DocEntry  
+                              inner join [dbo].OITM (NOLOCK) T3 ON T1.ItemCode=T3.ITEMCODE
+                              
+                              WHERE T0.DOCENTRY = @list_of_cols_val_tab_del  
+                              
+                                        
+                              
+                             GROUP BY T0.BaseEntry  ,t0.Quantity,t0.BaseOpnQty,t1.Quantity,t1.BaseOpnQty
+                              HAVING  (sum(t0.quantity) > (sum(T1.Quantity)+ sum(t1.Quantity)*3/100)))  
+            BEGIN  
+                        SELECT @error = 112, @error_message = 'Delivery quantity is greater SO quantity'  
+            END  
+      END
+-----------------------------------------------------
+--IF (@object_type='17') and @transaction_type in ('A','U')
+
+--BEGIN
+--IF exists (select t0.DocEntry from ORDR t0
+--inner join RDR1 t1 on t0.DocEntry=t1.DocEntry 
+--Left join OSTC on OSTC.Code = t1.TaxCode
+--Left join (
+--Select OSTC.TfcId AS "BB",ORDR.DocEntry
+--from ORDR
+--Left join RDR3 on RDR3.DocEntry = ORDR.DocEntry
+--left join OSTC on OSTC.Code = RDR3.TaxCode
+--Where ORDR.DocEntry = @list_of_cols_val_tab_del)A on a.DocEntry = t1.DocEntry
+
+--where OSTC.TfcId <> a.BB and T0.DocEntry = @list_of_cols_val_tab_del)
+--BEGIN
+--set @error_message='Sales Order row Tax Name and Freight Tax Name should be same'
+--set @error=130
+--END
+--END
+-------------------------------------------------------------------------
+IF(@object_type = N'15' AND @transaction_type in (N'A',N'U'))
+
+BEGIN
+
+IF EXISTS ( SELECT T0.ItemCode FROM  DLN1 T0
+INNER JOIN RDR1 T1 ON T0."BaseEntry" = T1."DocEntry" AND t0."BaseLine"=T1."LineNum" --And T1."ItemCode"=T0."ItemCode"
+WHERE T0.BaseType='17'And ((T0."U_QTY")>=(T1."Quantity"+((T1."Quantity"*'3')/100)) ) AND T0.DocEntry = @list_of_cols_val_tab_del
+ )
+ 
+  BEGIN
+
+SElecT @error=102
+SElecT @error_message='Delivery is not greater than 3%'
+
+END
+
+END
+-----------------------Sandeep-----------------------------
+IF @object_type = '59' AND @transaction_type IN ( 'A','U')
+	BEGIN
+
+	IF EXISTS (SELECT (T0."DocEntry") 
+FROM "OIGN" T0
+INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry" AND T1."BaseType" = '202'
+
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del and (t1.U_Starttime is null or t1.U_Starttime = '' ))
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select Sart Time'
+		END
+	END
+----------------------------------
+IF @object_type = '59' AND @transaction_type IN ( 'A','U')
+	BEGIN
+
+	IF EXISTS (SELECT (T0."DocEntry") 
+FROM "OIGN" T0
+INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry" AND T1."BaseType" = '202'
+
+				   WHERE T0.DocEntry = @list_of_cols_val_tab_del and (t1.U_Endtime is null or t1.U_Endtime = '' ))
+		BEGIN
+
+			SET @error = 10001
+			SET @error_message = 'Please Select End Time'
+		END
+	END
+------------------------------Sandeep--------------------------
+If @object_type = '59' and @transaction_type in ('A','U')
+Begin
+IF Exists (SELECT t0.DocEntry 
+
+					   FROM OWOR T0
+                       INNER JOIN IGN1 T1 ON T1."BaseEntry" =T0."DocEntry"  AND T1."ItemCode"=T0."ItemCode" AND T1."BaseType"='202' 
+					   Inner Join Oign t2 on t2.DocEntry = t1.DocEntry
+
+					   Left Join (
+					   Select (T0.PlannedQty*10)/100 'Qty',T1.DocEntry
+					   FROM OWOR T0
+                       INNER JOIN IGN1 T1 ON T1."BaseEntry" =T0."DocEntry"  AND T1."ItemCode"=T0."ItemCode" AND T1."BaseType"='202' 
+					   Where T1.DocEntry =  @list_of_cols_val_tab_del)M on M.DocEntry = t2.DocEntry
+
+
+					   WHERE T1.DocEntry =  @list_of_cols_val_tab_del  and  (T0.CmpltQty > (T0.PlannedQty + m.Qty)) and t1.BaseType = '202')						
+			BEGIN
+				SET @error = 1001
+				SET @error_message = 'CAN NOT RECEIPT MORE THAN PLAN QTY!!!'
+end 
+end
+------------------------------------------------------------------------
+If @object_type = '59' and @transaction_type in ('A','U')
+Begin
+IF Exists (SELECT T0.DocEntry
+              
+						FROM OIGN K
+						Inner JOin IGN1 T0 on t0.DocEntry = K.DocEntry
+						INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T1.ObjType = T0.BaseType AND T1.ItemCode = T0.ItemCode
+						INNER JOIN WOR1 T2 ON T2.DocEntry = T1.DocEntry
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del	and K.UserSign2 Not In ('1')				
+						GROUP BY T0.DocEntry
+						HAVING SUM(ISNULL(T2.IssuedQty, 0)) = 0)
+			BEGIN
+				SET @error = 1001
+				SET @error_message = 'Issue for Production has been not done completely.'
+end 
+end
+---------------
+--------------------------------------------------------------------------------------------------------------------------------
+
+-- Select the return values
+select @error, @error_message
+
+end

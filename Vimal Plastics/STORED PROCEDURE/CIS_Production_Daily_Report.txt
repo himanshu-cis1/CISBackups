@@ -1,0 +1,704 @@
+USE [VIMAL_PLASTICS_2024]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_Production_Daily_Report]    Script Date: 07/12/2024 11:44:45 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER Procedure [dbo].[CIS_Production_Daily_Report]
+(
+
+@FromDate Datetime, 
+@ToDate Datetime 
+
+)
+As Begin
+--Select * From OITM
+--Declare @Loc nvarchar(10)
+--declare @whse nvarchar(50)
+--declare @GroupNum nvarchar(50)
+
+--select @FromDate = min(S0.Docdate) from dbo.OINM S0 where S0.Docdate >= '20221101'
+--select @ToDate =max(S1.Docdate) from dbo.OINM s1 where S1.Docdate <='20221101'
+
+Select A.ItemCode,A.ItemName,A.U_ExtraDesc,A.ItmsGrpNam,A.U_SUBGRP1,A.U_SUBGRP2,A.WhsCode,
+Case When a.QryGroup1='Y' Then 'ACRYLIC' 
+When a.QryGroup2='Y' Then 'PP'
+When a.QryGroup3='Y' Then 'PP-RL' 
+When a.QryGroup4='Y' Then 'ABS'
+When a.QryGroup5='Y' Then 'SAN' 
+When a.QryGroup6='Y' Then 'PET-G' 
+When a.QryGroup7='Y' Then 'LDPE' 
+When a.QryGroup8='Y' Then 'RANDOM PP'
+When a.QryGroup9='Y' Then 'K-RESIN'
+When a.QryGroup10='Y' Then 'BOMBO FIBRE'
+When a.QryGroup11='Y' Then 'BOMBO FIBRE-BM' 
+When a.QryGroup12='Y' Then 'MLP'
+When a.QryGroup13='Y' Then 'FSP' 
+When a.QryGroup14='Y' Then 'PRP'
+When a.QryGroup15='Y' Then 'ICP' 
+When a.QryGroup16='Y' Then 'SPP' 
+When a.QryGroup17='Y' Then 'MB' 
+When a.QryGroup18='Y' Then 'PR-SFG'
+When a.QryGroup19='Y' Then 'FS-SFG'
+When a.QryGroup20='Y' Then 'SP-SFG'
+When a.QryGroup21='Y' Then 'ML-SFG' 
+When a.QryGroup22='Y' Then 'IC-SFG'
+When a.QryGroup23='Y' Then 'IM-SFG' 
+When a.QryGroup24='Y' Then 'PCK'
+When a.QryGroup25='Y' Then 'SCRAP' 
+When a.QryGroup26='Y' Then 'JOB WORK'
+When a.QryGroup27='Y' Then 'PUMP'
+When a.QryGroup28='Y' Then'Service'
+When a.QryGroup29='Y' Then'PM'
+When a.QryGroup30='Y' Then'Tool_Room'
+When a.QryGroup31='Y' Then'WAD'
+When a.QryGroup32='Y' Then'CUTTING'
+Else ''
+END'SubGroup'
+,Sum(A."1st") '1',Sum(A."2")'2',Sum(A."3") '3',Sum(A."4") '4',Sum(A."5")'5',Sum(A."6") '6',
+Sum(A."7") '7',Sum(A."8")'8',Sum(A."9") '9',Sum(A."10") '10',Sum(A."11")'11',Sum(A."12") '12',Sum(A."13") '13',Sum(A."14")'14',Sum(A."15") '15',Sum(A."16") '16',Sum(A."17")'17',Sum(A."18") '18',
+Sum(A."19") '19',Sum(A."20")'20',Sum(A."21") '21',Sum(A."22") '22',Sum(A."23")'23',Sum(A."24") '24',Sum(A."25")'25',Sum(A."26") '26',
+Sum(A."27") '27',Sum(A."28")'28',Sum(A."29") '29',Sum(A."30") '30', case when (month(@FromDate)) in (1,3,5,7,8,10,12) then Sum(A."31") Else '0' End '31'
+
+From
+(Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,
+  Case When DATEDIFF(Day,@FromDate,@FromDate)>=0 And DATEDIFF(Day,@FromDate,@FromDate)<1then  Sum(T0.Quantity) End'1st',0 '2',0'3',
+0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=@FromDate And T0.DocDate<= @ToDate And T0.BaseType='202'--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,
+  t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+,0 '1ST',Case When DATEDIFF(Day,DateAdd(Day,1,@FromDate),DateAdd(Day,1,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,1,@FromDate),DateAdd(Day,1,@FromDate))<1 then  Sum(T0.Quantity) End'2',0'3'
+,0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,1,@FromDate) 
+And T0.DocDate<=DateAdd(Day,1,@ToDate) 
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+,0 '1ST',0'2',Case When DATEDIFF(Day,DateAdd(Day,2,@FromDate),DateAdd(Day,2,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,2,@FromDate),DateAdd(Day,2,@FromDate))<1 then  Sum(T0.Quantity) End'3'
+,0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,2,@FromDate) 
+And T0.DocDate<=DateAdd(Day,2,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+,0 '1ST',0'2',0'3'
+,Case When DATEDIFF(Day,DateAdd(Day,3,@FromDate),DateAdd(Day,3,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,3,@FromDate),DateAdd(Day,3,@FromDate))<1 then  Sum(T0.Quantity) End'4'
+,0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,3,@FromDate) 
+And T0.DocDate<=DateAdd(Day,3,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4'
+,Case When DATEDIFF(Day,DateAdd(Day,4,@FromDate),DateAdd(Day,4,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,4,@FromDate),DateAdd(Day,4,@FromDate))<1 then  Sum(T0.Quantity) End'5'
+,0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,4,@FromDate) 
+And T0.DocDate<=DateAdd(Day,4,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5'
+,Case When DATEDIFF(Day,DateAdd(Day,5,@FromDate),DateAdd(Day,5,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,5,@FromDate),DateAdd(Day,5,@FromDate))<1 then  Sum(T0.Quantity) End'6'
+,0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,5,@FromDate) 
+And T0.DocDate<=DateAdd(Day,5,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6'
+,Case When DATEDIFF(Day,DateAdd(Day,6,@FromDate),DateAdd(Day,6,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,6,@FromDate),DateAdd(Day,6,@FromDate))<1 then  Sum(T0.Quantity) End'7',
+0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,6,@FromDate) 
+And T0.DocDate<=DateAdd(Day,6,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7'
+,Case When DATEDIFF(Day,DateAdd(Day,7,@FromDate),DateAdd(Day,7,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,7,@FromDate),DateAdd(Day,7,@FromDate))<1 then  Sum(T0.Quantity) End'8',
+0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,7,@FromDate) 
+And T0.DocDate<=DateAdd(Day,7,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',
+Case When DATEDIFF(Day,DateAdd(Day,8,@FromDate),DateAdd(Day,8,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,8,@FromDate),DateAdd(Day,8,@FromDate))<1 then  Sum(T0.Quantity) End'9',
+0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,8,@FromDate) 
+And T0.DocDate<=DateAdd(Day,8,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',
+Case When DATEDIFF(Day,DateAdd(Day,9,@FromDate),DateAdd(Day,9,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,9,@FromDate),DateAdd(Day,9,@FromDate))<1 then  Sum(T0.Quantity) End'10',
+0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,9,@FromDate) 
+And T0.DocDate<=DateAdd(Day,9,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',
+Case When DATEDIFF(Day,DateAdd(Day,10,@FromDate),DateAdd(Day,10,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,10,@FromDate),DateAdd(Day,10,@FromDate))<1 then  Sum(T0.Quantity) End'11',
+0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,10,@FromDate) 
+And T0.DocDate<=DateAdd(Day,10,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',
+Case When DATEDIFF(Day,DateAdd(Day,11,@FromDate),DateAdd(Day,11,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,11,@FromDate),DateAdd(Day,11,@FromDate))<1 then  Sum(T0.Quantity) End'12',
+0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,11,@FromDate) 
+And T0.DocDate<=DateAdd(Day,11,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',
+0'12',
+Case When DATEDIFF(Day,DateAdd(Day,12,@FromDate),DateAdd(Day,12,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,12,@FromDate),DateAdd(Day,12,@FromDate))<1 then  Sum(T0.Quantity) End'13',
+0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,12,@FromDate) 
+And T0.DocDate<=DateAdd(Day,12,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',
+0'12',0'13',
+Case When DATEDIFF(Day,DateAdd(Day,13,@FromDate),DateAdd(Day,13,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,13,@FromDate),DateAdd(Day,13,@FromDate))<1 then  Sum(T0.Quantity) End'14',
+0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,13,@FromDate) 
+And T0.DocDate<=DateAdd(Day,13,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',
+Case When DATEDIFF(Day,DateAdd(Day,14,@FromDate),DateAdd(Day,14,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,14,@FromDate),DateAdd(Day,14,@FromDate))<1 then  Sum(T0.Quantity) End'15',
+0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,14,@FromDate) 
+And T0.DocDate<=DateAdd(Day,14,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',
+0'15',
+Case When DATEDIFF(Day,DateAdd(Day,15,@FromDate),DateAdd(Day,15,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,15,@FromDate),DateAdd(Day,15,@FromDate))<1 then  Sum(T0.Quantity) End'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,15,@FromDate) 
+And T0.DocDate<=DateAdd(Day,15,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',
+0'15',
+0'16',
+Case When DATEDIFF(Day,DateAdd(Day,16,@FromDate),DateAdd(Day,16,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,16,@FromDate),DateAdd(Day,16,@FromDate))<1 then  Sum(T0.Quantity) End'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,16,@FromDate) 
+And T0.DocDate<=DateAdd(Day,16,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',
+0'15',0'16',0'17',
+Case When DATEDIFF(Day,DateAdd(Day,17,@FromDate),DateAdd(Day,17,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,17,@FromDate),DateAdd(Day,17,@FromDate))<1 then  Sum(T0.Quantity) End'18',
+0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,17,@FromDate) 
+And T0.DocDate<=DateAdd(Day,17,@ToDate)And T0.BaseType='202' 
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',
+0'15',0'16',0'17',0'18',
+Case When DATEDIFF(Day,DateAdd(Day,18,@FromDate),DateAdd(Day,18,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,18,@FromDate),DateAdd(Day,18,@FromDate))<1 then  Sum(T0.Quantity) End'19',
+0'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,18,@FromDate) 
+And T0.DocDate<=DateAdd(Day,18,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',
+Case When DATEDIFF(Day,DateAdd(Day,19,@FromDate),DateAdd(Day,19,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,19,@FromDate),DateAdd(Day,19,@FromDate))<1 then  Sum(T0.Quantity) End'20',0'21',0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,19,@FromDate) 
+And T0.DocDate<=DateAdd(Day,19,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',
+0'20',
+Case When DATEDIFF(Day,DateAdd(Day,20,@FromDate),DateAdd(Day,20,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,20,@FromDate),DateAdd(Day,20,@FromDate))<1 then  Sum(T0.Quantity) End'21',
+0'22',0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,20,@FromDate) 
+And T0.DocDate<=DateAdd(Day,20,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',
+Case When DATEDIFF(Day,DateAdd(Day,21,@FromDate),DateAdd(Day,21,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,21,@FromDate),DateAdd(Day,21,@FromDate))<1 then  Sum(T0.Quantity) End'22',
+0'23',0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,21,@FromDate) 
+And T0.DocDate<=DateAdd(Day,21,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',
+Case When DATEDIFF(Day,DateAdd(Day,22,@FromDate),DateAdd(Day,22,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,22,@FromDate),DateAdd(Day,22,@FromDate))<1 then  Sum(T0.Quantity) End'23',
+0'24',0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,22,@FromDate) 
+And T0.DocDate<=DateAdd(Day,22,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',
+Case When DATEDIFF(Day,DateAdd(Day,23,@FromDate),DateAdd(Day,23,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,23,@FromDate),DateAdd(Day,23,@FromDate))<1 then  Sum(T0.Quantity) End'24',
+0'25',0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,23,@FromDate) 
+And T0.DocDate<=DateAdd(Day,23,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',
+0'24',
+Case When DATEDIFF(Day,DateAdd(Day,24,@FromDate),DateAdd(Day,24,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,24,@FromDate),DateAdd(Day,24,@FromDate))<1 then  Sum(T0.Quantity) End'25'
+,0'26',0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,24,@FromDate) 
+And T0.DocDate<=DateAdd(Day,24,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',
+0'24',
+0'25'
+,Case When DATEDIFF(Day,DateAdd(Day,25,@FromDate),DateAdd(Day,25,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,25,@FromDate),DateAdd(Day,25,@FromDate))<1 then  Sum(T0.Quantity) End'26',
+0'27',0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,25,@FromDate) 
+And T0.DocDate<=DateAdd(Day,25,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',
+Case When DATEDIFF(Day,DateAdd(Day,26,@FromDate),DateAdd(Day,26,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,26,@FromDate),DateAdd(Day,26,@FromDate))<1 then  Sum(T0.Quantity) End'27',
+0'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,26,@FromDate) 
+And T0.DocDate<=DateAdd(Day,26,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',
+0'27',
+Case When DATEDIFF(Day,DateAdd(Day,27,@FromDate),DateAdd(Day,27,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,27,@FromDate),DateAdd(Day,27,@FromDate))<1 then  Sum(T0.Quantity) End'28',0'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,27,@FromDate) 
+And T0.DocDate<=DateAdd(Day,27,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',
+0'27',
+0'28',
+Case When DATEDIFF(Day,DateAdd(Day,28,@FromDate),DateAdd(Day,28,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,28,@FromDate),DateAdd(Day,28,@FromDate))<1 then  Sum(T0.Quantity) End'29',0'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,28,@FromDate) 
+And T0.DocDate<=DateAdd(Day,28,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',
+0'27',
+0'28',0'29',
+Case When DATEDIFF(Day,DateAdd(Day,29,@FromDate),DateAdd(Day,29,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,29,@FromDate),DateAdd(Day,29,@FromDate))<1 then  Sum(T0.Quantity) End'30',0'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,29,@FromDate) 
+And T0.DocDate<=DateAdd(Day,29,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+Union All
+Select  T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34,0 '1ST',0'2',0'3',0'4',0'5',0'6',0'7',0'8',0'9',0'10',0'11',0'12',0'13',0'14',0'15',0'16',0'17',0'18',0'19',0'20',0'21',0'22',0'23',0'24',0'25',0'26',
+0'27',
+0'28',0'29',0'30',
+Case When DATEDIFF(Day,DateAdd(Day,30,@FromDate),DateAdd(Day,30,@FromDate))>=0 And DATEDIFF(Day,DateAdd(Day,30,@FromDate),DateAdd(Day,30,@FromDate))<1 then  Sum(T0.Quantity) End'31'
+From IGN1 T0
+Left Join OIGN T1 On T0.DocEntry=T1.DocEntry
+Left Join OITM T2 On T2.ItemCode=T0.ItemCode
+Left Join OITB T3 On T3.ItmsGrpCod=T2.ItmsGrpCod
+Where T0.DocDate>=DateAdd(Day,30,@FromDate) 
+And T0.DocDate<=DateAdd(Day,30,@ToDate) And T0.BaseType='202'
+--And T0.ItemCode='CUTT001'
+Group By T0.ItemCode,T2.ItemName,T2.U_ExtraDesc,T3.ItmsGrpNam,T2.U_SUBGRP1,T2.U_SUBGRP2,T0.WhsCode,
+T2.QryGroup1,T2.QryGroup2,T2.QryGroup3,T2.QryGroup4,T2.QryGroup5,T2.QryGroup6,T2.QryGroup7,T2.QryGroup8,T2.QryGroup9,T2.QryGroup10,
+ T2.QryGroup11,T2.QryGroup12,T2.QryGroup13,T2.QryGroup14,T2.QryGroup15,T2.QryGroup16,T2.QryGroup17,T2.QryGroup18,T2.QryGroup19,T2.QryGroup20,
+  T2.QryGroup21,T2.QryGroup22,T2.QryGroup23,T2.QryGroup24,T2.QryGroup25,T2.QryGroup26,t2.QryGroup27,T2.QryGroup28,T2.QryGroup29,T2.QryGroup30,T2.QryGroup31,T2.QryGroup32,T2.QryGroup33,
+  t2.QryGroup34
+)A
+Where A.ItmsGrpNam In('Grinding material','Semi Finished Goods','FINISHED GOODS','Service Item')
+Group By A.ItemCode,A.ItemName,A.U_ExtraDesc,A.ItmsGrpNam,A.U_SUBGRP1,A.U_SUBGRP2,A.WhsCode,a.QryGroup1,a.QryGroup2,a.QryGroup3,a.QryGroup4,a.QryGroup5,a.QryGroup6,a.QryGroup7,a.QryGroup8,a.QryGroup9,a.QryGroup10,
+ a.QryGroup11,a.QryGroup12,a.QryGroup13,a.QryGroup14,a.QryGroup15,a.QryGroup16,a.QryGroup17,a.QryGroup18,a.QryGroup19,a.QryGroup20,
+  a.QryGroup21,a.QryGroup22,a.QryGroup23,a.QryGroup24,a.QryGroup25,a.QryGroup26,a.QryGroup27,a.QryGroup28,a.QryGroup29,a.QryGroup30,a.QryGroup31,a.QryGroup32
+Order By A.ItemCode
+--Group By A.ItemCode--,A."1st",A."2"
+END

@@ -1,0 +1,554 @@
+USE [VIMAL_PLASTICS_2024]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_GST_Invoice]    Script Date: 07/12/2024 11:44:16 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[CIS_GST_Invoice]
+(
+@DocEntry Int
+)
+as Begin
+
+Select
+	a.DocEntry, a.DocCur, A.DocNum,
+	n.Cellolar,n.E_MailL,
+	a.DocDate,a.DocType, a.DocDueDate, a.CardCode, a.CardName, a.DocDueDate [INVDueDate], a.NumAtCard,a.vatsum,
+         a.Printed,a.PayToCode, a.ShipToCode,a.TaxDate ,
+        a.comments, a.TotalExpns[Freight], a.TrackNo ,a.U_VehicleNo,d.DocNum 'Delivery No',
+ a.ExtraDays,  b.ItemCode, b.Dscription, b.Price, b.Price * a.DocRate[INRPrice], 
+        b.Quantity, b.UomCode, l.SalUnitMsr, l.SalPackUn, l.SalPackMsr, k.SeriesName, o.ChapterID, l.ItemClass, a.DpmAmnt,b.PriceAfVAT,
+		 b.GTotal,b.PriceBefDi,
+		 -- f.DocNum [Sal Order No], d.DocNum [Del Doc No],d.DocDueDate [Del Ship Date], f.NumAtCard [OrderRefNo]
+        IsNull(b.LineTotal/a.DocRate,0) [Line Total], IsNull(a.DocTotal/a.DocRate,0) [Doc Total], IsNull(a.TotalExpns/a.DocRate,0) [Freight Total], IsNull(a.DiscSum/a.DocRate,0) [Disc Total],
+        (Select PymntGroup from OCTG where GroupNum = a.GroupNum) 'PaymentTerm',
+        (Select SlpName from OSLP where SlpCode = a.SlpCode)'Sales Emp',
+		(Select email from OHEM where salesPrson=a.SlpCode)'SalesEmpMail',
+        (Select TrnspName from OSHP Where TrnspCode = a.TrnspCode) 'Shipping Term',
+		(Case when a.DocType='S' then b.Dscription
+         else (b.ItemCode + ' '+'/'+' ' +b.Dscription) end ) 'ProdCodeDesc',
+		(Select ServCode from OSAC where b.[SacEntry] = [AbsEntry])'SacCode',
+		(Select ServCode from OSAC where l.[SACEntry] = [AbsEntry])'ItemSacCode',
+		a.Revision,a.RevRefNo,a.RevRefDate,x2.ImpORExp,x2.ImpExpNo,x2.ImpExpDate,a.RevCreRefN,a.RevCreRefD,
+
+    
+
+	---- Customer Details ----
+        b.SubCatNum [BP Catlog No], g.Phone1 [Cust Phone No], g.Fax [Cust Fax No], g.E_Mail [Cust Email], g.Free_Text [BP Remarks], n.Name [ContactID],
+	    n.Address [RegOffice],X2.TaxId0, X2.BpGSTN,X2.BpStateCod,X2.BPStatGSTN,
+         (Select TOP 1 Name from OCST where Code=X2.BpStateCod)'BP State Name',
+         (case when X2.BpGSTType='2' then 'Casual Taxable Person' 
+          when X2.BpGSTType='3' then 'Composition Levy'
+          when X2.BpGSTType='4' then 'Government Department or PSU'
+          when X2.BpGSTType='5' then 'Non Resident Taxable Person' 
+          when X2.BpGSTType='1' then 'Regular/TDS/ISD'
+          when X2.BpGSTType='6' then 'UN Agency or Embassy' End) 'BpGSTType',
+
+	(Select --Coalesce((Case When x.County    = '' Then Null Else x.County    End) + ',',' ') + CHAR(10) +
+			--Coalesce((Case When Cast(x.Building As Nvarchar(Max))= '' Then Null Else Cast(x.Building As Nvarchar(Max)) End) + ',',' ') + 
+			Coalesce((Case When x.Street   = '' Then Null Else x.Street   End) + ',',' ') + CHAR(10) + 
+			Coalesce((Case When x.Block    = '' Then Null Else x.Block    End) + ',',' ') + CHAR(10) +
+			Coalesce((Case When x.City     = '' Then Null Else x.City     End) + ' - ',' ') +   
+			Coalesce((Case When x.ZipCode  = '' Then Null Else x.ZipCode  End) , ' ') + CHAR(10) +
+			Coalesce((Case When x.State = '' Then Null Else 
+			(Select x1.Name From OCST x1 Where x1.Code = x.State And x1.Country = x.Country) End),' ') + ' ' +
+			Coalesce((Case When x.Country = '' Then Null Else 
+			(Select x2.Name From OCRY x2 Where x2.Code = x.Country) End),' ')  
+	 From CRD1 x Where x.CardCode = a.CardCode And x.AdresType = 'B' And x.Address = a.PayToCode
+	 )[BillToAddrs],	 
+	(Select --Coalesce((Case When x.County    = '' Then Null Else x.County    End) + ',',' ') + CHAR(10) +
+			--Coalesce((Case When Cast(x.Building As Nvarchar(Max))= '' Then Null Else Cast(x.Building As Nvarchar(Max)) End) + ',',' ') + 
+			Coalesce((Case When x.Street   = '' Then Null Else x.Street   End) + ',',' ') + CHAR(10) + 
+			Coalesce((Case When x.Block    = '' Then Null Else x.Block    End) + ',',' ') + CHAR(10) +
+			Coalesce((Case When x.City     = '' Then Null Else x.City     End) + ' - ',' ') +   
+			Coalesce((Case When x.ZipCode  = '' Then Null Else x.ZipCode  End) , ' ') + CHAR(10) +
+			Coalesce((Case When x.State = '' Then Null Else (Select x1.Name From OCST x1 Where x1.Code = x.State And x1.Country = x.Country) End),' ') + ' ' +
+			Coalesce((Case When x.Country = '' Then Null Else (Select x2.Name From OCRY x2 Where x2.Code = x.Country) End),' ')  
+	 From CRD1 x Where x.CardCode = a.CardCode And x.AdresType = 'S' And x.Address = a.ShipToCode
+	 ) [ShipToAddrs],
+
+(select GSTCode from OCST where Code=x2.StateB and Country='IN') 'Bill to State Code',
+
+(select GSTCode from OCST where Code=x2.StateS and Country='IN') 'Shipp to State Code',
+
+(select Name from OCST where Code=x2.StateB and Country='IN') 'Bill to State Name',
+(select Name from OCST where Code=x2.StateS and Country='IN') 'Shipp to State Name',
+	 
+
+	------ Location Address Details ----
+	(Select x.CompnyName From OADM x) [CompName],
+	(Select x.Street from OLCT x where x.Code = b.LocCode)        [Loc Street],
+	(Select x.Block from OLCT x where x.Code = b.LocCode)         [Loc Block],
+	(Select x.Building from OLCT x where x.Code = b.LocCode)      [Loc Building],
+	(Select x.City from OLCT x where x.Code = b.LocCode)          [Loc City],
+	(Select x.ZipCode from OLCT x where x.Code = b.LocCode)       [Loc Zipcode],
+	(Select x.PanNo from OLCT x where x.Code = b.LocCode)         [Loc PAN No],
+	(Select x.ExemptNo from OLCT x where x.Code = b.LocCode)      [Loc CIN No],
+	(Select Name from OCRY where Code=ss.Country)'Loc Country Name',
+ (Select Name from OCST where Code=X2.LocStatCod)'Loc State Name',
+     X2.LocGSTN,X2.LocStatCod,X2.LocStaGSTN,
+    (case when X2.LocGSTType='2' then 'Casual Taxable Person' 
+          when X2.LocGSTType='3' then 'Composition Levy'
+          when X2.LocGSTType='4' then 'Government Department or PSU'
+          when X2.LocGSTType='5' then 'Non Resident Taxable Person' 
+          when X2.LocGSTType='1' then 'Regular/TDS/ISD'
+          when X2.LocGSTType='6' then 'UN Agency or Embassy' End) 'LocGSTType',
+        
+ --      ---- Bank Information ----
+ --       g.HousBnkAct, g.HousBnkBrn, g.HsBnkSwift, g.HsBnkIBAN, ds.AcctName, 
+	--	(Select BankName from ODSC where BankCode=g.HouseBank) 'Bank Name',
+
+      
+    
+        ---- GST Tax Information ----
+       
+	   ISNULL((Select (case when  sum(x.RvsChrgTax)<=0  then sum(x.TaxSum)/a.DocRate else 0 end) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -100 and x.LineNum = b.LineNum and x.RelateType = 1),0) [CGSTAmt], 
+       ISNULL((Select (case when  sum(x.RvsChrgTax)<=0  then sum(x.TaxSum)/a.DocRate else 0 end) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -110 and x.LineNum = b.LineNum and x.RelateType = 1),0) [SGSTAmt],
+       ISNULL((Select (case when  sum(x.RvsChrgTax)<=0  then sum(x.TaxSum)/a.DocRate else 0 end) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -120 and x.LineNum = b.LineNum and x.RelateType = 1),0) [IGSTAmt],
+	    ISNULL((Select (case when  sum(x.RvsChrgTax)<=0  then sum(x.TaxSum)/a.DocRate else 0 end) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -150 and x.LineNum = b.LineNum and x.RelateType = 1),0) [UTGSTAmt],
+
+
+       ISNULL((Select distinct (case when  sum(x.RvsChrgTax)<=0  then  x.TaxRate else 0 end ) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -100 and x.LineNum = b.LineNum and x.RelateType = 1 group by X.TaxRate),0) [CGSTRate], 
+       ISNULL((Select distinct (case when  sum(x.RvsChrgTax)<=0  then x.TaxRate else 0 end ) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -110 and x.LineNum = b.LineNum and x.RelateType = 1 group by X.TaxRate),0) [SGSTRate],
+       ISNULL((Select distinct (case when  sum(x.RvsChrgTax)<=0  then x.TaxRate else 0 end ) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -120 and x.LineNum = b.LineNum and x.RelateType = 1 group by X.TaxRate),0) [IGSTRate],
+	   ISNULL((Select distinct (case when  sum(x.RvsChrgTax)<=0  then x.TaxRate else 0 end ) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -150 and x.LineNum = b.LineNum and x.RelateType = 1 group by X.TaxRate),0) [UTGSTRate],
+
+
+       ISNULL((Select Sum(x.RvsChrgTax)/a.DocRate From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -100 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsCGST], 
+       ISNULL((Select Sum(x.RvsChrgTax)/a.DocRate From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -110 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsSGST],
+       ISNULL((Select Sum(x.RvsChrgTax)/a.DocRate From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -120 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsIGST],
+	   ISNULL((Select Sum(x.RvsChrgTax)/a.DocRate From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -150 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsUTGST],
+
+
+	  ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=1 group by n.TaxRate),0)'CGSTFreightRate',
+      ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=1 group by n.TaxRate),0)'SGSTFreightRate',
+	  ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=1 group by n.TaxRate),0)'IGSTFreightRate',
+	  ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=1 group by n.TaxRate),0)'UTGSTFreightRate',
+
+
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=1),0)'CGSTFreight',
+      ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=1),0)'SGSTFreight',
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=1),0)'IGSTFreight',
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=1),0)'UTGSTFreight',
+
+	  ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=2 group by n.TaxRate),0)'CGSTPackingRate',
+      ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=2 group by n.TaxRate),0)'SGSTPackingRate',
+	  ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=2 group by n.TaxRate),0)'IGSTPackingRate',
+	   ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=2 group by n.TaxRate),0)'UTGSTPackingRate',
+
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=2),0)'CGSTPacking',
+      ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=2),0)'SGSTPacking',
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=2),0)'IGSTPacking',
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=2),0)'UTGSTPacking',
+
+	  ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=3 group by n.TaxRate),0)'CGSTInsuranceRate',
+      ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=3 group by n.TaxRate),0)'SGSTInsuranceRate',
+	  ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=3 group by n.TaxRate),0)'IGSTInsuranceRate',
+	  ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=3 group by n.TaxRate),0)'UTGSTInsuranceRate',
+
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=3),0)'CGSTInsurance',
+      ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=3),0)'SGSTInsurance',
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=3),0)'IGSTInsurance',
+	  ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=3),0)'UTGSTInsurance',
+
+IsNull((select   sum(distinct n.BaseSum)/a.DocRate from INV4 n  where n.DocEntry=a.DocEntry  and n.ExpnsCode=1),0) 'Freightbase',
+IsNull((select  sum(distinct n.BaseSum)/a.DocRate  from INV4 n  where n.DocEntry=a.DocEntry  and n.ExpnsCode=3),0) 'Insurbase',
+IsNull((select  sum(distinct n.BaseSum)/a.DocRate  from INV4 n  where n.DocEntry=a.DocEntry  and n.ExpnsCode=2),0) 'Packbase',
+
+(SELECT distinct T0.[SacCode] FROM OEXD T0  INNER JOIN INV4 T1 ON T0.[ExpnsCode] = T1.[ExpnsCode]  WHERE T0.[ExpnsCode] ='1' and T1.DocEntry=a.DocEntry)'FreightSacCode',
+(SELECT distinct T0.[SacCode] FROM OEXD T0  INNER JOIN INV4 T1 ON T0.[ExpnsCode] = T1.[ExpnsCode] WHERE T0.[ExpnsCode] ='2' and T1.DocEntry=a.DocEntry)'PackSacCode',
+(SELECT distinct T0.[SacCode] FROM OEXD T0  INNER JOIN INV4 T1 ON T0.[ExpnsCode] = T1.[ExpnsCode] WHERE T0.[ExpnsCode] ='3' and T1.DocEntry=a.DocEntry)'InsuSacCode',
+
+ISNULL((Select x.RvsChrgPrc From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -100 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsCGSTPrc], 
+ISNULL((Select x.RvsChrgPrc From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -110 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsSGSTPrc],
+ISNULL((Select x.RvsChrgPrc From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -120 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsIGSTPrc],
+ISNULL((Select x.RvsChrgPrc From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -150 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsUTGSTPrc],
+
+(Select CompnyName from OADM) 'Company name',
+(Select CompnyAddr from OADM) 'Company addr',
+
+	( select Coalesce((Case When x.Country = '' Then Null Else (Select x2.Name From OCRY x2 Where x2.Code = x.Country) End),' ')  
+	 From CRD1 x Where x.CardCode = a.CardCode And x.AdresType = 'S' And x.Address = a.ShipToCode) as "Country",a.DocRate,
+(Select e_mail from OADM) 'Company Email',
+(Select Phone1 from OADM) 'Company Ph',A.GSTTranTyp,
+a.DiscPrcnt 'docdisperc',b.TaxCode,t.AcctName,a.WTSum,a.paidsum,Y.WhsName,z.GSTRegnNo[WhsGSTNo],
+
+(Select     Coalesce((Case When x.Street   = '' Then Null Else x.Street   End) + ',',' ') + CHAR(10) + 
+			Coalesce((Case When x.Block    = '' Then Null Else x.Block    End) + ',',' ') + CHAR(10) +
+			Coalesce((Case When Cast(x.Building As Nvarchar(Max))= '' Then Null Else Cast(x.Building As Nvarchar(Max)) End) + ',',' ') + 
+			Coalesce((Case When x.ZipCode  = '' Then Null Else x.ZipCode  End) , ' ') + CHAR(10) +
+			Coalesce((Case When x.City     = '' Then Null Else x.City     End) + ' - ',' ') + 
+			Coalesce((Case When x.State = '' Then Null Else (Select x1.Name From OCST x1 Where x1.Code = x.State And x1.Country = x.Country) End),' ') + ' ' +
+			Coalesce((Case When x.Country = '' Then Null Else (Select x2.Name From OCRY x2 Where x2.Code = x.Country) End),' ')  
+	 From OLCT x Where x.code = b.LocCode
+	 )[LocAddress],a.PaidToDate,z.Street,z.Block,z.Building,z.ZipCode,z.City,z.State[whsState],z.County,a.RoundDif,a.address,b.unitmsr,o.SubHeading
+
+	-- ,b.U_ExtraDesc
+	 ,b.HsnEntry
+,k.Remark,d.DocDate as 'DO Date',k.[BeginStr],RIGHT(d.DocNum,4) as 'DO DocNum',
+--a.[U_Dispthough], a.[U_Destination], a.[U_Termsofdel],b.legalText,a.U_Vehicleno,a.U_EwayNo ,b.U_ItemDecs,
+a.U_LRNO,a.U_LRdate,
+T1.[Address2] 'Address2_B', T1.[Address3] 'Address3_B', T1.[Street] 'Street_B', T1.[Block] 'Block_B', T1.[ZipCode] 'ZipCode_B', T1.[City] 'City_B',
+(SELECT Name FROM OCST WHERE Code= T1.State and Country = T1.Country) 'State_B' ,
+(SELECT Name FROM OCRY WHERE Code = T1.Country) 'Country_B',T1.GSTRegnNo 'GSTRegNo_B',
+
+T2.[Address2] 'Address2_S', T2.[Address3] 'Address3_S', T2.[Street] 'Street_S', T2.[Block] 'Block_S', T2.[ZipCode] 'ZipCode_S', T2.[City] 'City_S',
+(SELECT Name FROM OCST WHERE Code= T2.State and Country = T2.Country) 'State_S' ,
+(SELECT Name FROM OCRY WHERE Code = T2.Country) 'Country_S',T2.GSTRegnNo 'GSTRegNo_S' ,
+EE.ExpnsName
+--,b.U_LotNo
+,f.DocDate 'Order Date',
+a.u_Remark,
+b.U_ExtraDesc,
+b.FreeTxt,
+a."U_ResQR" as QR,
+a."U_IRN" as IRN,
+a."U_AckNo",
+a."U_AckDt",
+b.U_CustomerCode,Isnull((b.PriceBefDi*b.Quantity-B.Price*b.Quantity),0.0)'Discount Value',b.DiscPrcnt 'Row DiscPrcnt',
+	  (SUBSTRING(
+        ( SELECT  Distinct Case When  Isnull( CAST(T4.BaseDocNum AS varchar),'') ='' Then (SELECT  Distinct  ',' + CAST(T2.BaseDocNum AS varchar)
+            FROM OINV T
+                  Left Join INV1 T2 on T.DocEntry=T2.DocEntry
+                  --Left Join DLN1 T4 On T4.DocEntry=T2.BaseEntry And T4.LineNum=T2.BaseLine and T4.ItemCode=T2.ItemCode
+                  --Left Join RDR1 T5 On T5.DocEntry=T4.BaseEntry and T5.LineNum=T4.BaseLine and T5.ItemCode=T4.ItemCode
+                  --Left Join ORDR T6 On T6.DocEntry=T5.DocEntry
+                  Where T.DocEntry=a.DocEntry) else ',' + CAST(T4.BaseDocNum AS varchar) END
+            FROM OINV T
+                  Left Join INV1 T2 on T.DocEntry=T2.DocEntry
+                  Left Join DLN1 T4 On T4.DocEntry=T2.BaseEntry And T4.LineNum=T2.BaseLine and T4.ItemCode=T2.ItemCode
+                  Left Join RDR1 T5 On T5.DocEntry=T4.BaseEntry and T5.LineNum=T4.BaseLine and T5.ItemCode=T4.ItemCode
+                  Left Join ORDR T6 On T6.DocEntry=T5.DocEntry
+                  Where T.DocEntry=A.DocEntry
+           /* SELECT Distinct ','+Convert(varchar,T4.BaseDocNum)
+            FROM DLN1 T4 Where T4.DocEntry =c.DocEntry */--and t4.BaseType=67 and t4.BaseLinNum=b.LineNum
+            FOR XML PATH ('')
+        ), 2, 1000)
+      )  as BatchNum
+      ,(SUBSTRING(
+        (
+            SELECT  Distinct Case When  Isnull( CAST(T4.BaseDocNum AS varchar),'') ='' Then (SELECT  Distinct  ',' + CAST(T2.BaseDocNum AS varchar)
+            FROM OINV T
+                  Left Join INV1 T2 on T.DocEntry=T2.DocEntry
+                  --Left Join DLN1 T4 On T4.DocEntry=T2.BaseEntry And T4.LineNum=T2.BaseLine and T4.ItemCode=T2.ItemCode
+                  --Left Join RDR1 T5 On T5.DocEntry=T4.BaseEntry and T5.LineNum=T4.BaseLine and T5.ItemCode=T4.ItemCode
+                  --Left Join ORDR T6 On T6.DocEntry=T5.DocEntry
+                  Where T.DocEntry=a.DocEntry) else ',' + CAST(T4.BaseDocNum AS varchar) END
+            FROM OINV T
+                  Left Join INV1 T2 on T.DocEntry=T2.DocEntry
+                  Left Join DLN1 T4 On T4.DocEntry=T2.BaseEntry And T4.LineNum=T2.BaseLine and T4.ItemCode=T2.ItemCode
+                  Left Join RDR1 T5 On T5.DocEntry=T4.BaseEntry and T5.LineNum=T4.BaseLine and T5.ItemCode=T4.ItemCode
+                  Left Join ORDR T6 On T6.DocEntry=T5.DocEntry
+                  Where T.DocEntry=A.DocEntry
+            FOR XML PATH ('')
+        ), 2, 1000)
+      )  as SalesOrderNum
+	,T2.U_CntctNam'Ship To Contact Name',T2.U_Contact'Ship to Contact No.'
+
+	,(select q."U_Path" from "@EIQRTBL" q WHERE Q."U_DocEntry"=A."DocEntry") AS "QR PATH",a.U_Ackdt,a.U_ackno,a.U_IRN
+,(SELECT OQRC."FileContnt" FROM  OQRC WHERE a."DocEntry" = OQRC."SrcObjAbs" and OQRC."SrcObjType" = 13 ) AS "QRCode",a.U_EBILLNO
+,a.U_AckDate
+
+from OINV a 
+	Inner Join INV1 b on b.DocEntry = a.DocEntry
+	LEFT JOIN INV3 E on E.DocEntry=a.DocEntry
+	left join DLN1 c on c.DocEntry = b.BaseEntry and c.LineNum = b.BaseLine
+	left join ODLN d on d.DocEntry = c.DocEntry
+	left join RDR1 e1 on e1.DocEntry = c.BaseEntry and e1.LineNum = c.BaseLine
+	left join ORDR f on f.DocEntry = e1.DocEntry
+	Left join OCRD g on g.CardCode = a.CardCode
+    Left join NNM1 k on k.Series = a.Series
+    Left Join OITM l on l.ItemCode = b.ItemCode
+    Left Join OCRD m on m.CardCode = a.CardCode
+    Left Join OCPR n on n.CardCode = a.CardCode and n.CntctCode = a.CntctCode
+    Left Join OCHP o on o.AbsEntry = b.HsnEntry
+    Left Outer join OLCT ss on ss.Code = b.LocCode
+    LEFT OUTER JOIN DSC1 ds ON g.HousActKey = ds.AbsEntry
+    Left outer join INV12 x2  on a.DocEntry = x2.DocEntry
+	Left Join OACT t on b.AcctCode=t.AcctCode
+	Left Join OWHS y on b.WhsCode=Y.WhsCode
+	Left Join OLCT z on b.LocCode=z.Code
+	LEFT JOIN OEXD EE on EE.ExpnsCode=E.ExpnsCode
+
+	LEFT OUTER JOIN CRD1 T1 ON a.CardCode = T1.CardCode AND a.PayToCode = T1.Address AND T1.AdresType = 'B'
+	LEFT OUTER JOIN CRD1 T2 ON a.CardCode = T2.CardCode AND a.ShipToCode = T2.Address AND T2.AdresType = 'S'	
+
+WHERE  b.Price<>0 and a.DocEntry = @DocEntry
+
+END
+
+
+--USE [VPNew1]
+--GO
+--/****** Object:  StoredProcedure [dbo].[CIS_GST_Invoice]    Script Date: 12-Nov-24 1:57:15 PM ******/
+--SET ANSI_NULLS ON
+--GO
+--SET QUOTED_IDENTIFIER ON
+--GO
+--ALTER Procedure [dbo].[CIS_GST_Invoice]
+-- (
+-- @DocEntry Int
+-- )
+-- as Begin
+--Select
+--      a.DocEntry, a.DocCur, A.DocNum,
+--      n.Cellolar,n.E_MailL,
+--      a.DocDate,a.DocType, a.DocDueDate, a.CardCode, a.CardName, a.DocDueDate [INVDueDate], a.NumAtCard,a.vatsum,
+--         a.Printed,a.PayToCode, a.ShipToCode,a.TaxDate ,
+--        a.comments, a.TotalExpns[Freight], a.TrackNo ,a.U_EwayBN,a.U_VehicleNo,d.DocNum 'Delivery No',
+-- a.ExtraDays,  b.ItemCode, b.Dscription, b.Price, b.Price * a.DocRate[INRPrice],
+--        b.Quantity, b.UomCode, l.SalUnitMsr, l.SalPackUn, l.SalPackMsr, k.SeriesName, o.ChapterID, l.ItemClass, a.DpmAmnt,b.PriceAfVAT,
+--             b.GTotal,b.PriceBefDi,
+--             -- f.DocNum [Sal Order No], d.DocNum [Del Doc No],d.DocDueDate [Del Ship Date], f.NumAtCard [OrderRefNo]
+--        IsNull(b.LineTotal/a.DocRate,0) [Line Total], IsNull(a.DocTotal/a.DocRate,0) [Doc Total], IsNull(a.TotalExpns/a.DocRate,0) [Freight Total], IsNull(a.DiscSum/a.DocRate,0) [Disc Total],
+--        (Select PymntGroup from OCTG where GroupNum = a.GroupNum) 'PaymentTerm',
+--        (Select SlpName from OSLP where SlpCode = a.SlpCode)'Sales Emp',
+--            (Select email from OHEM where salesPrson=a.SlpCode)'SalesEmpMail',
+--        (Select TrnspName from OSHP Where TrnspCode = a.TrnspCode) 'Shipping Term',
+--            (Case when a.DocType='S' then b.Dscription
+--         else (b.ItemCode + ' '+'/'+' ' +b.Dscription) end ) 'ProdCodeDesc',
+--            (Select ServCode from OSAC where b.[SacEntry] = [AbsEntry])'SacCode',
+--            (Select ServCode from OSAC where l.[SACEntry] = [AbsEntry])'ItemSacCode',
+--            a.Revision,a.RevRefNo,a.RevRefDate,x2.ImpORExp,x2.ImpExpNo,x2.ImpExpDate,a.RevCreRefN,a.RevCreRefD,
+
+   
+
+--      ---- Customer Details ----
+--        b.SubCatNum [BP Catlog No], g.Phone1 [Cust Phone No], g.Fax [Cust Fax No], g.E_Mail [Cust Email], g.Free_Text [BP Remarks], n.Name [ContactID],
+--          n.Address [RegOffice],X2.TaxId0, X2.BpGSTN,X2.BpStateCod,X2.BPStatGSTN,
+--         (Select TOP 1 Name from OCST where Code=X2.BpStateCod)'BP State Name',
+--         (case when X2.BpGSTType='2' then 'Casual Taxable Person'
+--          when X2.BpGSTType='3' then 'Composition Levy'
+--          when X2.BpGSTType='4' then 'Government Department or PSU'
+--          when X2.BpGSTType='5' then 'Non Resident Taxable Person'
+--          when X2.BpGSTType='1' then 'Regular/TDS/ISD'
+--          when X2.BpGSTType='6' then 'UN Agency or Embassy' End) 'BpGSTType',
+
+--      (Select --Coalesce((Case When x.County    = '' Then Null Else x.County    End) + ',',' ') + CHAR(10) +
+--                  --Coalesce((Case When Cast(x.Building As Nvarchar(Max))= '' Then Null Else Cast(x.Building As Nvarchar(Max)) End) + ',',' ') +
+--                  Coalesce((Case When x.Street   = '' Then Null Else x.Street   End) + ',',' ') + CHAR(10) +
+--                  Coalesce((Case When x.Block    = '' Then Null Else x.Block    End) + ',',' ') + CHAR(10) +
+--                  Coalesce((Case When x.City     = '' Then Null Else x.City     End) + ' - ',' ') +  
+--                  Coalesce((Case When x.ZipCode  = '' Then Null Else x.ZipCode  End) , ' ') + CHAR(10) +
+--                  Coalesce((Case When x.State = '' Then Null Else
+--                  (Select x1.Name From OCST x1 Where x1.Code = x.State And x1.Country = x.Country) End),' ') + ' ' +
+--                  Coalesce((Case When x.Country = '' Then Null Else
+--                  (Select x2.Name From OCRY x2 Where x2.Code = x.Country) End),' ')  
+--       From CRD1 x Where x.CardCode = a.CardCode And x.AdresType = 'B' And x.Address = a.PayToCode
+--       )[BillToAddrs],  
+--      (Select --Coalesce((Case When x.County    = '' Then Null Else x.County    End) + ',',' ') + CHAR(10) +
+--                  --Coalesce((Case When Cast(x.Building As Nvarchar(Max))= '' Then Null Else Cast(x.Building As Nvarchar(Max)) End) + ',',' ') +
+--                  Coalesce((Case When x.Street   = '' Then Null Else x.Street   End) + ',',' ') + CHAR(10) +
+--                  Coalesce((Case When x.Block    = '' Then Null Else x.Block    End) + ',',' ') + CHAR(10) +
+--                  Coalesce((Case When x.City     = '' Then Null Else x.City     End) + ' - ',' ') +  
+--                  Coalesce((Case When x.ZipCode  = '' Then Null Else x.ZipCode  End) , ' ') + CHAR(10) +
+--                  Coalesce((Case When x.State = '' Then Null Else (Select x1.Name From OCST x1 Where x1.Code = x.State And x1.Country = x.Country) End),' ') + ' ' +
+--                  Coalesce((Case When x.Country = '' Then Null Else (Select x2.Name From OCRY x2 Where x2.Code = x.Country) End),' ')  
+--       From CRD1 x Where x.CardCode = a.CardCode And x.AdresType = 'S' And x.Address = a.ShipToCode
+--       ) [ShipToAddrs],
+
+--(select GSTCode from OCST where Code=x2.StateB and Country='IN') 'Bill to State Code',
+
+--(select GSTCode from OCST where Code=x2.StateS and Country='IN') 'Shipp to State Code',
+
+--(select Name from OCST where Code=x2.StateB and Country='IN') 'Bill to State Name',
+--(select Name from OCST where Code=x2.StateS and Country='IN') 'Shipp to State Name',
+      
+
+--      ------ Location Address Details ----
+--      (Select x.CompnyName From OADM x) [CompName],
+--      (Select x.Street from OLCT x where x.Code = b.LocCode)        [Loc Street],
+--      (Select x.Block from OLCT x where x.Code = b.LocCode)         [Loc Block],
+--      (Select x.Building from OLCT x where x.Code = b.LocCode)      [Loc Building],
+--      (Select x.City from OLCT x where x.Code = b.LocCode)          [Loc City],
+--      (Select x.ZipCode from OLCT x where x.Code = b.LocCode)       [Loc Zipcode],
+--      (Select x.PanNo from OLCT x where x.Code = b.LocCode)         [Loc PAN No],
+--      (Select x.ExemptNo from OLCT x where x.Code = b.LocCode)      [Loc CIN No],
+--      (Select Name from OCRY where Code=ss.Country)'Loc Country Name',
+-- (Select Name from OCST where Code=X2.LocStatCod)'Loc State Name',
+--     X2.LocGSTN,X2.LocStatCod,X2.LocStaGSTN,
+--    (case when X2.LocGSTType='2' then 'Casual Taxable Person'
+--          when X2.LocGSTType='3' then 'Composition Levy'
+--          when X2.LocGSTType='4' then 'Government Department or PSU'
+--          when X2.LocGSTType='5' then 'Non Resident Taxable Person'
+--          when X2.LocGSTType='1' then 'Regular/TDS/ISD'
+--          when X2.LocGSTType='6' then 'UN Agency or Embassy' End) 'LocGSTType',
+       
+-- --      ---- Bank Information ----
+-- --       g.HousBnkAct, g.HousBnkBrn, g.HsBnkSwift, g.HsBnkIBAN, ds.AcctName,
+--      --    (Select BankName from ODSC where BankCode=g.HouseBank) 'Bank Name',
+
+     
+   
+--        ---- GST Tax Information ----
+       
+--         ISNULL((Select (case when  sum(x.RvsChrgTax)<=0  then sum(x.TaxSum)/a.DocRate else 0 end) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -100 and x.LineNum = b.LineNum and x.RelateType = 1),0) [CGSTAmt],
+--       ISNULL((Select (case when  sum(x.RvsChrgTax)<=0  then sum(x.TaxSum)/a.DocRate else 0 end) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -110 and x.LineNum = b.LineNum and x.RelateType = 1),0) [SGSTAmt],
+--       ISNULL((Select (case when  sum(x.RvsChrgTax)<=0  then sum(x.TaxSum)/a.DocRate else 0 end) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -120 and x.LineNum = b.LineNum and x.RelateType = 1),0) [IGSTAmt],
+--          ISNULL((Select (case when  sum(x.RvsChrgTax)<=0  then sum(x.TaxSum)/a.DocRate else 0 end) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -150 and x.LineNum = b.LineNum and x.RelateType = 1),0) [UTGSTAmt],
+
+
+--       ISNULL((Select distinct (case when  sum(x.RvsChrgTax)<=0  then  x.TaxRate else 0 end ) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -100 and x.LineNum = b.LineNum and x.RelateType = 1 group by X.TaxRate),0) [CGSTRate],
+--       ISNULL((Select distinct (case when  sum(x.RvsChrgTax)<=0  then x.TaxRate else 0 end ) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -110 and x.LineNum = b.LineNum and x.RelateType = 1 group by X.TaxRate),0) [SGSTRate],
+--       ISNULL((Select distinct (case when  sum(x.RvsChrgTax)<=0  then x.TaxRate else 0 end ) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -120 and x.LineNum = b.LineNum and x.RelateType = 1 group by X.TaxRate),0) [IGSTRate],
+--         ISNULL((Select distinct (case when  sum(x.RvsChrgTax)<=0  then x.TaxRate else 0 end ) From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -150 and x.LineNum = b.LineNum and x.RelateType = 1 group by X.TaxRate),0) [UTGSTRate],
+
+
+--       ISNULL((Select Sum(x.RvsChrgTax)/a.DocRate From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -100 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsCGST],
+--       ISNULL((Select Sum(x.RvsChrgTax)/a.DocRate From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -110 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsSGST],
+--       ISNULL((Select Sum(x.RvsChrgTax)/a.DocRate From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -120 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsIGST],
+--         ISNULL((Select Sum(x.RvsChrgTax)/a.DocRate From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -150 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsUTGST],
+
+
+--        ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=1 group by n.TaxRate),0)'CGSTFreightRate',
+--      ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=1 group by n.TaxRate),0)'SGSTFreightRate',
+--        ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=1 group by n.TaxRate),0)'IGSTFreightRate',
+--        ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=1 group by n.TaxRate),0)'UTGSTFreightRate',
+
+
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=1),0)'CGSTFreight',
+--      ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=1),0)'SGSTFreight',
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=1),0)'IGSTFreight',
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=1),0)'UTGSTFreight',
+
+--        ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=2 group by n.TaxRate),0)'CGSTPackingRate',
+--      ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=2 group by n.TaxRate),0)'SGSTPackingRate',
+--        ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=2 group by n.TaxRate),0)'IGSTPackingRate',
+--         ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=2 group by n.TaxRate),0)'UTGSTPackingRate',
+
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=2),0)'CGSTPacking',
+--      ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=2),0)'SGSTPacking',
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=2),0)'IGSTPacking',
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=2),0)'UTGSTPacking',
+
+--        ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=3 group by n.TaxRate),0)'CGSTInsuranceRate',
+--      ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=3 group by n.TaxRate),0)'SGSTInsuranceRate',
+--        ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=3 group by n.TaxRate),0)'IGSTInsuranceRate',
+--        ISNULL((select top 1 (case when  sum(n.RvsChrgTax)<=0  then  n.TaxRate else 0 end )  from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=3 group by n.TaxRate),0)'UTGSTInsuranceRate',
+
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-100 and n.ExpnsCode=3),0)'CGSTInsurance',
+--      ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-110 and n.ExpnsCode=3),0)'SGSTInsurance',
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-120 and n.ExpnsCode=3),0)'IGSTInsurance',
+--        ISNULL((select  (case when  sum(n.RvsChrgTax)<=0  then sum(n.TaxSum)/a.DocRate else 0 end)   from INV4 n left join INV3 b on n.DocEntry=b.DocEntry and n.ExpnsCode=b.ExpnsCode where n.DocEntry=a.docentry and n.staType=-150 and n.ExpnsCode=3),0)'UTGSTInsurance',
+
+--IsNull((select   sum(distinct n.BaseSum)/a.DocRate from INV4 n  where n.DocEntry=a.DocEntry  and n.ExpnsCode=1),0) 'Freightbase',
+--IsNull((select  sum(distinct n.BaseSum)/a.DocRate  from INV4 n  where n.DocEntry=a.DocEntry  and n.ExpnsCode=3),0) 'Insurbase',
+--IsNull((select  sum(distinct n.BaseSum)/a.DocRate  from INV4 n  where n.DocEntry=a.DocEntry  and n.ExpnsCode=2),0) 'Packbase',
+
+--(SELECT distinct T0.[SacCode] FROM OEXD T0  INNER JOIN INV4 T1 ON T0.[ExpnsCode] = T1.[ExpnsCode]  WHERE T0.[ExpnsCode] ='1' and T1.DocEntry=a.DocEntry)'FreightSacCode',
+--(SELECT distinct T0.[SacCode] FROM OEXD T0  INNER JOIN INV4 T1 ON T0.[ExpnsCode] = T1.[ExpnsCode] WHERE T0.[ExpnsCode] ='2' and T1.DocEntry=a.DocEntry)'PackSacCode',
+--(SELECT distinct T0.[SacCode] FROM OEXD T0  INNER JOIN INV4 T1 ON T0.[ExpnsCode] = T1.[ExpnsCode] WHERE T0.[ExpnsCode] ='3' and T1.DocEntry=a.DocEntry)'InsuSacCode',
+
+--ISNULL((Select x.RvsChrgPrc From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -100 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsCGSTPrc],
+--ISNULL((Select x.RvsChrgPrc From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -110 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsSGSTPrc],
+--ISNULL((Select x.RvsChrgPrc From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -120 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsIGSTPrc],
+--ISNULL((Select x.RvsChrgPrc From INV4 x Where x.DocEntry = a.DocEntry and x.staType = -150 and x.LineNum = b.LineNum and x.RelateType = 1),0) [RevsUTGSTPrc],
+
+--(Select CompnyName from OADM) 'Company name',
+--(Select CompnyAddr from OADM) 'Company addr',
+
+--      ( select Coalesce((Case When x.Country = '' Then Null Else (Select x2.Name From OCRY x2 Where x2.Code = x.Country) End),' ')  
+--       From CRD1 x Where x.CardCode = a.CardCode And x.AdresType = 'S' And x.Address = a.ShipToCode) as "Country",a.DocRate,
+--(Select e_mail from OADM) 'Company Email',
+--(Select Phone1 from OADM) 'Company Ph',A.GSTTranTyp,
+--a.DiscPrcnt 'docdisperc',b.TaxCode,t.AcctName,a.WTSum,a.paidsum,Y.WhsName,z.GSTRegnNo[WhsGSTNo],
+
+--(Select     Coalesce((Case When x.Street   = '' Then Null Else x.Street   End) + ',',' ') + CHAR(10) +
+--                  Coalesce((Case When x.Block    = '' Then Null Else x.Block    End) + ',',' ') + CHAR(10) +
+--                  Coalesce((Case When Cast(x.Building As Nvarchar(Max))= '' Then Null Else Cast(x.Building As Nvarchar(Max)) End) + ',',' ') +
+--                  Coalesce((Case When x.ZipCode  = '' Then Null Else x.ZipCode  End) , ' ') + CHAR(10) +
+--                  Coalesce((Case When x.City     = '' Then Null Else x.City     End) + ' - ',' ') +
+--                  Coalesce((Case When x.State = '' Then Null Else (Select x1.Name From OCST x1 Where x1.Code = x.State And x1.Country = x.Country) End),' ') + ' ' +
+--                  Coalesce((Case When x.Country = '' Then Null Else (Select x2.Name From OCRY x2 Where x2.Code = x.Country) End),' ')  
+--       From OLCT x Where x.code = b.LocCode
+--       )[LocAddress],a.PaidToDate,z.Street,z.Block,z.Building,z.ZipCode,z.City,z.State[whsState],z.County,a.RoundDif,a.address,b.unitmsr,o.SubHeading
+
+--      -- ,b.U_ExtraDesc
+--       ,b.HsnEntry
+--,k.Remark,d.DocDate as 'DO Date',k.[BeginStr],RIGHT(d.DocNum,4) as 'DO DocNum',
+----a.[U_Dispthough], a.[U_Destination], a.[U_Termsofdel],b.legalText,a.U_Vehicleno,a.U_EwayNo ,b.U_ItemDecs,
+--a.U_LRNO,a.U_LRdate,a.U_TransporterN,
+--T1.[Address2] 'Address2_B', T1.[Address3] 'Address3_B', T1.[Street] 'Street_B', T1.[Block] 'Block_B', T1.[ZipCode] 'ZipCode_B', T1.[City] 'City_B',
+--(SELECT Name FROM OCST WHERE Code= T1.State and Country = T1.Country) 'State_B' ,
+--(SELECT Name FROM OCRY WHERE Code = T1.Country) 'Country_B',T1.GSTRegnNo 'GSTRegNo_B',
+
+--T2.[Address2] 'Address2_S', T2.[Address3] 'Address3_S', T2.[Street] 'Street_S', T2.[Block] 'Block_S', T2.[ZipCode] 'ZipCode_S', T2.[City] 'City_S',
+--(SELECT Name FROM OCST WHERE Code= T2.State and Country = T2.Country) 'State_S' ,
+--(SELECT Name FROM OCRY WHERE Code = T2.Country) 'Country_S',T2.GSTRegnNo 'GSTRegNo_S' ,
+--EE.ExpnsName
+----,b.U_LotNo
+--,f.DocDate 'Order Date',
+--a.u_Remark,
+--b.U_ExtraDesc,
+--b.FreeTxt,
+--a."U_ResQR" as QR,
+--a."U_IRN" as IRN,
+--a."U_AckNo",
+--a."U_AckDt",
+--b.U_CustomerCode,Isnull((b.PriceBefDi*b.Quantity-B.Price*b.Quantity),0.0)'Discount Value',b.DiscPrcnt 'Row DiscPrcnt',
+--      (SUBSTRING(
+--        ( SELECT  Distinct Case When  Isnull( CAST(T4.BaseDocNum AS varchar),'') ='' Then (SELECT  Distinct  ',' + CAST(T2.BaseDocNum AS varchar)
+--            FROM OINV T
+--                  Left Join INV1 T2 on T.DocEntry=T2.DocEntry
+--                  --Left Join DLN1 T4 On T4.DocEntry=T2.BaseEntry And T4.LineNum=T2.BaseLine and T4.ItemCode=T2.ItemCode
+--                  --Left Join RDR1 T5 On T5.DocEntry=T4.BaseEntry and T5.LineNum=T4.BaseLine and T5.ItemCode=T4.ItemCode
+--                  --Left Join ORDR T6 On T6.DocEntry=T5.DocEntry
+--                  Where T.DocEntry=a.DocEntry) else ',' + CAST(T4.BaseDocNum AS varchar) END
+--            FROM OINV T
+--                  Left Join INV1 T2 on T.DocEntry=T2.DocEntry
+--                  Left Join DLN1 T4 On T4.DocEntry=T2.BaseEntry And T4.LineNum=T2.BaseLine and T4.ItemCode=T2.ItemCode
+--                  Left Join RDR1 T5 On T5.DocEntry=T4.BaseEntry and T5.LineNum=T4.BaseLine and T5.ItemCode=T4.ItemCode
+--                  Left Join ORDR T6 On T6.DocEntry=T5.DocEntry
+--                  Where T.DocEntry=A.DocEntry
+--           /* SELECT Distinct ','+Convert(varchar,T4.BaseDocNum)
+--            FROM DLN1 T4 Where T4.DocEntry =c.DocEntry */--and t4.BaseType=67 and t4.BaseLinNum=b.LineNum
+--            FOR XML PATH ('')
+--        ), 2, 1000)
+--      )  as BatchNum
+--      ,(SUBSTRING(
+--        (
+--            SELECT  Distinct Case When  Isnull( CAST(T4.BaseDocNum AS varchar),'') ='' Then (SELECT  Distinct  ',' + CAST(T2.BaseDocNum AS varchar)
+--            FROM OINV T
+--                  Left Join INV1 T2 on T.DocEntry=T2.DocEntry
+--                  --Left Join DLN1 T4 On T4.DocEntry=T2.BaseEntry And T4.LineNum=T2.BaseLine and T4.ItemCode=T2.ItemCode
+--                  --Left Join RDR1 T5 On T5.DocEntry=T4.BaseEntry and T5.LineNum=T4.BaseLine and T5.ItemCode=T4.ItemCode
+--                  --Left Join ORDR T6 On T6.DocEntry=T5.DocEntry
+--                  Where T.DocEntry=a.DocEntry) else ',' + CAST(T4.BaseDocNum AS varchar) END
+--            FROM OINV T
+--                  Left Join INV1 T2 on T.DocEntry=T2.DocEntry
+--                  Left Join DLN1 T4 On T4.DocEntry=T2.BaseEntry And T4.LineNum=T2.BaseLine and T4.ItemCode=T2.ItemCode
+--                  Left Join RDR1 T5 On T5.DocEntry=T4.BaseEntry and T5.LineNum=T4.BaseLine and T5.ItemCode=T4.ItemCode
+--                  Left Join ORDR T6 On T6.DocEntry=T5.DocEntry
+--                  Where T.DocEntry=A.DocEntry
+--            FOR XML PATH ('')
+--        ), 2, 1000)
+--      )  as SalesOrderNum
+--      ,T2.U_CntctNam'Ship To Contact Name',T2.U_Contact'Ship to Contact No.'
+--from OINV a
+--      Inner Join INV1 b on b.DocEntry = a.DocEntry
+--      LEFT JOIN INV3 E on E.DocEntry=a.DocEntry
+--      left join DLN1 c on c.DocEntry = b.BaseEntry and c.LineNum = b.BaseLine
+--      left join ODLN d on d.DocEntry = c.DocEntry
+--      left join RDR1 e1 on e1.DocEntry = c.BaseEntry and e1.LineNum = c.BaseLine
+--      left join ORDR f on f.DocEntry = e1.DocEntry
+--      Left join OCRD g on g.CardCode = a.CardCode
+--    Left join NNM1 k on k.Series = a.Series
+--    Left Join OITM l on l.ItemCode = b.ItemCode
+--    Left Join OCRD m on m.CardCode = a.CardCode
+--    Left Join OCPR n on n.CardCode = a.CardCode and n.CntctCode = a.CntctCode
+--    Left Join OCHP o on o.AbsEntry = b.HsnEntry
+--    Left Outer join OLCT ss on ss.Code = b.LocCode
+--    LEFT OUTER JOIN DSC1 ds ON g.HousActKey = ds.AbsEntry
+--    Left outer join INV12 x2  on a.DocEntry = x2.DocEntry
+--      Left Join OACT t on b.AcctCode=t.AcctCode
+--      Left Join OWHS y on b.WhsCode=Y.WhsCode
+--      Left Join OLCT z on b.LocCode=z.Code
+--      LEFT JOIN OEXD EE on EE.ExpnsCode=E.ExpnsCode
+
+--      LEFT OUTER JOIN CRD1 T1 ON a.CardCode = T1.CardCode AND a.PayToCode = T1.Address AND T1.AdresType = 'B'
+--      LEFT OUTER JOIN CRD1 T2 ON a.CardCode = T2.CardCode AND a.ShipToCode = T2.Address AND T2.AdresType = 'S'  	
+
+--WHERE  b.Price<>0 and a.DocEntry = @DocEntry ;
+
+--End

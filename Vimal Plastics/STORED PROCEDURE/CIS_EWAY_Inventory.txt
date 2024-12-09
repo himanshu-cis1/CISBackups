@@ -1,0 +1,82 @@
+USE [VIMAL_PLASTICS_2024]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_EWAY_Inventory]    Script Date: 07/12/2024 11:43:42 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[CIS_EWAY_Inventory]
+(
+	@DocEntry INTEGER
+)
+
+-- Last Updated 26092021 0151
+
+AS
+BEGIN
+
+SELECT   '' "Irn",T12."GSTRegnNo" "GSTIN", Year(T0."DocDate") "Year",Month(t0."DocDate")"Month",
+Case When T0.CardName like ('%Vimal%') Then 'O' When  t3."CardType"='S' then 'I' Else 'O' End "SupplyType",
+T0."U_SUBType" "SubType" ,'CHL' "DocType",CONCAT(S."BeginStr",T0."DocNum")"DocNo",CONVERT(VARCHAR(8), CONVERT(DATE, T0.DocDate, 105), 112)"DocDate",
+ 
+ T12."GSTRegnNo" "SupGSTIN", 'VIMAL PLASTICS PACKAGING LLP' "SupName",
+T12."Street" "SupAdd1", ISNULL(CAST(T12."Block" AS CHAR),'')+','+ISNULL(CAST(T12."Building" AS CHAR),'') "SupAdd2",
+ISNULL(T12."City",'') +', '+ISNULL((SELECT "Name" FROM OCST WHERE T12."State" = "Code" AND T12."Country" = "Country"),'') "SupCity",
+LEFT(T12."GSTRegnNo",2) "SupState",T12."ZipCode" "SupPincode", 
+
+ T5.GSTRegnNo  "RecGSTIN", 
+T3."CardName" "RecName",
+
+--CASE WHEN  T2."ImpORExp" = 'Y' THEN '96' ELSE (SELECT "GSTCode" FROM OCST WHERE OCST."Code" = T2."BpStateCod" AND "Country" = T2."BpCountry") END "BillTo_Pos",
+T5."Block" "RecAdd1",  T5."Street" "RecAdd2", ISNULL(T5."City",'')+''+ISNULL(T7."Name",'') "Reccity", 
+CASE WHEN  T2."ImpORExp" = 'Y' THEN '96' ELSE  (SELECT "GSTCode" FROM OCST WHERE OCST."Code" = T5.State AND "Country" = T5."Country") END "RecState",
+T5."ZipCode" "Recpincode",
+--T0.U_TransMode
+'1'"TransMode",T0.U_TransID "TransporterId",T0.U_TransporterName "TransporterName",T0.U_Distance "TransDistance",
+t0.U_Transdocno	"TransDocNo",T0.U_TransdocDt "TransDocDate",T0.U_VehType "VehicleType",T0.U_VehicleNo "VehicleNo",
+
+--T1."VisOrder"+1 "Item_SlNo",
+ISNULL(T11."ItemName",'') "ProductName",
+--CASE WHEN T11."ItemClass" = 1 THEN 'Y' ELSE 'N' END "Item_IsServc",
+isnull(T11."U_ExtraDesc",'')"ProductDesc",
+CASE
+WHEN T11."ItemClass" = 1 THEN (SELECT "ServCode" FROM OSAC WHERE T1."SacEntry" = "AbsEntry")
+WHEN T11."ItemClass" = 2 THEN REPLACE((SELECT TOP 1 OCHP.ChapterID FROM OCHP WHERE T11.ChapterID = OCHP.AbsEntry),'.','')
+ELSE ''
+END "HSNCode",   
+Cast(T1."Quantity" as dec(15,2)) As 'Quantity	', 
+T11."SalUnitMsr" "QtyUnit",
+t1.U_TransferPrice*t1.Quantity "TaxableValue",-- Cast((T1."Quantity"*T1."PriceBefDi")*t0.DocRate as dec(15,2)) 
+t1.U_TransferPrice*t1.Quantity "TotalValue",
+0 "SGSTRate",0 "SGSTValue",0 "CGSTRate", 0"CGSTValue",0 "IGSTRate",0 "IGSTValue", 0 "CessRate", 0"CessValue",
+	   T27.[U_EInvUsNa] "EWbUserName" ,
+T27.[U_EInvPwd] "EWbPassword",
+0 "CessNonAdvol",''  "SubSupplyDesc", LEFT(T6."GSTRegnNo",2)  "ShipFromStateCode",LEFT(T6."GSTRegnNo",2)  "ShipToStateCode",
+ --t1.U_TransferPrice*t1.Quantity
+ (Select SUM(B.Quantity*b.U_TransferPrice) from OWTR A Inner Join WTR1 b ON b.DocEntry=A.DocEntry Where A.DocEntry=T0.DocEntry)"TotalInvoiceValue", 0 "CessNonAdvolValue",0 "OtherValue", T12."GSTRegnNo" "dispatchFromGSTIN ", 
+ 'VIMAL PLASTICS PACKAGING LLP'"dispatchFromTradeName",T6."GSTRegnNo" "ShipToGSTIN",T0.ShiptoCode "ShipToTradeName",
+Case When t0.U_TransType='3' then 0 Else 1 End "IsBillFromShipFromSame", Case When t0.U_TransType='2' then 0 Else 1 End "IsBillToShipToSame", 0 "IsGSTINSEZ"
+,Year(T0."DocDate") "Year",Month(t0."DocDate")"Month" ,T27.[U_EWEF] "EFUserName",T27.[U_EWEFPASS] "EFPassword" 
+,T27.[U_EwCD] "CDKey"
+FROM OWTR T0  
+INNER JOIN WTR1 T1 ON T0."DocEntry" = T1."DocEntry"
+Left JOIN WTR12 T2 ON T0."DocEntry" = T2."DocEntry"
+Left JOIN OCRD T3 ON T0."CardCode" = T3."CardCode"
+LEFT OUTER JOIN CRD1 T5 ON T0."CardCode"  = T5."CardCode" AND 
+T0."U_Billto" = T5."Address" 
+AND T5."AdresType" = 'B'
+LEFT OUTER JOIN CRD1 T6 ON T0."CardCode"  = T6."CardCode" AND T0."ShipToCode" = T6."Address" AND T6."AdresType" = 'S'
+LEFT OUTER JOIN OCST T7 ON T5."State" = T7."Code" AND T5."Country" = T7."Country"
+LEFT OUTER JOIN OCST T8 ON T6."State" = T8."Code" AND T6."Country" = T8."Country"
+LEFT OUTER JOIN CRD1 T9 ON T0."ShipToCode" = T9."CardCode" AND T0."ShipToCode" = T9."Address" AND T9."AdresType" = 'S'
+LEFT OUTER JOIN OCRD T10 ON T9."CardCode" = T10."CardCode"
+LEFT OUTER JOIN OITM T11 ON T1."ItemCode" = T11."ItemCode"
+Left JOIN OLCT T12 ON T1."LocCode" = T12."Code"
+LEFT OUTER JOIN OUSR T15 ON T0."UserSign" = T15."INTERNAL_K"
+LEFT OUTER JOIN NNM1 S ON S.Series=T0.Series
+--INNER JOIN INV26 T16 ON T0."DocEntry" = T16."DocEntry"
+LEFT JOIN "@CIS_OEIC" T27 ON T1."LocCode" = T27."Code"
+WHERE --T0."Series" NOT IN (SELECT "Series" FROM NNM1 WHERE "Remark" = 'TCS')
+ T0."DocEntry" =@DocEntry--'391354'--@DocEntry
+--AND T0."GSTTranTyp" <> '--'
+End

@@ -1,0 +1,50 @@
+USE [VIMAL_PLASTICS_2024]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_EWAY_INV_Print]    Script Date: 07/12/2024 11:42:48 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER Procedure [dbo].[CIS_EWAY_INV_Print] 
+(
+@DocEntry INTEGER
+)
+
+
+
+AS
+BEGIN
+
+
+SELECT   DISTINCT
+
+T12.GSTRegnNo AS "GSTIN",
+T0.U_EBILLNO AS  "ewbNo",
+YEAr(T0.DocDate) as "Year"
+,MONTH(T0.DocDate) as "Month"
+,T27.[U_EwCD] "CDKey",T27.[U_EWEF] "EWbUserName" ,
+T27.[U_EWEFPASS] "EWbPassword", T27.[U_EInvUsNa] "EFUserName", T27.[U_EInvPwd] "EFPassword"
+
+
+	
+FROM OWTR T0 
+
+	INNER JOIN WTR1 T1 ON T0."DocEntry" = T1."DocEntry"
+
+	INNER JOIN WTR12 T2 ON T0."DocEntry" = T2."DocEntry"
+
+	
+
+	INNER JOIN OLCT T12 ON T1."LocCode" = T12."Code"
+
+	
+
+	LEFT JOIN "@CIS_OEIC" T27 ON T1."LocCode" = T27."Code"
+	Left Join OCRD T28 On t28.CardCode=T0.U_Transporter_Name
+
+	WHERE--- T0."Series" NOT IN (SELECT "Series" FROM NNM1 WHERE "Remark" = 'TCS'
+
+T0."DocEntry" =@DocEntry;
+
+	
+END

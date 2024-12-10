@@ -1,0 +1,334 @@
+USE [Securico_New_Live_DB]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_TransactionNotification]    Script Date: 10/12/2024 9:49:19 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[SBO_SP_TransactionNotification] 
+
+@object_type nvarchar(30), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+declare @draft_object int
+select @error_message = N'Ok'
+
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '17')
+BEGIN 
+            if Exists (SELECT T0.DocEntry FROM RDR1 T0 
+             WHERE (t0.Project  ='' OR t0.Project is null) and
+              T0.DocEntry = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Project should not be blank !' 
+           END 
+                     
+   
+END 
+-------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '17')
+BEGIN 
+            if Exists (SELECT T0.DocEntry FROM ORDR T0 
+             WHERE (t0.U_CustomerCAt  ='' OR t0.U_CustomerCAt is null) and
+              T0.DocEntry = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Customer should not be blank !' 
+           END 
+                     
+   
+END 
+
+----------------------------------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '1250000001')
+BEGIN 
+            if Exists (SELECT T0.DocEntry FROM OWTQ T0 
+			LEFT JOIN WTQ21 T21 ON T0.DocEntry=T21.DocEntry
+			LEFT JOIN OWOR T22 ON T22.DocEntry=T21.RefDocEntr
+             WHERE T22.Status='P' and
+              T0.DocEntry = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Status Is Planned, Production status should be Released' 
+           END 
+                     
+   
+END 
+
+------------------
+	if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if exists (select T0.DocEntry from DRF1 T1 
+   INNER JOIN DRF12 T2 ON T2.DocEntry=T1.DocEntry
+   inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+ WHERE (T2."LocStatCod" is  null or T2."LocStatCod" = '')
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'Place of Supply Should Not Blank !! '  
+    end
+end
+-------------------------------
+if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if exists (select T0.DocEntry from DRF1 T1 
+   inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+   Inner Join OITM T2 On T1."ItemCode"=T2.Itemcode
+  
+ WHERE T2.ItemClass='2' And (T1."HsnEntry" is  null or T1."HsnEntry" = '')
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'HSN Code Should Not Blank !! '  
+    end
+end
+--------------------
+if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if exists (select T0.DocEntry from DRF1 T1 
+   inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+  
+ WHERE (T0."ShipToCode" is  null or T0."ShipToCode" = '')
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'ShipToCode Should Not Blank !! '  
+    end
+end
+------------------------------------
+if @object_type = '112' and @transaction_type in ('A')
+begin
+  select @draft_object = ObjType from ODRF where DocEntry = CAST(@list_of_cols_val_tab_del as int)
+   if @draft_object = 22 -- Draft PO
+   if exists (select T0.DocEntry from DRF1 T1 
+   inner join ODRF T0 on T0.DocEntry = T1.DocEntry
+  
+ WHERE (T0."PayToCode" is  null or T0."PayToCode" = '')
+    and T0.[DocEntry] = cast(@list_of_cols_val_tab_del as int) and T0.ObjType = @draft_object)
+    begin
+     set @error = 107
+     set @error_message = 'PayToCode Should Not Blank !! '  
+    end
+end
+--------------------------------------------------------------------------------------------------------------------------------
+--if @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U')  
+--begin  
+--Declare @itemcode12 varchar(40) 
+
+
+--set @itemcode12=(select t0.ItemCode from OWOR t0 where t0.DocEntry=@list_of_cols_val_tab_del)
+
+
+-- if   Exists(select t0.DocNum from OWOR t0 
+--				inner join WOR1 t1 on t0.DocEntry=t1.DocEntry 
+--				inner join oitm t2 on t1.ItemCode = t2.ItemCode
+--					and t1.itemcode not in (select Code from ITT1 where Father=@itemcode12)
+					
+--						where t0.DocEntry=@list_of_cols_val_tab_del 
+--			)
+-- begin  
+--     set @error  = 10001 
+--  Set @error_message = 'Production Item and BOM Item are not Match !'  
+-- end  
+--end
+
+----------------------------
+IF @object_type='202' AND (@transaction_type = 'A' OR @transaction_type = 'U')     
+BEGIN  
+IF EXISTS (Select top 1 T1.Status From OWOR T1 inner join WOR1 T2
+				 On T1.DocEntry=T2.DocEntry Where T1.DocEntry = @list_of_cols_val_tab_del and T1.Status = 'L'  
+				 and T1.PlannedQty <> T1.CmpltQty and  t1.UserSign=28)
+			Begin
+			
+			select @error =12, @error_message = ' You Cannot Close the Production Order without Total Receipt Planned qty'
+			
+			END
+			END	
+
+-------------------
+		IF @object_type = '59'
+      BEGIN
+            IF ISNULL((SELECT CASE WHEN T0.PlannedQty - SUM(ISNULL(T1.Quantity, 0)) < 0 THEN 1 ELSE 0 END
+                           FROM OWOR T0
+                           LEFT JOIN IGN1 T1 ON T1.BaseEntry = T0.DocEntry AND T1.BaseType = '202'
+                           WHERE T0.DocEntry IN (SELECT C0.BaseEntry FROM IGN1 C0 WHERE C0.DocEntry = @list_of_cols_val_tab_del) 
+						   and T0.ItemCode = T1.ItemCode 
+                           GROUP BY T0.PlannedQty), 0) IN (1)
+            BEGIN
+                  SET @error = 10
+                  SET @error_message = 'Cannot receipt more than "Planned Quantity" in Production Order .'
+            END           
+   
+     END
+
+-------------------------
+	IF (@object_type = '60' AND @transaction_type = 'A') 
+	--AND (SELECT TOP 1 i.BaseType FROM IGE1 i  WHERE i.DocEntry = @list_of_cols_val_tab_del) = 202  
+	BEGIN  
+			IF EXISTS  (SELECT T0.DocEntry
+						FROM IGE1 (NOLOCK) T0
+						INNER JOIN WOR1 (NOLOCK) T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseType = '202' 
+						AND T0.BaseLine = T1.LineNum
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+						AND ISNULL(T1.IssuedQty, 0.00) > ISNULL(T1.PlannedQty, 0.00)   )  
+			BEGIN  
+				SET @error = 1  
+				SET @error_message = 'You can not issue more than planned !'  
+			END  
+	END 
+------------------------
+
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'59')
+
+	BEGIN
+
+	Declare @entry int
+
+	declare @receveqty float
+
+	declare @receveqty1 float
+
+	set @entry= (select distinct BaseEntry from IGN1 where DocEntry=@list_of_cols_val_tab_del and BaseType=202)
+
+	set @receveqty =(select sum(Quantity) from IGN1 where BaseEntry= @entry and BaseType=202)
+	
+	if Exists
+
+	(SELECT MIN(T1.[Actual]) ACTUAL, T1.DocEntry,T1.PlannedQty FROM
+
+	(SELECT T2.[DocEntry],T2.DocNum,T2.PlannedQty , T3.ItemCode , Sum(T3.IssuedQty) [Issued],SUM(T3.PlannedQty) [Planned],
+
+	SUM(T3.PlannedQty)/T2.PlannedQty [Issue Per 1], Sum(T3.IssuedQty)/(SUM(T3.PlannedQty)/T2.PlannedQty) [Actual]
+
+	FROM OWOR T2 INNER JOIN WOR1 T3 ON T3.DocEntry=T2.DocEntry
+
+	Group By T2.[DocEntry], T2.[DocNum], T2.PlannedQty, T3.ItemCode) T1
+
+	where
+
+	T1.DocEntry = @entry
+
+	Group by T1.DocEntry,T1.PlannedQty Having ( @receveqty > MIN(T1.[Actual]) ) )
+
+	BEGIN
+
+	SELECT @Error = 5, @error_message = 'Receiving quantity is greater than issued quantity or issue to production is not happend !'
+
+	END
+
+	END
+
+
+
+
+
+-------gateentry ---------------
+ IF @transaction_type IN ('A') AND (@Object_type = '20')
+BEGIN 
+    -- Update T1 with base entry and base line from subquery
+    UPDATE T1 
+    SET T1.BaseEntry = T2.DocEntry, 
+        T1.BaseLine = T2.LineNum,t1.BaseType=22,t1.BaseRef=t2.DocNum
+    FROM OPDN T0
+    INNER JOIN PDN1 T1 ON T1.DocEntry = T0.DocEntry
+    LEFT JOIN (
+        SELECT A.DocEntry, A.LineNum, B.DocNum, A.ItemCode, A.Quantity,
+               SUM(ISNULL(C.Quantity, 0)) AS 'GRPO',
+               ISNULL(A.Quantity, 0) - SUM(ISNULL(C.Quantity, 0)) AS 'Remaining'
+        FROM POR1 A
+        INNER JOIN OPOR B ON A.DocEntry = B.DocEntry
+        LEFT JOIN PDN1 C ON A.DocEntry = C.BaseEntry 
+                        AND C.BaseLine = A.LineNum 
+                        AND A.ItemCode = C.ItemCode
+        GROUP BY A.DocEntry, A.LineNum, B.DocNum, A.ItemCode, A.Quantity
+    ) T2 ON T2.DocEntry = T1.U_GIENTRY 
+        AND T2.LineNum = T1.U_GILINE 
+        AND T2.ItemCode = T1.ItemCode
+    WHERE T0.CANCELED='N' and T0.U_GINUM <> ''  and t0.DocEntry=@list_of_cols_val_tab_del  ;
+
+    -- Update T3 with remaining quantities and line status
+    UPDATE T3 
+    SET T3.OpenInvQty = CASE WHEN (T2.Remaining ) < 0 THEN 0 ELSE (T2.Remaining ) END,
+        T3.OpenCreQty = CASE WHEN (T2.Remaining ) < 0 THEN 0 ELSE (T2.Remaining ) END,
+        T3.OpenQty = CASE WHEN (T2.Remaining ) < 0 THEN 0 ELSE (T2.Remaining ) END,
+        T3.LineStatus = CASE WHEN (T2.Remaining ) <= 0 THEN 'C' ELSE 'O' END,t3.TrgetEntry=T0.DocEntry,T3.TargetType=20
+    FROM OPDN T0
+    INNER JOIN PDN1 T1 ON T1.DocEntry = T0.DocEntry
+    INNER JOIN POR1 T3 ON T3.DocEntry = T1.U_GIENTRY 
+                      AND T3.LineNum = T1.U_GILINE 
+                      AND T3.ItemCode = T1.ItemCode
+    LEFT JOIN (
+        SELECT A.DocEntry, A.LineNum, B.DocNum, A.ItemCode, A.Quantity,
+               SUM(ISNULL(C.Quantity, 0)) AS 'GRPO',
+               ISNULL(A.Quantity, 0) - SUM(ISNULL(C.Quantity, 0)) AS 'Remaining'
+        FROM POR1 A
+        INNER JOIN OPOR B ON A.DocEntry = B.DocEntry
+        LEFT JOIN PDN1 C ON A.DocEntry = C.BaseEntry 
+                        AND C.BaseLine = A.LineNum 
+                        AND A.ItemCode = C.ItemCode
+        GROUP BY A.DocEntry, A.LineNum, B.DocNum, A.ItemCode, A.Quantity
+    ) T2 ON T2.DocEntry = T1.U_GIENTRY 
+        AND T2.LineNum = T1.U_GILINE 
+        AND T2.ItemCode = T1.ItemCode
+    WHERE T0.CANCELED='N' and T0.U_GINUM <> ''  and t0.DocEntry=@list_of_cols_val_tab_del ;
+	-------------
+	UPDATE t4
+    SET t4.DocStatus= 'C',t4.InvntSttus='C'
+    FROM OPDN T0
+    INNER JOIN PDN1 T1 ON T1.DocEntry = T0.DocEntry
+    INNER JOIN POR1 T3 ON T3.DocEntry = T1.U_GIENTRY 
+                      AND T3.LineNum = T1.U_GILINE 
+                      AND T3.ItemCode = T1.ItemCode
+   Inner Join OPOR T4 On T4.DocEntry=T3.DocEntry
+   WHERE T0.CANCELED='N' and T0.U_GINUM <> '' 
+   and (Select SUM(ISNULL(a.OpenCreQty, 0)) From POR1 A Where a.DocEntry=t3.DocEntry)=0 
+   and t0.DocEntry=@list_of_cols_val_tab_del ;
+  
+END
+
+
+
+
+	--gateentry close----
+
+	------------------PO DRAFT HSN NOT BLANK--------------------------
+	/*IF (@object_type = '112' AND @transaction_type = 'A') 
+	BEGIN 
+
+IF EXISTS (select T0.DocEntry  From DRF1 T0
+Where T0."DocEntry"=@list_of_cols_val_tab_del --And T1."ItmsGrpCod" <> '132'
+and  ISNULL(T0."HsnEntry",'')='' and  T0."ObjType"='22' 
+
+)
+--into cnt
+
+   
+ BEGIN  
+				SET @error = 1  
+				SET @error_message =   'HSN Code Should Not Blank';
+          End
+          
+          
+End*/
+
+-- Select the return values
+select @error, @error_message
+
+end

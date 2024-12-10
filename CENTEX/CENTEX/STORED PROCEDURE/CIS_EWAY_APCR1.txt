@@ -1,0 +1,150 @@
+CREATE PROCEDURE "CIS_EWAY_APCR1"
+
+(
+in DocEntry INTEGER
+)
+
+LANGUAGE SQLSCRIPT
+AS
+BEGIN
+
+
+
+
+SELECT  '2022' "Year" ,'5' "Month",'FBCBA7C5-5ACC-4D72-9463-8C9820350109' "EFUserName",'F6D1EE48-B957-4763-B306-1560A14F0E07' "EFPassword" ,'1550674' "CDKey",
+
+CASE
+WHEN T0."U_ExortInv" = 'Y' THEN
+'Centex Fabric Export Unit'
+ELSE 'Centex International Pvt. Ltd' END "Name",
+T12."GSTRegnNo" "GSTIN",T0."U_SupplyType" "SupplyType",'8' "SubType",
+'CNT' "DocType", T0."DocNum" "DocNo", T0."DocDate" "DocDate", T12."GSTRegnNo" "SupGSTIN",
+'Centex International Pvt. Ltd' "SupName",
+
+T12."Street" AS "SupAdd1",IFNULL(T12."Block",'')||','||IFNULL(T12."Building",'') AS "SupAdd2",
+IFNULL(T12."City",'') ||', '||IFNULL((SELECT "Name" FROM OCST WHERE T12."State" = "Code" AND T12."Country" = "Country"),'') AS "SupCity",
+T12."ZipCode" AS "SupPincode", LEFT(T12."GSTRegnNo",2) AS "SupState",
+T9."GSTRegnNo" "RecGSTIN", T9."Address" "RecName",
+T9."Street" AS "RecAdd1",IFNULL(T6."Block",'')||','||IFNULL(T6."Building",'') AS "RecAdd2",
+T9."City" "Reccity",LEFT(T9."GSTRegnNo",2)AS "RecState",
+T9."ZipCode" as "Recpincode",
+( CASE
+WHEN T0."TrnspCode" = '6' THEN  '1'
+WHEN T0."TrnspCode" = '3' THEN  '2'
+WHEN T0."TrnspCode" = '1' THEN  '3'
+WHEN T0."TrnspCode" = '2' THEN  '4'
+ELSE ''
+END) "TransMode",
+T6."GSTRegnNo" AS  "TransporterId"  ,T0."U_TransporterName" "TransporterName",
+T0."U_TransDistance" "TransDistance", '' "TransDocNo",' ' "TransDocDate",'R' "VehicleType",T0."U_VehicleNum" "VehicleNo",
+
+T1."ItemCode" "ProductName",T1."Dscription" "ProductDesc",
+
+
+
+
+--CASE WHEN T11."ItemClass" = 1 THEN 'Y' ELSE 'N' END "Item_IsServc",
+CASE
+WHEN T11."ItemClass" = 1 THEN RIGHT(REPLACE((SELECT "ServCode" FROM OSAC WHERE T1."SacEntry" = "AbsEntry"),'.',''),6)
+WHEN T11."ItemClass" = 2 THEN REPLACE((SELECT OCHP."ChapterID" FROM OCHP WHERE T11."ChapterID" = OCHP."AbsEntry"),'.','')
+ELSE ''
+END "HSNCode",  T1."Quantity" "Quantity",-- 0 "Item_FreeQty",
+CASE
+WHEN UPPER(T1."unitMsr")  = 'NUMBERS' THEN 'NOS'
+WHEN UPPER(T1."unitMsr")  = 'CASES' THEN 'BOX'
+WHEN UPPER(T1."unitMsr")  = 'PCS' THEN 'PCS'
+WHEN UPPER(T1."unitMsr")  = 'NOS' THEN 'NOS'
+WHEN UPPER(T1."unitMsr")  = 'GM' THEN 'GMS'
+WHEN UPPER(T1."unitMsr")  = 'ML' THEN 'MLT'
+WHEN UPPER(T1."unitMsr")  = 'MTR' THEN 'MTR'
+WHEN UPPER(T1."unitMsr")  = 'PACKET' THEN 'PAC'
+WHEN UPPER(T1."unitMsr")  = 'KG' THEN 'KGS'
+ELSE T1."unitMsr"
+END "QtyUnit",-- CAST(ROUND(TO_DECIMAL(CAST(IFNULL(T1."PriceBefDi", 0) AS NVARCHAR(100)), 10, 2), 2) AS NVARCHAR(100)) "Item_UnitPrice",
+--CAST(ROUND(TO_DECIMAL(CAST(IFNULL(T1."Quantity" * T1."PriceBefDi", 0) AS NVARCHAR(100)), 10, 2), 2) AS NVARCHAR(100)) "Item_TotAmt",
+--ROUND((T1."Quantity"*T1."PriceBefDi")*T1."DiscPrcnt"/100,2) "Item_Discount", 0 "Item_PreTaxVal",
+T1."LineTotal" "TaxableValue", --T1."VatPrcnt"  "Item_GstRt",
+
+	   	CAST(ROUND(TO_DECIMAL(CAST((T1."LineTotal"+
+	  	IFNULL(ROUND((SELECT  SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) + 
+	    IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) +
+	    IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN) ,0.00) )
+	    AS NVARCHAR(100)), 10, 2), 2) AS NVARCHAR(100))"TotalValue",
+	    
+IFNULL(ROUND((SELECT Avg(x."TaxRate")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) "SGSTRate",
+IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) "Item_SgstAmt",
+IFNULL(ROUND((SELECT Avg(x."TaxRate")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) "CGSTRate",
+IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) "Item_CgstAmt",
+--(SELECT AVG(a."TaxRaTe") FROM RPC4 a Where a."staType"=-110 and a."DocEntry"=t0."DocEntry" and a."LineNum"=t1."LineNum" and IFNULL(a."RvsChrgPrc",0)=0.00)  " SGST_RATE ",
+IFNULL(ROUND((SELECT Avg(x."TaxRate")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00)"IGSTRate",
+IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00)"Item_IgstAmt",
+  --IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) "Item_CgstAmt",
+  --IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) "Item_SgstAmt",
+  0 "CessRate", 0 "Item_CesAmt", 0 "Item_CesNonAdvlAmt", 0 "Item_StateCesRt", 0 "Item_StateCesAmt",
+  0 "Item_StateCesNonAdvlAmt", 0 "OtherValue",
+ 
+  /*CAST(ROUND(TO_DECIMAL(CAST((T1."LineTotal"+
+  IFNULL(ROUND((SELECT  SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) +
+   IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN), 0.00) +
+   IFNULL(ROUND((SELECT SUM(x."TaxSum")FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1),2,ROUND_DOWN) ,0.00) )
+   AS NVARCHAR(100)), 10, 2), 2) AS NVARCHAR(100))"Item_TotItemVal",*/
+   
+  /* '' "Item_OrdLineRef", '' "Item_OrgCntry", '' "Item_PrdSlNo", '' "Item_Attrib_Nm", '' "Item_Attrib_Val", '' "Item_Bch_Nm", '' "Item_Bch_ExpDt",
+   '' "Item_Bch_WrDt",
+   */
+   (SELECT SUM(B."LineTotal") FROM RPC1 B WHERE T1."DocEntry" = B."DocEntry")+
+   IFNULL((SELECT SUM(RPC3."LineTotal") FROM RPC3 WHERE RPC3."DocEntry" = T0."DocEntry" AND RPC3."ExpnsCode" <> 5),0) "Val_AssVal",  
+ 
+  IFNULL(ROUND((SELECT  SUM(x."TaxSum")  
+  FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 ),2,ROUND_DOWN), 0.00) AS "CGSTValue",
+
+   IFNULL(ROUND((SELECT SUM(x."TaxSum")
+    FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 ),2,ROUND_DOWN), 0.00) AS "SGSTValue",
+
+   IFNULL(ROUND((SELECT SUM(x."TaxSum")
+   FROM RPC4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 ),2,ROUND_DOWN), 0.00) AS "IGSTValue",
+   
+  0 "CessValue", T0."RoundDif" "Val_RndOffAmt",  T0."DocTotal" "TotalInvoiceValue",
+   0 "Val_TotInvValFc", 0 "Val_Discount",0 "CessNonAdvol",
+   
+   'centexgst2_API_Cen' "EWbUserName" ,
+'Centex@123456' "EWbPassword",
+'' "SubSupplyDesc",
+LEFT(T12."GSTRegnNo",2) AS "ShipFromStateCode",
+   LEFT(T6."GSTRegnNo",2) as "ShipToStateCode",
+  -- T0."DocTotal" "Val_TotInvVal",
+ T0."DocTotal" "TotalInvoiceValue",
+     0 "CessnonAdvolValue",
+   (T12."GSTRegnNo") AS "dispatchFromGSTIN",
+  t6."Address" "ShipToTradeName",
+   (T6."GSTRegnNo") "ShipToGSTIN",
+   'Centex International' "dispatchFromTradeName",
+ -- T0."U_IsBillFromShipFromSame"
+  '1' "IsBillFromShipFromSame ",
+ --T0."U_IsBillToShipToSame"
+ '1' " IsBillToShipToSame",
+ --T0."U_IsGSTINSEZ" 
+ '0' "IsGSTINEZ"
+ 
+FROM ORPC T0  
+INNER JOIN RPC1 T1 ON T0."DocEntry" = T1."DocEntry"
+INNER JOIN RPC12 T2 ON T0."DocEntry" = T2."DocEntry"
+INNER JOIN OCRD T3 ON T0."CardCode" = T3."CardCode"
+LEFT OUTER JOIN CRD1 T5 ON T0."CardCode"  = T5."CardCode" AND T0."PayToCode" = T5."Address" AND T5."AdresType" = 'B'
+LEFT OUTER JOIN CRD1 T6 ON T0."CardCode"  = T6."CardCode" AND T0."ShipToCode" = T6."Address" AND T6."AdresType" = 'S'
+LEFT OUTER JOIN OCST T7 ON T5."State" = T7."Code" AND T5."Country" = T7."Country"
+LEFT OUTER JOIN OCST T8 ON T6."State" = T8."Code" AND T6."Country" = T8."Country"
+LEFT OUTER JOIN CRD1 T9 ON T0."ShipToCode" = T9."Address" AND T9."AdresType" = 'S'
+LEFT OUTER JOIN OCRD T10 ON T9."CardCode" = T10."CardCode"
+LEFT OUTER JOIN OITM T11 ON T1."ItemCode" = T11."ItemCode"
+INNER JOIN OLCT T12 ON T1."LocCode" = T12."Code"
+INNER JOIN RPC26 T16 ON T0."DocEntry" = T16."DocEntry"
+LEFT JOIN "@CIS_OEIC" T27 ON T1."LocCode" = T27."Code"
+WHERE --T0."Series" NOT IN (SELECT "Series" FROM NNM1 WHERE "Remark" = 'TCS')
+--AND
+ T0."DocEntry" = :DocEntry;
+
+
+
+END
+

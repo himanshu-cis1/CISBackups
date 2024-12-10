@@ -1,0 +1,52 @@
+CREATE     PROCEDURE CIS_PurchaseRegisterMis
+( 
+	in FromDate Date,
+	in ToDate Date 
+	   --,Branch 	Nvarchar(100)
+ )
+ 
+ LANGUAGE SQLSCRIPT --SQL SECURITY INVOKER 
+AS
+ 
+
+BEGIN
+
+
+
+SELECT  T1."DocEntry", 
+
+T0."DocNum" As "AP Invoice DocNum"
+, T0."DocStatus", T0."DocDate", T0."CardCode", T0."CardName",
+ T1."ItemCode", T1."Dscription",T6."ItmsGrpNam" "Item Group Name",
+t1."AcctCode", t7."AcctName", T1."Project",  oc."OcrName" AS "DeptName", 
+t1."OcrCode3" as "Segment", 
+
+(SELECT  S0."Chapter"||S0."Heading"|| S0."SubHeading" 
+FROM OCHP S0 WHERE S0."AbsEntry" = T2."ChapterID") as "HSN Code"
+,(SELECT  S0."ServCode" From OSAC S0 Where S0."AbsEntry" =  T2."SACEntry") As "SAC Code"
+,  T1."unitMsr" As "UOM", T1."Quantity", T1."Price", t1."Currency", T1."LineTotal"
+,  T1."VatSum", T1."TaxCode",
+IFNULL((SELECT  SUM(x."TaxSum") FROM PCH4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0) AS "CGSTAmt", 
+IFNULL((SELECT SUM(x."TaxSum") FROM PCH4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0) AS "SGSTAmt",
+IFNULL((SELECT SUM(x."TaxSum") FROM PCH4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0) AS "IGSTAmt",
+ T1."GTotal"
+  
+
+
+
+
+FROM OPCH T0 
+ INNER JOIN PCH1 T1 ON T0."DocEntry" = T1."DocEntry"
+  LEFT JOIN CRD1 A ON A."CardCode"=T0."CardCode" AND A."Address"=T0."ShipToCode" AND A."AdresType"='S'
+  LEFT JOIN OITM T2 ON T1."ItemCode" = T2."ItemCode"
+LEFT JOIN OITB T6 ON T2."ItmsGrpCod" = T6."ItmsGrpCod"
+LEFT JOIN NNM1 T3 ON T0."Series" = T3."Series"
+LEFT JOIN OBPL T5 ON T0."BPLId" = T5."BPLId"
+left  JOIN OACT T7 ON t1."AcctCode" = t7."AcctCode" 
+left  join OOCR oc ON t1."OcrCode" = oc."OcrCode" 
+
+
+WHERE T0."DocDate" BETWEEN FromDate AND ToDate AND T0.CANCELED='N'
+Order by T0."DocNum";
+
+END;

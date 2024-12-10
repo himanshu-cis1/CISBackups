@@ -1,0 +1,57 @@
+CREATE PROCEDURE CIS_ConsumptionNew
+
+( 
+	in FromDate Date,
+	in ToDate Date,
+	in ItemGrp Nvarchar(10)
+	   --,Branch 	Nvarchar(100)
+ )
+ 
+ LANGUAGE SQLSCRIPT --SQL SECURITY INVOKER 
+AS
+ 
+
+BEGIN
+
+select RA."ItemCode", RA."ItemName", RA."InvntryUom", RA."ItmsGrpCod", itg."ItmsGrpNam",  
+ GRN."Quantity" as "GRNQty", Issue."Quantity" "IssueQty" 
+
+from OITM as RA 
+inner  join Oitb as itg on ra."ItmsGrpCod" = itg."ItmsGrpCod"
+
+LEFT JOIN ( Select b."ItemCode", sum(b."Quantity") as "Quantity"
+
+From OPDN a INNER JOIN PDN1 b ON a."DocEntry" = b."DocEntry"
+
+Where a."DocDate" Between FromDate and ToDate
+
+group by b."ItemCode" ) as GRN
+
+on RA."ItemCode"  = GRN."ItemCode"  --and  GRN."Quantity" > 0
+
+ 
+
+LEFT JOIN
+
+ 
+
+( Select b."ItemCode", sum(b."Quantity") as "Quantity"
+
+From OIGE a
+
+INNER JOIN IGE1 b ON a."DocEntry" = b."DocEntry"
+
+Where  a."DocDate" Between FromDate and ToDate
+
+group by b."ItemCode")  Issue
+
+on RA."ItemCode"  = Issue."ItemCode"  ---and  Issue."Quantity" > 0
+
+ 
+
+WHERE RA."ItmsGrpCod" NOT IN ('128', '129','123','110','130','132','134','135')
+
+and  ( itg."ItmsGrpCod" = ItemGrp )
+and    (  GRN."Quantity" > 0  or Issue."Quantity" > 0 );
+End;
+

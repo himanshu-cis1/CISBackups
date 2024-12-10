@@ -1,0 +1,81 @@
+CREATE PROCEDURE CIS_SaleRegisterItemwise1
+( 
+	in FromDate Date,
+	in ToDate Date 
+	   --,Branch 	Nvarchar(100)
+ )
+ 
+ LANGUAGE SQLSCRIPT --SQL SECURITY INVOKER 
+AS
+ 
+
+BEGIN
+
+SELECT case when b."ItemCode" like 'K-%' then 'Knitting' 
+when b."ItemCode" in ('1001','1002','1003','1004') then 'Hat & Cap'      
+when b."ItemCode" like '1%' then 'Scarf' 
+      when b."ItemCode" like '2%' then 'Scarf' 
+      when b."ItemCode" like '3%' then 'Scarf' 
+      when b."ItemCode" like '4%' then 'Scarf' 
+      else 'Other' 
+ end "Division",
+
+ T10."AcctName" "Type of Sale",
+a."CardCode" "Customer Code",
+a."CardName" "Customer Name",
+T6."GroupName" "Customer Group",
+a."DocNum" "Invoice Number",
+a."DocDate" "Invoice Date",
+b."Project", 
+a."NumAtCard" "Purchase Order No",
+b."ItemCode" "Item Number", b."U_COMPOSITION",
+b."Dscription" " Item Name",
+H."ChapterID",
+b."Quantity" , l."SalUnitMsr",
+a."DocCur" "Invoice Currency" ,a."DocRate" "Exchange Rate" ,
+b."Price" "Price ",  
+b."Price"*a."DocRate" "Price(INR)",
+(b."Price"*b."Quantity")*a."DocRate" "Taxable Amount(INR)",
+b."TaxCode" "Tax Code",
+ 
+IFNULL((SELECT  SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -100 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) AS "CGSTAmt", 
+IFNULL((SELECT SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -110 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) AS "SGSTAmt",
+IFNULL((SELECT SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -120 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) AS "IGSTAmt",
+ 
+IFNULL((SELECT SUM(DISTINCT n."LineTotal") FROM INV3 n WHERE n."DocEntry" = a."DocEntry" AND n."ExpnsCode" IN(1,2,3,4,5,6)), 0) AS "Freight Amount in INR",
+ 
+IFNULL((SELECT  SUM(n."TaxSum") FROM INV4 n LEFT OUTER JOIN INV3 b ON n."DocEntry" = b."DocEntry"     AND n."ExpnsCode" = b."ExpnsCode" WHERE n."DocEntry" = a."DocEntry" AND n."staType" = -100 AND n."ExpnsCode" IN(1,2,3,4,5,6)), 0) AS "CGSTFreight", 
+IFNULL((SELECT SUM(n."TaxSum") FROM INV4 n LEFT OUTER JOIN INV3 b ON n."DocEntry" = b."DocEntry"    AND n."ExpnsCode" = b."ExpnsCode" WHERE n."DocEntry" = a."DocEntry" AND n."staType" = -110 AND n."ExpnsCode" IN(1,2,3,4,5,6)), 0) AS "SGSTFreight", 
+IFNULL((SELECT SUM(n."TaxSum") FROM INV4 n LEFT OUTER JOIN INV3 b ON n."DocEntry" = b."DocEntry"    AND n."ExpnsCode" = b."ExpnsCode" WHERE n."DocEntry" = a."DocEntry" AND n."staType" = -120 AND n."ExpnsCode" IN(1,2,3,4,5,6)), 0) AS "IGSTFreight", 
+ 
+b."LineTotal" +
+IFNULL((SELECT  SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -100 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) + 
+IFNULL((SELECT SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -110 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) +
+IFNULL((SELECT SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -120 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) +
+IFNULL((SELECT  SUM(n."TaxSum") FROM INV4 n LEFT OUTER JOIN INV3 b ON n."DocEntry" = b."DocEntry"     AND n."ExpnsCode" = b."ExpnsCode" WHERE n."DocEntry" = a."DocEntry" AND n."staType" = -100 AND n."ExpnsCode" IN(1,2,3,4,5,6)), 0) + 
+IFNULL((SELECT SUM(n."TaxSum") FROM INV4 n LEFT OUTER JOIN INV3 b ON n."DocEntry" = b."DocEntry"    AND n."ExpnsCode" = b."ExpnsCode" WHERE n."DocEntry" = a."DocEntry" AND n."staType" = -110 AND n."ExpnsCode" IN(1,2,3,4,5,6)), 0) +
+IFNULL((SELECT SUM(n."TaxSum") FROM INV4 n LEFT OUTER JOIN INV3 b ON n."DocEntry" = b."DocEntry"    AND n."ExpnsCode" = b."ExpnsCode" WHERE n."DocEntry" = a."DocEntry" AND n."staType" = -120 AND n."ExpnsCode" IN(1,2,3,4,5,6)), 0) "Line Total with tax(INR)",
+
+b."LineTotal" +
+IFNULL((SELECT  SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -100 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) + 
+IFNULL((SELECT SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -110 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) +
+IFNULL((SELECT SUM(x."BaseSum"*(x."TaxRate"/100)) FROM INV4 x WHERE x."DocEntry" = a."DocEntry" AND x."staType" = -120 AND x."LineNum" = b."LineNum" AND x."RelateType" = 1), 0) +
+IFNULL((SELECT SUM(DISTINCT n."LineTotal") FROM INV3 n WHERE n."DocEntry" = a."DocEntry" AND n."ExpnsCode" IN(1,2,3,4,5,6)), 0) "Net Line Total (INR)"
+,T1."PortCode", T1."ImpExpNo", T1."ImpExpDate"
+, a."U_CD" as "Country Destination" , a."U_ExFactDate" 
+FROM OINV a 
+INNER JOIN INV1 b ON a."DocEntry" = b."DocEntry"
+INNER JOIN OWHS T2 ON b."WhsCode" = T2."WhsCode"
+INNER JOIN OITM l ON b."ItemCode" = l."ItemCode"
+INNER JOIN OCRD T5 ON a."CardCode" = T5."CardCode"
+INNER JOIN OCRG T6 ON T5."GroupCode" = T6."GroupCode"
+INNER JOIN OCST T3 ON T3."Code"=T2."State" AND T3."Country"=T2."Country"
+LEFT OUTER JOIN OITW T7 ON b."ItemCode" = T7."ItemCode" AND b."WhsCode" = T7."WhsCode" 
+LEFT OUTER JOIN OACT T10 ON b."AcctCode" = T10."AcctCode" 
+LEFT JOIN OCHP H ON b."HsnEntry" = H."AbsEntry"
+LEFT JOIN INV12 T1 ON a."DocEntry" = T1."DocEntry"
+
+WHERE a."DocDate" BETWEEN FromDate AND ToDate AND a.CANCELED='N'
+Order by a."DocNum";
+
+END

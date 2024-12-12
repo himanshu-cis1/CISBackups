@@ -1,0 +1,3786 @@
+USE [PAP_LIVE_Branch]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_TransactionNotification]    Script Date: 12/11/2024 3:19:08 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[SBO_SP_TransactionNotification] 
+
+@object_type nvarchar(20), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+select @error_message = N'Ok'
+
+--------------------------------------------------------------------------------------------------------------------------------
+--	ADD	YOUR	CODE	HERE
+	--ADD	YOUR	CODE	HERE
+
+IF @transaction_type IN ('A') AND (@Object_type = 'UDO_PPS')
+BEGIN 
+            IF EXISTS (SELECT null FROM [@CW_OPPS] T0-- WHERE U_PrdEntry=39626
+LEFT JOIN [@CW_OPPS] T1 ON T1.U_PrdEntry=T0.U_PrdEntry AND T1.U_CSEQ=T0.U_cSEQ-1
+left JOIN (SELECT sum(ISNULL(U_QtyRe, 0) - ISNULL(U_QtyAc, 0) - ISNULL(U_QtyRej, 0)) QTY,T0.U_PrdPrcsEntry AS DOCENTRY 
+FROM [@CW_OQLT] (NOLOCK) T0
+			INNER JOIN [@CW_OPPS] T1 ON T1.DocEntry=T0.U_PrdPrcsEntry GROUP BY T0.U_PrdPrcsEntry,T0.DOCENTRY)
+ T4 ON T4.DOCENTRY=T1.DocEntry
+WHERE ISNULL(T0.U_TRM,0)+ISNULL(T4.QTY,0)<>ISNULL(T1.U_TCOST,0) and t1.U_QcApp='Y' --and t4.QTY>0
+)
+  
+  BEGIN 
+      SELECT @Error = 1, @error_message = 'RM cost must match with Previous process Total cost!' 
+  END     
+END
+
+
+
+
+------------------------------------------------------------
+----IF @transaction_type IN ('A', 'U') AND (@Object_type = '30')
+----BEGIN 
+----            if Exists (SELECT T0.[BatchNum] FROM OJDT T0 WHERE (T0.[Project]  ='' OR 
+----T0.[Project]  is null) and 
+
+----T0.TransID = @list_of_cols_val_tab_del )
+---- BEGIN 
+----                       SELECT @Error = 1, @error_message = 'Project Code is Missing !' 
+----            END     
+----END
+
+
+
+------------------------------------------AR Invoice--------------
+
+------IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+------BEGIN 
+------            if Exists (Select T0.ITEMCODE  FROM INV1 T0 INNER JOIN OINV T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del AND (T0.[Project]  ='' OR T0.[Project] IS NULL ) )
+------ BEGIN 
+------                     SELECT @Error = 1, @error_message = 'Project Code is Missing !' 
+------            END     
+------END
+
+--------------------------Purchase Order----------
+
+----IF @transaction_type IN ('A', 'U') AND (@Object_type = '22')
+----BEGIN 
+----            if Exists (Select T0.ITEMCODE  FROM POR1 T0 INNER JOIN OPOR T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del AND (T0.[Project]  ='' OR T0.[Project] IS NULL ) )
+---- BEGIN 
+----                     SELECT @Error = 1, @error_message = 'Project Code is Missing @ Row level' 
+----            END     
+----END
+---------------------------Header level project code Purchase Order------------------
+----IF @Object_type = '22' and  @transaction_type IN ('A','U')
+---- begin
+---- if exists (select T0.docentry from OPOR T0 where T0.docentry=@list_of_cols_val_tab_del and (T0.[Project] ='' OR T0.[Project] IS NULL ))
+----Begin
+----set @error='111'
+----set @error_message='Project Code is Missing !>Accounting Tab >BP project '
+----end
+----end
+-----------------------------------Header level project code Excise invoice------------------
+----IF @Object_type = '22' and  @transaction_type IN ('A','U')
+---- begin
+---- if exists (select T0.docentry from OOEI T0 where T0.docentry=@list_of_cols_val_tab_del and (T0.[Project] ='' OR T0.[Project] IS NULL ))
+----Begin
+----set @error='111'
+----set @error_message='Project Code is Missing !>Accounting Tab >BP project '
+----end
+----end
+
+
+
+---------------------------GOOG RETURN-----------------------------------------------
+
+----IF @transaction_type IN ('A', 'U') AND (@Object_type = '21')
+----BEGIN 
+----            if Exists (Select T0.ITEMCODE  FROM RPD1 T0 INNER JOIN ORPD T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del AND (T0.[Project]  ='' OR T0.[Project] IS NULL ) )
+---- BEGIN 
+----                  SELECT @Error = 1, @error_message = 'Project Code is Missing !' 
+----            END     
+----END
+---------------------------------------------AP Invoice---------------------------------------
+----IF @transaction_type IN ('A', 'U') AND (@Object_type = '18')
+----BEGIN 
+----            if Exists (Select T0.ITEMCODE  FROM PCH1 T0 INNER JOIN OPCH T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del AND (T0.[Project]  ='' OR T0.[Project] IS NULL ) )
+---- BEGIN 
+----                 SELECT @Error = 1, @error_message = 'Project Code is Missing !' 
+----            END     
+----END
+----------------------------------A/P Credit Memo------------------------------
+----IF @transaction_type IN ('A', 'U') AND (@Object_type = '19')
+----BEGIN 
+----            if Exists (Select T0.ITEMCODE  FROM RPC1 T0 INNER JOIN ORPC T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del AND (T0.[Project]  ='' OR T0.[Project] IS NULL ) )
+---- BEGIN 
+----                  SELECT @Error = 1, @error_message = 'Project Code is Missing !' 
+----           END     
+----END
+----------------------------Outgoint payment---------------------------------
+----IF @Object_type = '46' and  @transaction_type IN ('A','U')
+---- begin
+---- if exists (select T0.docentry from OVPM T0 where T0.docentry=@list_of_cols_val_tab_del and (T0.[PrjCode] ='' OR T0.[PrjCode] IS NULL ))
+----Begin
+----set @error='111'
+----set @error_message='Project Code is Missing !'
+----end
+----end
+
+------------------------
+----------------------------- Delivery not More than Sales Order-------
+----IF @Object_type = N'15' and  @transaction_type IN (N'A', N'U')
+----	BEGIN
+	
+----		declare  @line int
+----		SELECT @line = (LineNum + 1) From DLN1 Where DLN1.DocEntry = @list_of_cols_val_tab_del and (Quantity > BaseOpnQty) Order by LineNum
+----		If (not ISNULL(@line, 0) = 0)
+----		begin
+----		  Set @error = 10
+----		  Set @error_message = N'delivery quantity' + CONVERT(nvarchar(4), @line) + N' is more then Sale ordered Qty !'
+----		end
+		
+----	END
+-----------------------------------------------------------Good Issue----------------
+----	IF @transaction_type IN ('A', 'U') AND (@Object_type = '1470000113')
+----BEGIN 
+----            if Exists (Select T0.ITEMCODE  FROM IGE1 T0 INNER JOIN OIGE T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del AND (T0.[OcrCode] ='' OR T0.[OcrCode]IS NULL ) )
+---- BEGIN 
+----                        SELECT @Error = 1, @error_message = 'Cost Center  is Missing !'
+----            END     
+----END
+
+-----------------------------------------Good issue----------------------------
+
+----IF @transaction_type IN ('A', 'U') AND (@Object_type = '60')
+----BEGIN 
+----            if Exists (Select T0.ITEMCODE  FROM IGE1 T0 INNER JOIN OIGE T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del AND (T0.[Project]  ='' OR T0.[Project] IS NULL ) )
+---- BEGIN 
+----                     SELECT @Error = 1, @error_message = 'Project Code is Missing !' 
+----            END     
+----END
+
+
+
+----------------------GOOD ISSUE--------------------------------
+----IF @transaction_type IN ('A', 'U') AND (@Object_type = '1470000113')
+----BEGIN 
+----            if Exists (Select T0.ITEMCODE  FROM IGE1 T0 INNER JOIN OIGE T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del AND (T0.[OcrCode] ='' OR T0.[OcrCode]IS NULL ) )
+---- BEGIN 
+----                        SELECT @Error = 1, @error_message = 'Cost Center  is Missing !'
+----            END     
+----END
+
+------------------WO Qty Cannot exceed Sales order Qty---------------
+
+---- if(@object_type='202' )AND (@transaction_type IN ('A', 'U') )
+----Begin
+----declare @SONo int
+----declare @ItmCode varchar(50)
+----declare @PlnndQty int
+----declare @SOQty int
+
+----set @SONo = (select OriginNum from OWOR where DocEntry = @list_of_cols_val_tab_del)
+----set @ItmCode = (select ItemCode from OWOR where DocEntry = @list_of_cols_val_tab_del)
+----set @PlnndQty = (select SUM(PlannedQty) from owor where ItemCode = @ItmCode and OriginNum = @SONo)
+----set @SOQty = (select t1.Quantity from RDR1 t1 inner join ORDR t0 on t0.DocEntry = t1.docentry and T0.DocNum = @SONo and t1.ItemCode = @ItmCode)
+----if ( @PlnndQty > @SOQty)
+----begin
+---- set @error = 1222
+---- set @error_message = 'Planned Qty For Item Is Greater Then The Qty In Sales Order '
+---- select @error, @error_message
+----end
+----end
+------------------------RM issue qty not more than planned qty-------------------------------------
+------if(@object_type='60' )AND (@transaction_type IN ('A', 'U') )
+------	Begin
+------		declare @minline int
+------		declare @maxline int
+------		Declare @PlannedQty numeric(19,6)
+------		Declare @IssuedQty numeric(19,6)
+------		Declare @CurrentIssue numeric(19,6)
+------		set @minline = (select min(T0.linenum) from IGE1 T0 where T0.docentry=@list_of_cols_val_tab_del)
+------		set @maxline = (select max(T0.linenum) from IGE1 T0 where T0.docentry=@list_of_cols_val_tab_del)
+------		while @minline<=@maxline
+------		begin
+------			Select @PlannedQty=  PlannedQty  FROM WOR1 INNER JOIN IGE1 ON WOR1.DocEntry=IGE1.BaseEntry AND WOR1.ItemCode=IGE1.ItemCode WHERE IGE1.DocEntry=@list_of_cols_val_tab_del
+------			Select @IssuedQty=  sum(IssuedQty) FROM WOR1 INNER JOIN IGE1 ON WOR1.DocEntry=IGE1.BaseEntry AND WOR1.ItemCode=IGE1.ItemCode WHERE IGE1.DocEntry=@list_of_cols_val_tab_del
+------			Select @CurrentIssue=  sum(Quantity) FROM IGE1 INNER JOIN WOR1 ON IGE1.BaseEntry=WOR1.DocEntry AND IGE1.ItemCode=WOR1.ItemCode WHERE IGE1.DocEntry=@list_of_cols_val_tab_del
+------			if( (@IssuedQty)>@PlannedQty)
+------			Begin
+		
+------				set @error_message='Already IssuedQty '+@IssuedQty+',PlannedQty'+@PlannedQty+'So,Total Issued Qty should be less than Planned Qty' 
+------				set @error_message='RM issue should not more than planned qty'
+------				set @error=-1
+------			End
+------			set @minline=@minline+1 
+------		End
+------	End
+
+-------------------------Start of Project Notification--------------------------
+---EXEC [CBS_Proj_Notification] @list_of_cols_val_tab_del, @object_type, @transaction_type , @error OUTPUT, @error_message OUTPUT
+-----------------------------------Enf of Project Notification-------------------------------------
+
+
+-----------------------------------------------------------------Series Validation----------------------------------
+----IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+
+
+
+----BEGIN 
+----          if not Exists (SELECT T0.Series FROM OINV T0  INNER JOIN OCRD T1 ON T0.[CardCode] = T1.[CardCode] INNER JOIN OCRG T2 ON T1.[GroupCode] = T2.[GroupCode] 
+----INNER JOIN NNM1 T3 ON T0.[Series] = T3.[Series] where t2.GroupName=t3.Remark  And T0.DocEntry= @list_of_cols_val_tab_del)
+
+----Begin                      
+----					  SELECT @Error = 2, @error_message = 'Invoice and Customer Group series is not match!'
+----END  
+
+----End 
+
+
+--------------------------Blanket Agreement Validation------------------
+------IF @transaction_type IN ('A', 'U') AND (@Object_type = '17')
+
+
+------BEGIN 
+------	if Exists (Select T1.[AgrNo]  FROM ORDR T0 INNER JOIN RDR1 T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+------				and T1.[AgrNo] in (Select T1.[AgrNo]  FROM ORDR T0 INNER JOIN RDR1 T1 ON T0.DocEntry =T1.DocEntry  WHERE T0.DocEntry = @list_of_cols_val_tab_del)
+------	 )
+
+------Begin                      
+------					  SELECT @Error = 2, @error_message = 'Already used '
+------END  
+
+------End  
+
+-----------------------------PPS Blank Entries-------------------------------------------------------------
+
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_PPS')
+begin
+if exists (SELECT T0.DocEntry   FROM [dbo].[@CW_OPPS] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del and isnull(T0.U_Pnum,'')='')
+begin
+select @Error = 111, @error_message = 'Please Select The Production Order no'
+end
+
+if exists (SELECT T0.DocEntry FROM [dbo].[@CW_PPS1] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del and isnull(U_RunTim,0) < 0)
+begin
+select @Error = -101, @error_message = 'Running Time Should Not be Negative Value. Please check shift timing.'
+end
+
+
+
+end
+
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_PPS')
+begin
+if exists (SELECT T0.DocEntry   FROM [dbo].[@CW_OPPS] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del and isnull(T0.U_BPLId,'')='')
+begin
+select @Error = 111, @error_message = 'Please Select The Branch Name'
+end
+end
+
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_PPS')
+begin
+if exists (SELECT T0.U_RCode   FROM [dbo].[@CW_OPPS] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del and isnull(T0.U_RCode,'')='')
+begin
+select @Error = 111, @error_message = 'Please Select The Route code'
+end
+end
+
+
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_PPS')
+begin
+if exists (SELECT T0.U_OpCode   FROM [dbo].[@CW_OPPS] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del and isnull(T0.U_OpCode,'')='')
+begin
+select @Error = 111, @error_message = 'Please Select The Operation code'
+end
+end
+
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_PPS')
+begin
+if exists (SELECT T0.DocEntry,T0.U_ItemCode   FROM [dbo].[@CW_OPPS] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del and isnull(T0.U_ItemCode,'')='')
+begin
+select @Error = 111, @error_message = 'Please Select The ItemCode'
+end
+end
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_PPS')
+begin
+if exists (SELECT T1.[U_ShftCode] FROM [dbo].[@CW_OPPS]  T0 inner join  [dbo].[@CW_PPS1]  T1 on T1.DocEntry=T0.DocEntry WHERE T1.[LineId] =1 and  isnull(T1.[U_ShftCode],'') ='' and T0.DocEntry=@list_of_cols_val_tab_del and T0.U_OpType='I')
+begin
+select @Error = 111, @error_message = 'Please Select Atleast one Shift'
+end
+end
+
+--*************************Quality Production************************
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_OQLT')
+begin
+if exists (SELECT T0.U_ItemCode  FROM [dbo].[@CW_OQLT] T0 where T0.DocEntry = @list_of_cols_val_tab_del and isnull(T0.U_ItemCode,'')='')
+begin
+select @Error = 111, @error_message = 'Please Select The ItemCode'
+end
+end
+--*******************************************************************
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_OQLT')
+begin
+if exists (SELECT T0.[DocNum]  FROM [dbo].[@CW_OQLT] T0 where T0.DocEntry = @list_of_cols_val_tab_del and isnull(T0.[DocNum],'')='')
+begin
+select @Error = 111, @error_message = 'Document No. is not assigned, close and reopen the form'
+end
+end
+--*******************************************************************
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_OQLT')
+begin
+if exists (SELECT T0.[U_PrdPrcsNum]  FROM [dbo].[@CW_OQLT] T0 where T0.DocEntry = @list_of_cols_val_tab_del and isnull(T0.[U_PrdPrcsNum],'')='')
+begin
+select @Error = 111, @error_message = 'Please Select The Production Process no.'
+end
+end
+--*******************************************************************
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_OQLT')
+begin
+if ((SELECT Count(T0.[U_PrdPrcsNum])  FROM [dbo].[@CW_OQLT] T0 where T0.DocEntry = @list_of_cols_val_tab_del and isnull(T0.[U_PrdPrcsNum],'')='')>0)
+begin
+select @Error = 111, @error_message = 'Entry already exist for selected process no.'
+end
+end
+--*******************************************************************
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_OQLT')
+begin
+if exists (SELECT T0.[U_RouteCode]  FROM [dbo].[@CW_OQLT] T0 where T0.DocEntry = @list_of_cols_val_tab_del and isnull(T0.[U_RouteCode],'')='')
+begin
+select @Error = 111, @error_message = 'Route Code is empty'
+end
+end
+
+--*******************************************************************
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_OQLT')
+begin
+if exists (SELECT T0.[U_OpCode]  FROM [dbo].[@CW_OQLT] T0 where T0.DocEntry = @list_of_cols_val_tab_del and isnull(T0.[U_OpCode],'')='')
+begin
+select @Error = 111, @error_message = 'Route Code is empty'
+end
+end
+
+--*******************************************************************
+--*******************************************************************
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'OBDS')
+begin
+if exists (SELECT T0.[U_RptByNam]  FROM [dbo].[@MCPM_OBDS]  T0 where T0.DocEntry = @list_of_cols_val_tab_del and isnull(T0.[U_RptByNam],'')='')
+begin
+select @Error = 111, @error_message = 'Fill Reported By'
+end
+end
+
+--*******************************************************************
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'OBDS')
+begin
+if exists (SELECT T0.[U_RepairDt]  FROM [dbo].[@MCPM_OBDS]  T0 where T0.DocEntry = @list_of_cols_val_tab_del and isnull(T0.[U_RepairDt],'')='')
+begin
+select @Error = 111, @error_message = 'Fill Repair Date'
+end
+end
+
+--*******************************************************************
+----------project code mandatory on production order ----
+--IF (@object_type = '202' AND @transaction_type in ('A','U'))  
+--BEGIN 
+--If  (
+--    Select COUNT(DocEntry) FROM OWOR WHERE Project!='' and DocEntry  =@list_of_cols_val_tab_del					         
+--	)=0
+--Begin  
+--SET @Error =30  
+--SET @Error_message = 'Please add project code.'  
+--END
+--END
+---------------end production --------
+
+--------------QC  mandatory on AP Invoice ----
+--IF (@object_type = '18' AND @transaction_type in ('A','U'))  
+
+--declare @InvntItem int 
+--set @InvntItem= (select count(t1.ItemCode) from pch1 t0 inner join oitm t1 on t0.ItemCode=t1.ItemCode
+-- and t1.InvntItem='Y' where t0.DocEntry=@list_of_cols_val_tab_del) 
+--BEGIN 
+--If  (   
+--		select COUNT(c.DocEntry) from  PCH1 a 
+--		inner join OPCH c on a.DocEntry=c.DocEntry
+--		 inner join PDN1 b on a.BaseEntry = b.DocEntry and a.BaseLine=b.LineNum
+--		 inner join opdn d on b.DocEntry=d.DocEntry
+--		 inner join [@CW_OIQG] e on e.U_Entry=d.DocEntry
+--		 --inner join OITM f on b.ItemCode=f.ItemCode and f.InvntItem='Y'
+--		 where c.DocEntry = @list_of_cols_val_tab_del )=0 and @InvntItem <>0
+--Begin  
+--SET @Error =31  
+--SET @Error_message = 'Please complete the QC.'  
+--END
+--END
+--*******************************************************************
+-----------------------------------------------------------------------------------------------------------------------------------------
+
+--************************** 10-Dec-2018/ Regarding U_PrdEntry Numeric Value ******************************
+
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'UDO_PPS')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@CW_OPPS] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del and ISNUMERIC(U_PrdEntry) <> 1 or U_PrdEntry not like null)
+begin
+select @Error = -101, @error_message = 'Production Order DocEntry Should be Numeric'
+end
+end
+
+--****************************************************************
+------------QC  mandatory on AP Invoice ----
+
+--IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'18')
+--begin
+
+--if exists(select distinct (c.DocEntry)
+--from  PCH1 a 
+--Inner join OPCH c on a.DocEntry=c.DocEntry
+--Inner join PDN1 b on a.BaseEntry = b.DocEntry and a.BaseLine=b.LineNum
+--Inner join opdn d on b.DocEntry=d.DocEntry
+--Left join [@CW_OIQG] e on e.U_Entry=d.DocEntry
+--Left Join [@CW_IQG1] f on e.DocEntry=f.DocEntry and b.ItemCode=f.U_ItemCode
+--Inner Join OITM g on b.ItemCode=g.ItemCode
+--where  c.DocEntry=@list_of_cols_val_tab_del and g.U_QcApp='Y' and (ISNULL(e.U_Entry,'')='' or U_AccAs ='On Hold'))
+--begin
+--select @Error = 18, @error_message = 'Please add QC.'
+--end
+
+--end
+
+----------------------------------------REKHA 28032019-----GRN
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'20')
+begin
+if exists (select  T0.DocEntry from OPDN T0 where ISNULL(T0.U_GateEntryNo,'') = '' AND T0.DocEntry = @list_of_cols_val_tab_del)
+begin
+select @Error = -101, @error_message = 'Gate Entory No Should not be Blanck'
+end
+end
+
+-------------------------------------Route code mandatory on production order ---110619-----------------
+
+--IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'202')
+--begin
+--if exists (SELECT T0.U_RouteR FROM [dbo].[OWOR] T0 where T0.U_RouteR not in (Select Code from [@CW_ORNG] T1 Where T1.U_ItemCode =T0.ItemCode) and T0.DOCENTRY = @list_of_cols_val_tab_del)
+--begin
+--select @Error = 112, @error_message = 'Please Select Valid Route code'
+--end
+--end
+
+--IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'202')
+--begin
+--if exists (SELECT T0.U_RouteR FROM [dbo].[OWOR] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del and isnull(T0.U_RouteR,'')='')
+--begin
+--select @Error = 111, @error_message = 'Please Select The Route code'
+--end
+--end
+
+--*************************************************************************
+
+
+--############################################################################
+--############################################################################
+--############################################################################
+
+
+
+
+	DECLARE @Is_GR_Old AS NVARCHAR(MAX)
+	DECLARE @Jobwork10 VARCHAR(2);
+	DECLARE @Jobwork11 VARCHAR(2);
+
+
+-- Machine Master
+	IF (@object_type = 'Machine' AND @transaction_type IN ('A', 'U'))
+	BEGIN
+		IF NOT EXISTS(SELECT T0.BPLName FROM OBPL T0 WHERE T0.BPLName IN (SELECT T00.U_Branch FROM [@MACHINE] T00 WHERE T00.DOCENTRY = @list_of_cols_val_tab_del))
+		BEGIN
+			SET @error = 2001
+			SET @error_message = 'Please select correct Branch.'
+		END
+		ELSE IF NOT EXISTS(SELECT T0.ItemCode FROM OITM T0 
+							WHERE T0.ItemType = 'F' AND T0.ItemCode IN (SELECT T00.U_MachCode FROM [@MACHINE] T00 WHERE T00.DOCENTRY = @list_of_cols_val_tab_del))
+		BEGIN
+			SET @error = 2001
+			SET @error_message = 'Please select correct Machine Code.'
+		END
+		ELSE IF NOT EXISTS(SELECT T0.ItemCode FROM OITM T0 
+							INNER JOIN [@MACHINE] T1 ON T1.U_MachCode = T0.ItemCode
+							WHERE T0.ItemType = 'F' AND T0.ItemName IN (SELECT T00.U_MachName FROM [@MACHINE] T00 WHERE T00.DOCENTRY = @list_of_cols_val_tab_del))
+		BEGIN
+			SET @error = 2001
+			SET @error_message = 'Please select correct Machine Name.'
+		END
+		ELSE IF (SELECT COUNT(*) FROM [@MACHINE] T0 
+					WHERE T0.U_MachCode IN (SELECT T00.U_MachCode FROM [@MACHINE] T00 WHERE T00.DOCENTRY = @list_of_cols_val_tab_del)
+					GROUP BY T0.U_MachCode) > 1
+		BEGIN
+			SET @error = 2001
+			SET @error_message = 'This Machine Code is already defined.'
+		END
+	END
+	--------
+IF @object_type = '202' AND @transaction_type IN ('A')
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM OWOR T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.UserSign IN (16,34) ) )
+				
+				BEGIN
+					SET @error = 1003;
+					SET @error_message = 'You are not authorise to create production order' 
+				END 
+END
+
+
+
+
+--	Production Order 202
+	IF (@object_type = '202' AND @transaction_type IN ('A', 'U'))
+	BEGIN
+		DECLARE @ItemGrpCode AS INTEGER
+		DECLARE @BaseProdOrdNum AS INTEGER
+		SET @ItemGrpCode = 0
+		SET @BaseProdOrdNum = 0
+
+		SELECT TOP 1 @ItemGrpCode = T1.ItmsGrpCod, @BaseProdOrdNum = t0.U_BaseProdOrd
+		FROM OWOR T0 
+		INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+		WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+
+		--IF EXISTS (SELECT T0.ItemCode FROM OWOR T0 INNER JOIN OITT T1 ON T1.Code = T0.ItemCode 
+		--				WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.Warehouse <> T1.ToWH)
+		--BEGIN
+		--			SET @error = 2001
+		--			SET @error_message = 'Item Warehouse must same a BOM warehouse.'
+		--END
+		--ELSE 
+		IF NOT EXISTS (SELECT T0.ItemCode 
+							FROM OWOR T0
+							INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode 
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del
+							AND T1.ItmsGrpCod = 101)
+		BEGIN
+			IF NOT EXISTS (SELECT T0.ItemCode 
+								FROM OWOR T0
+								INNER JOIN [@MAMA] T2 ON T2.U_MACO = T0.U_Machinenam
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del)
+			BEGIN
+				SET @error = 2001
+				SET @error_message = 'Please select correct Machine Name.'
+			END
+		END
+		IF EXISTS (SELECT T0.ItemCode FROM OWOR T0
+					INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode 
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.U_Machinenam, '') = ''
+					AND T1.ItmsGrpCod <> 101)
+		BEGIN
+			SET @error = 2001
+			SET @error_message = 'Please select Machine Name.'
+		END
+
+
+		--ELSE IF(EXISTS(SELECT T0.DocEntry FROM WOR1 T0 WHERE T0.IssuedQty > T0.PlannedQty AND T0.DocEntry = @list_of_cols_val_tab_del))
+		--BEGIN 
+		--	SET @error = 1556
+		--	SET @error_message = 'Can not Issue Qty more than Planned Qty'
+		--END  
+
+		IF @ItemGrpCode = 101
+		BEGIN
+			IF EXISTS(SELECT T0.ItemCode FROM OWOR T0 
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.U_BaseProdOrd, '') = '')
+			BEGIN
+					SET @error = 2001
+					SET @error_message = 'Please select Base Production Order Number on Production Order.'
+			END
+			ELSE IF ISNULL(@BaseProdOrdNum, 0) > 0
+			BEGIN
+				IF (SELECT COUNT(*) FROM OWOR T0 WHERE T0.U_BaseProdOrd = @BaseProdOrdNum GROUP BY T0.U_BaseProdOrd) > 1
+				BEGIN
+					SET @error = 2003
+					SET @error_message = 'Base Production Order Number is already used.'
+				END
+			END
+			ELSE IF NOT EXISTS(SELECT T00.ItemCode
+								FROM WOR1 T00 
+								WHERE T00.ItemCode IN (SELECT T1.ItemCode
+														FROM OWOR T0 
+														INNER JOIN OWOR T1 ON T1.DocNum = T0.U_BaseProdOrd 
+														WHERE T0.DocEntry = @list_of_cols_val_tab_del
+								AND T00.DocEntry = @list_of_cols_val_tab_del
+								)
+				)
+			BEGIN
+					SET @error = 2002
+					SET @error_message = 'Please select correct base Production Order No.'
+			END
+		END
+		/*
+		ELSE IF	EXISTS(SELECT T0.DocEntry
+						FROM OWOR T0
+						INNER JOIN OITT T1 ON T0.ItemCode = T1.Code
+						LEFT OUTER JOIN OWHS T2 ON T0.Warehouse = T2.WhsCode 
+						LEFT OUTER JOIn OWHS T3 ON T1.ToWH = T3.WhsCode
+						WHERE  ISNULL(T2.U_Routing, '') <> ISNULL(T3.U_Routing, '') AND T0.DocEntry = @list_of_cols_val_tab_del )
+					
+		BEGIN
+			SET @error = 1001;
+			SET @error_message = 'Please select same Routing Warehouse.' 
+		END
+		*/
+		ELSE IF EXISTS(SELECT T0.ItemCode FROM OWOR T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.CmpltQty, 0) > 0)
+		BEGIN
+			IF EXISTS(SELECT T0.ItemCode FROM AWOR T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del)
+			BEGIN
+				IF (SELECT COUNT(*) FROM WOR4 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del) 
+					<> (SELECT COUNT(*) FROM AWO4 T0 
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+							AND T0.LogInstanc = (SELECT MAX(T00.LogInstanc) FROM AWOR T00 WHERE T00.DocEntry = @list_of_cols_val_tab_del)
+						)
+				BEGIN
+					SET @error = 1001;
+					SET @error_message = 'You cannot change the number of Stages as Receipt From Production already done.'
+				END
+				--ELSE IF EXISTS(SELECT T0.Name FROM AWO4 T0 INNER JOIN WOR4 T1 ON T1.DocEntry = T0.DocEntry 
+				--					WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.StageId = T1.StageId AND (T0.SeqNum <> T1.SeqNum OR T0.Name <> T1.Name)
+				--					AND T0.LogInstanc = (ISNULL((SELECT MAX(T00.LogInstanc) FROM AWOR T00 WHERE T00.DocEntry = @list_of_cols_val_tab_del), 0) - 1))
+				--					--AND T0.LogInstanc = (SELECT MAX(T00.LogInstanc) FROM AWOR T00 WHERE T00.DocEntry = @list_of_cols_val_tab_del))
+				--BEGIN
+				--	SET @error = 1001;
+				--	SET @error_message = 'You cannot manupluate Stages as Receipt From Production already done.'
+				--END
+			END
+		END
+		IF ISNULL((SELECT SUM(T1.BaseQty) 
+						FROM WOR1 T1 
+						WHERE T1.ItemType = '290' 
+						AND T1.ItemCode = 'OVERHEAD'  
+						AND T1.DocEntry = @list_of_cols_val_tab_del), 0) 
+				>
+					ISNULL((SELECT ISNULL(T0.U_OverHead,0)
+							FROM OWOR T0 
+                            INNER JOIN WOR1 T1 ON T0.DocEntry = T1.DocEntry 
+                            WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+							AND T1.ItemCode = 'OVERHEAD' 
+							AND T1.ItemType = '290'), 0)
+        BEGIN
+            SET @error = 1515;
+            SET @error_message = 'Row overhead cost can not greater than header overhead cost'
+        END
+
+	IF(EXISTS(SELECT T0.DocEntry FROM OWOR T0 
+				INNER JOIN OITM T1 ON T0.ItemCode = T1.ItemCode 
+				WHERE T1.ManBtchNum ='N' and T0.DocEntry = @list_of_cols_val_tab_del))
+		BEGIN
+            SET @error = 1516;
+            SET @error_message = 'Parent item must be batch manage'
+        END
+
+
+	END
+
+
+--	Item Master
+	IF (@object_type = '4' AND @transaction_type IN ('A', 'U'))
+	BEGIN
+		IF EXISTS(SELECT T0.ItemCode
+					FROM OITM T0  
+					INNER JOIN OITB T1 ON T0.ItmsGrpCod = T1.ItmsGrpCod
+					WHERE T1.ItmsGrpCod IN (101, 103, 104,118) 
+					AND T0.ManBtchNum = 'N'
+					AND T0.ItemCode = @list_of_cols_val_tab_del)
+		BEGIN
+				SET @error = 10011
+				SET @error_message = 'Item must be Batch Managed.'
+		END
+		ELSE IF EXISTS (SELECT T0.ItemCode FROM OITM T0 WHERE T0.ItemCode = @list_of_cols_val_tab_del 
+							AND ISNULL(T0.FrgnName, '') = ''
+							AND T0.ItmsGrpCod IN (101, 104, 118))
+		BEGIN
+				SET @error = 10011
+				SET @error_message = 'Foreign Name should not be left blank.'
+		END
+	END
+
+
+--	Receipt From Production OR Goods Receipt 59
+	IF (@object_type = '59' AND @transaction_type IN ('A', 'U'))
+	BEGIN
+
+		SET @Is_GR_Old = ''
+
+		SELECT TOP 1 @Is_GR_Old = CASE WHEN COUNT(*) > 0 THEN 'Yes' ELSE 'No' END
+		FROM IGN1 T00 
+		INNER JOIN OIGN T01 ON T01.DocEntry = T00.DocEntry
+		WHERE CAST(T00.BlockNum AS NVARCHAR) = (SELECT TOP 1 CAST(T0.BlockNum AS NVARCHAR) FROM IGN1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del)
+		AND ISNULL(T01.U_TransferType, '') = 'O'
+		AND T00.BaseType <> 202
+
+		IF EXISTS(SELECT ItemCode
+					FROM IGN1 T0 
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					AND ISNULL(T0.BaseType, '') <> '202')
+		-- For Goods Receipt
+		BEGIN
+			DECLARE @TransferType AS NVARCHAR(MAX)
+			DECLARE @ProdOrder AS INTEGER
+
+			SET @TransferType = ''
+
+			SELECT TOP 1 @TransferType = ISNULL(T0.U_TransferType, ''), @ProdOrder = ISNULL(T0.U_ProdOrdNo, 0)
+			FROM OIGN T0 
+			WHERE T0.DocEntry = @list_of_cols_val_tab_del
+
+			IF @TransferType = ''
+			BEGIN
+				SET @error = 10011
+				SET @error_message = 'Please select Transfer Type.'
+			END
+			ELSE IF(EXISTS(SELECT T0.DocEntry FROM OIGN T0 
+							WHERE ISNULL(T0.U_TransferType, '') IN ('O', 'N') AND T0.UserSign NOT IN ('1', '13', '18', '27') AND T0.DocEntry = @list_of_cols_val_tab_del))
+			BEGIN
+				SET @error = 1011
+				SET @error_message = 'You are not authorized for "Old WIP" and "Normal" type of transaction.'
+			END 	
+			ELSE IF @TransferType = 'B'
+			BEGIN
+				IF @Is_GR_Old = 'Yes'
+				BEGIN
+					IF NOT EXISTS(SELECT T0.DocEntry
+								FROM IGN1 T0 
+								INNER JOIN IGE1 T1 ON T1.ItemCode = T0.ItemCode AND T1.BlockNum = T0.BlockNum
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del)
+					BEGIN
+						SET @error = 1001
+						SET @error_message = 'ItemCode is not matching with Production Order Item Code.'
+					END
+				END
+				
+				ELSE
+				BEGIN
+					IF EXISTS(SELECT T0.DocEntry
+								FROM IGN1 T0 
+								INNER JOIN OWOR T1 ON CAST(T1.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR) 
+								INNER JOIN OITM T2 ON T2.ItemCode = T1.ItemCode
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del
+								AND T0.ItemCode <> T2.FrgnName
+								AND(T1.ItemCode NOT LIKE '%-WIP%'  and T1.ItemCode NOT LIKE '%- WIP%' and T1.ItemCode NOT LIKE '% WIP%') and t2.itmsgrpcod NOT in (104,118) )
+					BEGIN
+						SET @error = 1001222
+						SET @error_message = 'ItemCode is not matching with Production Order Item Code.'
+					END
+				END
+				
+				IF EXISTS(SELECT T0.DocEntry
+							FROM IGN1 T0 
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del
+							AND T0.WhsCode NOT LIKE '%%ACC%%')
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'In case of Branch Transfer - Stock will be received from ACCOUNTING warehouse only.'
+				END
+				ELSE IF EXISTS(SELECT T0.DocEntry
+							FROM IGN1 T0 
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del
+							AND ISNULL(T0.BlockNum, '') = '')
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'Please select BlockNum (Production Order Number) in all lines.'
+				END
+				ELSE IF EXISTS(SELECT T0.ItemCode
+									FROM IGN1 T0 
+									INNER JOIN OIGN T1 ON T1.DocEntry = T0.DocEntry
+									INNER JOIN IGE1 T2 ON T2.ItemCode = T0.ItemCode AND T2.BlockNum = T0.BlockNum
+									INNER JOIN OIGE T3 ON T3.DocEntry = T2.DocEntry
+									WHERE T1.U_TransferType = T3.U_TransferType
+									AND T1.BPLId <> T3.BPLId
+									AND T2.BaseType <> '202'
+									AND T0.BaseType <> '202'
+									AND T0.Quantity <> T2.Quantity
+									AND T0.DocEntry = @list_of_cols_val_tab_del
+								)
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'Item Quantity must be Equal To with Good Issue Quantity for this Production Order.'
+				END
+				ELSE IF (SELECT COUNT(*) 
+					FROM IGN1 T0
+					INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+					INNER JOIN OITL T2 ON T2.DocEntry = T0.DocEntry AND T2.DocType = T0.ObjType AND T2.DocLine = T0.LineNum AND T2.ItemCode = T0.ItemCode
+					INNER JOIN ITL1 T3 ON T3.LogEntry = T2.LogEntry and T3.ItemCode = T3.ItemCode
+					INNER JOIN OBTN T4 ON T4.AbsEntry = T3.MdAbsEntry and T4.ItemCode = T3.ItemCode
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					AND ISNULL(T1.ManBtchNum, 'N') = 'Y'
+					AND T0.BlockNum <> T4.DistNumber) > 0
+				BEGIN  
+					SET @error = 1001
+					SET @error_message = 'Batch Number must be same as a Block No. (or Production Order No.) for each Line Item.'
+				END  
+				
+				-- Checking next sequence whs
+				DECLARE @GISeqNo AS NVARCHAR(MAX)
+				DECLARE @GRWhsName AS NVARCHAR(MAX)
+
+				SET @GISeqNo = 0
+				SET @GRWhsName = ''
+				/*
+				SELECT @GISeqNo = T2.U_RoutSeq, @GRWhsName = T4.WhsName
+				FROM IGN1 T0 
+				INNER JOIN OIGN T1 ON T1.DocEntry = T0.DocEntry
+				INNER JOIN IGE1 T2 ON T2.ItemCode = T0.ItemCode AND T2.BlockNum = T0.BlockNum
+				INNER JOIN OIGE T3 ON T3.DocEntry = T2.DocEntry
+				INNER JOIN OWHS T4 ON T4.WhsCode = t0.WhsCode
+				WHERE T1.U_TransferType = T3.U_TransferType
+				AND T1.BPLId <> T3.BPLId
+				AND T2.BaseType <> '202'
+				AND T0.Quantity = T2.Quantity
+				AND T0.DocEntry = @list_of_cols_val_tab_del
+
+				IF ISNULL(@GISeqNo, 0) > 0
+				BEGIN
+						UPDATE OIGN SET U_CurSeqNo = (@GISeqNo) WHERE DocEntry = @list_of_cols_val_tab_del	
+						UPDATE IGN1 SET U_RoutSeq = (@GISeqNo) WHERE DocEntry = @list_of_cols_val_tab_del	
+
+					--DECLARE @GRNextWhsName AS NVARCHAR(MAX)
+
+					--SET @GRNextWhsName = ''
+
+					--IF @Is_GR_Old = 'Yes'
+					--BEGIN
+					--	SELECT @GRNextWhsName = T3.WhsName
+					--	FROM IGN1 T0
+					--	INNER JOIN OIGN T1 ON T1.DocEntry = T0.DocEntry
+					--	INNER JOIN ITT2 T2 ON T2.Father = T0.ItemCode
+					--	INNER JOIN OWHS T3 ON T3.U_Routing = T2.Name
+					--	WHERE T2.SeqNum = (@GISeqNo)
+					--	AND T0.DocEntry = @list_of_cols_val_tab_del
+					--	AND T3.WhsCode NOT LIKE 'REJ%'
+					--	AND T3.BPLid = T1.BPLId
+					--END
+					--ELSE
+					--BEGIN
+					--	SELECT @GRNextWhsName = T3.WhsName
+					--	FROM IGN1 T0
+					--	INNER JOIN OIGN T1 ON T1.DocEntry = T0.DocEntry
+					--	INNER JOIN OWOR T11 ON T11.ItemCode = T0.ItemCode AND CAST(T11.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR)
+					--	INNER JOIN WOR4 T2 ON T2.DocEntry = T0.DocEntry
+					--	INNER JOIN OWHS T3 ON T3.U_Routing = T2.Name AND T3.BPLid = T1.BPLId
+					--	WHERE T2.SeqNum = (@GISeqNo)
+					--	AND T0.DocEntry = @list_of_cols_val_tab_del
+					--END
+
+					--IF @GRWhsName <> @GRNextWhsName
+					--BEGIN
+					--	SET @error = 10014444
+					--	SET @error_message = 'Warehouse must be - ' + @GRNextWhsName
+					--END
+					--ELSE
+					--BEGIN
+					--	UPDATE OIGN SET U_CurSeqNo = (@GISeqNo) WHERE DocEntry = @list_of_cols_val_tab_del	
+					--	UPDATE IGN1 SET U_RoutSeq = (@GISeqNo) WHERE DocEntry = @list_of_cols_val_tab_del	
+					--END
+				END
+				ELSE
+				BEGIN
+					IF  ISNULL(@error, 0) = 0
+					BEGIN
+						SET @error = 1001  
+						SET @error_message = 'Sequence not found in Goods Issue.'
+					END
+					
+					ELSE IF (SELECT COUNT(*) 
+								FROM IGN1 T0
+								INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+								INNER JOIN OITL T2 ON T2.DocEntry = T0.DocEntry AND T2.DocType = T0.ObjType AND T2.DocLine = T0.LineNum AND T2.ItemCode = T0.ItemCode
+								INNER JOIN ITL1 T3 ON T3.LogEntry = T2.LogEntry and T3.ItemCode = T3.ItemCode
+								INNER JOIN OBTN T4 ON T4.AbsEntry = T3.MdAbsEntry and T4.ItemCode = T3.ItemCode
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del
+								AND ISNULL(T1.ManBtchNum, 'N') = 'Y'
+								AND T0.BlockNum <> T4.DistNumber) > 0
+					BEGIN  
+						SET @error = 1002
+						SET @error_message = 'Batch Number must be same as a Block No. (or Production Order No.) for each Line Item.'
+					END
+				END
+				*/
+				IF EXISTS (SELECT T0.ITEMCODE FROM IGN1 T0 WHERE T0.DOCENTRY = @list_of_cols_val_tab_del AND ISNULL(T0.BASEENTRY, 0) = 0)
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'All lines must have the Base document, please select the Item from "Copy From" option.'
+				END
+
+
+			END
+
+			ELSE IF @TransferType = 'P'
+			BEGIN
+				IF @ProdOrder = 0
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'Please select Production Order.'
+				END
+				ELSE
+				BEGIN
+					IF EXISTS(SELECT T0.DocEntry 
+								FROM OIGN T0 
+								INNER JOIN IGN1 T1 ON T1.DocEntry = T0.DocEntry
+								INNER JOIN OWOR T2 ON T2.DocEntry = T0.U_ProdOrdNo
+								INNER JOIN WOR1 T3 ON T3.DocEntry = T2.DocEntry
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del
+								AND ISNULL(T1.BaseEntry, 0) <> 202
+								AND T3.ItemCode <> T1.ItemCode)
+					BEGIN
+						SET @error = 1001
+						SET @error_message = 'Item are not matching with Production Order.'
+					END
+				END
+			END
+
+			ELSE IF @TransferType = 'O'
+			BEGIN
+				IF EXISTS(SELECT T0.DocEntry
+							FROM IGN1 T0 
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del
+							AND ISNULL(T0.BlockNum, '') = '')
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'Please mention Production Order No. in all lines in Block No. column.'
+				END
+				ELSE IF (SELECT COUNT(*) 
+							FROM IGN1 T0
+							INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+							INNER JOIN OITL T2 ON T2.DocEntry = T0.DocEntry AND T2.DocType = T0.ObjType AND T2.DocLine = T0.LineNum AND T2.ItemCode = T0.ItemCode
+							INNER JOIN ITL1 T3 ON T3.LogEntry = T2.LogEntry and T3.ItemCode = T3.ItemCode
+							INNER JOIN OBTN T4 ON T4.AbsEntry = T3.MdAbsEntry and T4.ItemCode = T3.ItemCode
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del
+							AND ISNULL(T1.ManBtchNum, 'N') = 'Y'
+							AND T0.BlockNum <> T4.DistNumber) > 0
+				BEGIN  
+					SET @error = 1003
+					SET @error_message = 'Batch Number must be same as a Block No. (or Production Order No.) for each Line Item.'
+				END
+				ELSE 
+				IF EXISTS(SELECT T0.ItemCode FROM IGN1 T0
+								INNER JOIN ITT2 T1 ON T1.Father = T0.ItemCode
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del
+								AND T1.StgEntry > 0)
+				BEGIN
+					UPDATE IGN1 SET U_RoutSeq = T3.SeqNum
+					--SELECT T0.ItemCode, T0.WhsCode, T3.SeqNum
+					FROM IGN1 T0
+					INNER JOIN OIGN T1 ON T1.DocEntry = T0.DocEntry
+					INNER JOIN OWHS T2 ON T2.WhsCode = T0.WhsCode AND T2.BPLid = T1.BPLId
+					INNER JOIN ITT2 T3 ON T3.Father = T0.ItemCode AND T3.Name = T2.U_Routing
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+				END
+			END
+		END
+		ELSE -- For Receipt From Production
+		BEGIN
+			IF EXISTS(SELECT T0.DocEntry
+						FROM IGN1 T0 
+						INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T1.ObjType = T0.BaseType AND T1.ItemCode = T0.ItemCode
+						INNER JOIN WOR1 T2 ON T2.DocEntry = T1.DocEntry
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del					
+						GROUP BY T0.DocEntry
+						HAVING SUM(ISNULL(T2.IssuedQty, 0)) = 0)
+			BEGIN
+				SET @error = 1001
+				SET @error_message = 'Issue for Production has been not done completely.'
+			END
+			ELSE IF EXISTS(SELECT T0.DocEntry
+						FROM IGN1 T0 
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del
+						AND ISNULL(T0.BlockNum, '') = '')
+			BEGIN
+				SET @error = 1001
+				SET @error_message = 'BlockNum (Production Order Number) should not be blank in all lines.'
+			END
+			ELSE IF EXISTS(SELECT T0.DocEntry
+						FROM IGN1 T0 
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del
+						AND ISNULL(T0.BlockNum, '') <> ISNULL(T0.BaseRef, ''))
+			BEGIN
+				SET @error = 1001
+				SET @error_message = 'BlockNum and Order No. must be same in all lines.'
+			END
+			-- RM 09Nov2020
+			ELSE IF (SELECT COUNT(*) 
+					FROM IGN1 T0
+					INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+					INNER JOIN OITL T2 ON T2.DocEntry = T0.DocEntry AND T2.DocType = T0.ObjType AND T2.DocLine = T0.LineNum AND T2.ItemCode = T0.ItemCode
+					INNER JOIN ITL1 T3 ON T3.LogEntry = T2.LogEntry and T3.ItemCode = T3.ItemCode
+					INNER JOIN OBTN T4 ON T4.AbsEntry = T3.MdAbsEntry and T4.ItemCode = T3.ItemCode
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					AND ISNULL(T1.ManBtchNum, 'N') = 'Y'
+					AND ISNULL(T0.TranType, 'C') = 'C'
+					AND T1.ItmsGrpCod NOT IN (103, 109)
+					--AND T1.ItmsGrpCod NOT IN (103, 104, 118, 109)
+					AND T0.BlockNum <> T4.DistNumber) > 0
+			BEGIN  
+				SET @error = 1004
+				SET @error_message = 'Batch Number must be same as a Block No. (or Production Order No.) for each Line Item.'
+			END  
+
+			DECLARE @PlanQty AS DECIMAL(19, 6)
+			DECLARE @CompQty AS DECIMAL(19, 6)
+			DECLARE @ReceQty AS DECIMAL(19, 6)
+
+			SET @PlanQty = 0
+			SET @CompQty = 0
+			SET @ReceQty = 0
+
+			SELECT TOP 1 @PlanQty = T1.PlannedQty, @CompQty = T1.CmpltQty, @ReceQty = SUM(T0.Quantity)
+						FROM IGN1 T0 
+						INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T1.DocNum = T0.BaseRef AND T1.ObjType = T0.BaseType AND T1.ItemCode = T0.ItemCode
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del
+						GROUP BY T1.PlannedQty, T1.CmpltQty
+
+			--IF EXISTS(SELECT T0.ItemCode
+			--			FROM IGN1 T0 
+			--			INNER JOIN OWOR T1 ON T1.DocNum = T0.BaseRef AND T0.BaseType = 202 AND T1.ItemCode = T0.ItemCode
+			--			WHERE T0.DocEntry = @list_of_cols_val_tab_del
+			--			AND ISNULL(T0.Quantity, 0) > (((ISNULL(T1.PlannedQty, 0) * 10)/100) + (ISNULL(T1.PlannedQty, 0) - ISNULL(T1.CmpltQty, 0))))
+			--			--AND ISNULL(T0.Quantity, 0) > (((ISNULL(T1.PlannedQty, 0) * 10)/100) + (ISNULL(T1.PlannedQty, 0) )))
+			IF @ReceQty > (((@PlanQty * 10) / 100) + (@PlanQty - (@CompQty - @ReceQty)))
+			BEGIN
+				SET @error = 1001
+				SET @error_message = 'Cannot Receipt the Quantity more than Planned + 10% variance quantitt.' 
+				--+ CAST(@CompQty AS nvarchar(MAX))
+			END
+			--ELSE IF @ReceQty > (@PlanQty - (@CompQty - @ReceQty))
+			--BEGIN
+			--	SET @error = 10012222
+			--	SET @error_message = 'Cannot Receipt the Quantity less than Planned or Remaining quantity.' + CAST(@CompQty AS nvarchar(MAX))
+			--END
+			-- plan 350 
+
+			DECLARE @Seq1RoutWhsName AS NVARCHAR(MAX)
+			DECLARE @ReceiptWhsName AS NVARCHAR(MAX)
+			DECLARE @ItemCode AS NVARCHAR(MAX)
+			DECLARE @RFP_BranchID AS INTEGER
+
+			SELECT TOP 1 @Seq1RoutWhsName = T4.WhsName, @ReceiptWhsName = T6.WhsName, @ItemCode = T0.ItemCode, @RFP_BranchID = T5.BPLId
+			FROM IGN1 T0 
+			INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseType = 202 AND T1.ItemCode = T0.ItemCode
+			--INNER JOIN OITT T2 ON T2.Code = T1.ItemCode
+			INNER JOIN ITT2 T3 ON T3.Father = T0.ItemCode AND T3.SeqNum = 1
+			INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+			INNER JOIN OWHS T4 ON T4.U_Routing = T3.Name AND T4.BPLid = T5.BPLId
+			INNER JOIN OWHS T6 ON T6.WhsCode = T0.WhsCode
+			WHERE T0.DocEntry = @list_of_cols_val_tab_del
+			AND T0.WhsCode NOT LIKE 'REJ%'
+
+			--IF @ItemCode LIKE '%WIP%'
+			--BEGIN
+			--	--Checking whether Whs is Job work or not
+			--	IF NOT EXISTS(SELECT T00.WhsCode FROM OWHS T00 
+			--					WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @ReceiptWhsName)
+			--	BEGIN
+			--		IF @ReceiptWhsName <> @Seq1RoutWhsName
+			--		BEGIN
+			--			IF ISNULL(@Seq1RoutWhsName, '') = ''
+			--			BEGIN
+			--				SET @error = 1001
+			--				SET @error_message = 'Next Routing sequence is not mapped in Warehouse.'
+			--			END
+			--			ELSE
+			--			BEGIN
+			--				SET @error = 1001
+			--				SET @error_message = 'Warehouse must be a Job work warehouse or a 1st Route warehouse (i.e. ' + @Seq1RoutWhsName + ').'
+			--			END
+			--		END
+			--	END
+			--END
+			--ELSE
+			--BEGIN
+				DECLARE @ProdOrdWhsCode AS NVARCHAR(MAX)
+				DECLARE @GoodRecWhsCode AS NVARCHAR(MAX)
+/*
+				SELECT TOP 1 @GoodRecWhsCode = T0.WhsCode, @ProdOrdWhsCode = T1.Warehouse
+				FROM IGN1 T0 
+				INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseType = 202 AND T1.ItemCode = T0.ItemCode
+				INNER JOIN OWHS T2 ON T2.WhsCode = T0.WhsCode AND T2.BPLid = T2.BPLid
+				WHERE T0.DocEntry = @list_of_cols_val_tab_del
+				AND T0.WHSCODE NOT LIKE 'REJ%'
+
+				IF @ProdOrdWhsCode <> @GoodRecWhsCode 
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'Warehouse must be ' + @ProdOrdWhsCode
+				END
+			--END
+		*/	
+			IF EXISTS(SELECT T0.ItemCode FROM IGN1 T0
+						INNER JOIN ITT2 T1 ON T1.Father = T0.ItemCode
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del
+						AND T1.StgEntry > 0)
+			BEGIN
+				UPDATE IGN1 SET U_RoutSeq = 1
+				WHERE DocEntry = @list_of_cols_val_tab_del
+				AND WhsCode NOT LIKE 'REJ%'
+			END
+				
+		END
+	END
+	
+
+--	Inventorty Transfer 67
+	IF (@object_type = '67' AND @transaction_type IN ('A', 'U'))
+	BEGIN
+		DECLARE @InvenTransBaseType AS NVARCHAR(MAX)
+		DECLARE @InvenTransBaseEntry AS NVARCHAR(MAX)
+		DECLARE @HFWhsName AS NVARCHAR(MAX)
+		DECLARE @HTWhsName AS NVARCHAR(MAX)
+		DECLARE @LFWhsName AS NVARCHAR(MAX)
+		DECLARE @LTWhsName AS NVARCHAR(MAX)
+		DECLARE @SeqNxtRoutWhsName AS NVARCHAR(MAX)
+		DECLARE @CurQty AS DECIMAL(19,6)
+		DECLARE @BaseQty AS DECIMAL(19,6)
+		DECLARE @CurSeqNo AS INTEGER
+		DECLARE @CurInvTranBranchID AS INTEGER
+		DECLARE @ProdOrdNum AS NVARCHAR(MAX)
+
+		SET @Seq1RoutWhsName = ''
+		SET @ReceiptWhsName = ''
+		SET @ItemCode = ''
+
+		SELECT TOP 1 @InvenTransBaseType = T0.BaseType, @InvenTransBaseEntry = T0.BaseEntry, @ItemCode = T0.ItemCode, @CurSeqNo = ISNULL(T0.U_RoutSeq, 0),
+		@CurInvTranBranchID = T1.BPLId, 
+		@LFWhsName = (SELECT TOP 1 T10.WhsName FROM OWHS T10 WHERE T10.WhsCode = T0.FromWhsCod), 
+		@LTWhsName = (SELECT TOP 1 T10.WhsName FROM OWHS T10 WHERE T10.WhsCode = T0.WhsCode), 
+		@HFWhsName = (SELECT TOP 1 T10.WhsName FROM OWHS T10 WHERE T10.WhsCode = T1.Filler), 
+		@HTWhsName = (SELECT TOP 1 T10.WhsName FROM OWHS T10 WHERE T10.WhsCode = T1.ToWhsCode)
+		FROM WTR1 T0 
+		INNER JOIN OWTR T1 ON T1.DocEntry = T0.DocEntry
+		WHERE T0.DocEntry = @list_of_cols_val_tab_del
+		AND T0.BaseType <> ''
+		AND T0.WhsCode NOT LIKE ('REJ%')
+
+		SELECT @CurQty = SUM(T0.Quantity)
+		FROM WTR1 T0 
+		WHERE T0.DocEntry = @list_of_cols_val_tab_del
+		
+
+		SELECT @Is_GR_Old = CASE WHEN COUNT(*) > 0 THEN 'Yes' ELSE 'No' END
+		FROM IGN1 T00 
+		INNER JOIN OIGN T01 ON T01.DocEntry = T00.DocEntry
+		WHERE CAST(T00.BlockNum AS NVARCHAR) = (SELECT TOP 1 CAST(T0.BlockNum AS NVARCHAR) FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del)
+		AND ISNULL(T01.U_TransferType, '') = 'O'
+		AND T00.BaseType <> 202
+
+		--IF @ItemCode LIKE '%WIP%'
+		--BEGIN
+		IF EXISTS (SELECT T0.ItemCode FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BaseEntry, 0) <> 0)
+		BEGIN
+			IF EXISTS (SELECT T0.ItemCode FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BaseEntry, 0) = 0)
+			BEGIN
+				IF EXISTS (SELECT T0.ItemCode FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BaseEntry, 0) = 0 AND T0.WhsCode NOT LIKE 'REJ%')
+				BEGIN
+					SET @error = 1002
+					SET @error_message = 'Lines without any Base document must have the Rejection warehouse only.'
+				END
+			END
+		END
+
+
+		SET @Jobwork10 = ISNULL((SELECT TOP 1 ISNULL(T2.U_IsJobWork,'')FROM WTR1 T0 
+									INNER JOIN OWTR TT ON TT.DocEntry = T0.DocEntry
+									INNER JOIN OWHS T1 ON T0.WhsCode = T1.WhsCode AND T1.BPLid = TT.BPLId
+									LEFT OUTER JOIN ORST T2 ON T1.U_Routing = T2.Code WHERE T0.DocEntry = @list_of_cols_val_tab_del), 0) 
+		SET @Jobwork11 = ISNULL((SELECT TOP 1 ISNULL(T2.U_IsJobWork,'')FROM WTR1 T0 
+									INNER JOIN OWTR TT ON TT.DocEntry = T0.DocEntry
+									INNER JOIN OWHS T1 ON T0.FromWhsCod = T1.WhsCode AND T1.BPLid = TT.BPLId
+									LEFT OUTER JOIN ORST T2 ON T1.U_Routing = T2.Code WHERE T0.DocEntry = @list_of_cols_val_tab_del), 0)
+		IF ISNULL(@Jobwork10, 'N') = 'Y' 
+		BEGIN
+			IF(EXISTS(SELECT T10.DocEntry FROM OWTR T10 WHERE T10.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T10.U_TransStatus,'') <> 'ITJW'))
+			BEGIN
+				SET @error = 1554
+				SET @error_message ='Please Select the Job Work Transaction Type (Issue to Job Work) and Job Work Vendor'
+			END
+		END
+
+		ELSE IF ISNULL(@Jobwork11, 'N') = 'Y' 
+		BEGIN
+			IF(EXISTS(SELECT T10.DocEntry FROM OWTR T10 WHERE T10.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T10.U_TransStatus,'') <> 'RFJW'))
+			BEGIN
+				SET @error = 1555
+				SET @error_message ='Please Select the Job Work Transaction Type (Received Job Work) and Job Work Vendor'
+			END
+		END 
+
+		IF EXISTS(SELECT T0.DocNum FROM OWTR T0 
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.U_TransferType, '') <> 'N' AND CONVERT(DATE, T0.DocDate, 104) <> CONVERT(DATE, GETDATE(), 104))
+		BEGIN
+			SET @error = 1002
+			SET @error_message = 'Inventory Transfer Date must be in Today''s Date.'
+		END
+		--ELSE IF EXISTS(SELECT T0.ItemCode FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BlockNum, '') = '')
+		ELSE IF EXISTS(SELECT T0.ItemCode FROM WTR1 T0 INNER JOIN OWTR T1 ON T1.DocEntry = T0.DocEntry 
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BlockNum, '') = '' AND ISNULL(T1.U_TransferType, '') <> 'N')
+		BEGIN
+			SET @error = 1002
+			SET @error_message = 'Please mention the Block No. in all lines.'
+		END
+		ELSE IF EXISTS(SELECT T0.ItemCode FROM WTR1 T0 INNER JOIN OWTR T1 ON T1.DocEntry = T0.DocEntry 
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BaseRef, 0) = 0 AND ISNULL(T1.U_TransferType, '') <> 'N')
+		BEGIN
+			SET @error = 1002
+			SET @error_message = 'All lines must have the Base document.'
+		END
+		ELSE IF (SELECT COUNT(*) 
+					FROM (SELECT DISTINCT T0.BaseEntry FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BaseEntry, 0) <> 0) A
+					GROUP BY A.BaseEntry) > 1
+		BEGIN
+			SET @error = 1002
+			SET @error_message = 'Inventory Transfer can be based on only single document.'
+		END
+		-- Rahul getting error with this condition
+		--ELSE IF (SELECT COUNT(*) FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BaseEntry, 0) <> 0 GROUP BY T0.BaseEntry, T0.WhsCode) > 1
+		--BEGIN
+		--	SET @error = 1002
+			--SET @error_message = 'Lines having Base Document must not have the same To Warehouse.'
+		--END
+		ELSE IF EXISTS(SELECT T0.ItemCode FROM WTR1 T0 
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BaseEntry, 0) <> 0
+						AND T0.WhsCode IN (SELECT T1.WhsCode FROM WTR1 T1 WHERE T1.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T1.BaseEntry, 0) = 0))
+		BEGIN
+			SET @error = 1002
+			SET @error_message = 'Lines having Base document must have the different warehouse from the lines not having the Base document.'
+		END			
+		ELSE IF (SELECT COUNT(*) FROM (SELECT DISTINCT BlockNum FROM WTR1 T0 
+											WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.ItemCode, '') <> ''
+										) A 
+								) > 1
+		BEGIN
+			SET @error = 1002
+			SET @error_message = 'BlockNum must be same in all lines'
+		END
+		--ELSE IF @HFWhsName <> @LFWhsName
+		--BEGIN
+		--	SET @error = 1002
+		--	SET @error_message = 'From Warehouse at Header and Line must be same.'
+		--END
+		--ELSE IF @HTWhsName <> @LTWhsName
+		--BEGIN
+		--	SET @error = 1002
+		--	SET @error_message = 'To Warehouse at Header and Line must be same.'
+		--END
+		ELSE IF (SELECT COUNT(*) 
+			FROM WTR1 T0
+			INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+			INNER JOIN OITL T2 ON T2.DocEntry = T0.DocEntry AND T2.DocType = T0.ObjType AND T2.DocLine = T0.LineNum AND T2.ItemCode = T0.ItemCode
+			INNER JOIN ITL1 T3 ON T3.LogEntry = T2.LogEntry and T3.ItemCode = T3.ItemCode
+			INNER JOIN OBTN T4 ON T4.AbsEntry = T3.MdAbsEntry and T4.ItemCode = T3.ItemCode
+			WHERE T0.DocEntry = @list_of_cols_val_tab_del
+			AND ISNULL(T1.ManBtchNum, 'N') = 'Y'
+			AND T0.BlockNum <> T4.DistNumber) > 0
+		BEGIN  
+			SET @error = 1005  
+			SET @error_message = 'Batch Number must be same as a Block No. (or Production Order No.) for each Line Item.'
+		END 
+
+		ELSE IF EXISTS (SELECT T0.DocNum FROM OWTR T0 WHERE T0.U_TransStatus = 'ITJW' AND ISNULL(T0.U_JWVendor, '') = '' AND T0.DocEntry = @list_of_cols_val_tab_del)
+		BEGIN
+			SET @error = 3001  
+			SET @error_message = 'Please select the Vendor for Jobwork.'
+		END
+
+		ELSE IF EXISTS (SELECT T0.DocNum FROM OWTR T0 WHERE T0.U_TransStatus = 'ITJW' AND ISNULL(T0.U_JWVendor, '') <> '' AND T0.DOCENTRY = @list_of_cols_val_tab_del)
+		BEGIN
+			IF EXISTS (SELECT T0.CardCode FROM OCRD T0 
+						WHERE T0.CardCode = (SELECT TOP 1 T1.U_JWVendor FROM OWTR T1 WHERE T1.DocEntry = @list_of_cols_val_tab_del)
+						AND (T0.CardType <> 'S' OR ISNULL(T0.frozenFor, 'N') <> 'N'))
+			BEGIN
+				SET @error = 3001  
+				SET @error_message = 'You have selected wrong Vendor or Vendor is Inactive.'
+			END
+		END
+		ELSE IF (SELECT COUNT(*) FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T0.BaseEntry, 0) <> 0 AND T0.WhsCode NOT LIKE 'REJ%'
+					GROUP BY T0.BaseEntry, T0.WhsCode) > 1
+		BEGIN
+				SET @error = 3001  
+				SET @error_message = 'Same Item and same Whs must have a single line.'
+		END
+		ELSE IF ISNULL((SELECT SUM(ISNULL(T0.Quantity, 0)) FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.WhsCode LIKE 'REJ%'), 0)
+				<> ISNULL((SELECT SUM(ISNULL(T0.U_SettingRej, 0) + ISNULL(T0.U_QtyRej, 0) + ISNULL(T0.U_VarianceQty, 0))
+						 FROM WTR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.WhsCode LIKE 'REJ%'), 0)
+		BEGIN
+				SET @error = 3001  
+				SET @error_message = 'Rejection Quantity must be equal to "Setting Rejection Qty + Rejection Qty + Variance Qty".'
+		END
+		ELSE IF EXISTS(SELECT T0.DocEntry FROM WTR1 T0
+						INNER JOIN IGN1 T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseType = T1.ObjType AND T1.LineNum = T0.BaseLine AND T1.ItemCode = T0.ItemCode
+						WHERE ISNULL(T0.BlockNum,'') <> ISNULL(T1.BlockNum,'') AND T0.DocEntry = @list_of_cols_val_tab_del)
+			BEGIN
+				SET @error =1552
+				SET @error_message ='Production Order No. must be same the Production Order No. on base Goods Receipt.'
+			END 
+		ELSE IF EXISTS(SELECT T0.DocEntry FROM WTR1 T0 
+							INNER JOIN WTR1 T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseType = T1.ObjType AND T1.LineNum = T0.BaseLine AND T1.ItemCode = T0.ItemCode
+							WHERE ISNULL(T0.BlockNum,'') <> ISNULL(T1.BlockNum,'') AND T0.DocEntry = @list_of_cols_val_tab_del)
+			BEGIN
+				SET @error = 1553
+				SET @error_message = 'Production Order No. must be same the Production Order No. on base Inventory Transfer.'
+		END 
+
+		-- Inventory Transfer based on Receipt From Production or Goods Receipt
+		IF @InvenTransBaseType = '59' 
+		BEGIN
+			DECLARE @GoodsReceiptBase AS INTEGER
+
+			SET @ReceiptWhsName = ''
+			SET @BaseQty = 0
+			SET @RFP_BranchID = 0
+			SET @GoodsReceiptBase = 0
+
+			-- Checking for Transfer Type
+			DECLARE @GoodIssueTransferType AS NVARCHAR(MAX)
+
+			SELECT TOP 1 @GoodIssueTransferType = ISNULL(T0.U_TransferType, '')
+			FROM OIGN T0
+			WHERE T0.DocEntry = @InvenTransBaseEntry
+
+			
+			IF @Is_GR_Old = 'Yes'
+			BEGIN
+				SELECT TOP 1 @ReceiptWhsName = T4.WhsName, @SeqNxtRoutWhsName = T6.WhsName, @BaseQty = ISNULL(T0.Quantity, 0), @ProdOrdNum = T0.BlockNum, @GoodsReceiptBase = T0.BaseType			
+				FROM IGN1 T0 
+				--INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseType = 202 AND T1.ItemCode = T0.ItemCode
+				INNER JOIN OITT T2 ON T2.Code = T0.ItemCode
+				INNER JOIN ITT2 T3 ON T3.Father = T2.Code AND T3.SeqNum = T0.U_RoutSeq
+				INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+				INNER JOIN OWHS T4 ON T4.WhsCode = T0.WhsCode AND T4.BPLid = T5.BPLId
+				INNER JOIN OWHS T6 ON T6.U_Routing = T3.Name AND T6.BPLid = T5.BPLId
+				WHERE T0.DocEntry = @InvenTransBaseEntry
+				AND T0.WhsCode NOT LIKE ('REJ%')
+				--AND T5.U_TransferType = 'B'
+			END
+			ELSE
+			BEGIN
+				SELECT TOP 1 @ReceiptWhsName = T4.WhsName, @SeqNxtRoutWhsName = T6.WhsName, @BaseQty = ISNULL(T0.Quantity, 0), @ProdOrdNum = T0.BlockNum, @GoodsReceiptBase = T0.BaseType			
+				FROM IGN1 T0 
+				INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T1.ObjType = T0.BaseType AND T1.ItemCode = T0.ItemCode AND CAST(T1.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR) 
+				--INNER JOIN OITT T2 ON T2.Code = T0.ItemCode
+				--INNER JOIN ITT2 T3 ON T3.Father = T2.Code AND T3.SeqNum = 2
+				INNER JOIN WOR4 T3 ON T3.DocEntry = T1.DocEntry AND T3.SeqNum = T0.U_RoutSeq
+				INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+				INNER JOIN OWHS T4 ON T4.WhsCode = T0.WhsCode AND T4.BPLid = T5.BPLId
+				INNER JOIN OWHS T6 ON T6.U_Routing = T3.Name AND T6.BPLid = T5.BPLId
+				WHERE T0.DocEntry = @InvenTransBaseEntry
+				AND T0.WhsCode NOT LIKE ('REJ%')
+				--AND T5.U_TransferType = 'B'
+			END
+
+			-- If Inventory Transfer is Based on RFP
+			IF @GoodsReceiptBase = 202
+			BEGIN
+
+				IF @Is_GR_Old = 'Yes'
+				BEGIN
+					SELECT TOP 1 @ReceiptWhsName = T4.WhsName, @SeqNxtRoutWhsName = T6.WhsName, @BaseQty = ISNULL(T0.Quantity, 0), @ProdOrdNum = T0.BlockNum, 
+					@GoodsReceiptBase = T0.BaseType			
+					FROM IGN1 T0 
+					--INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseType = 202 AND T1.ItemCode = T0.ItemCode
+					INNER JOIN OITT T2 ON T2.Code = T0.ItemCode
+					INNER JOIN ITT2 T3 ON T3.Father = T2.Code AND T3.SeqNum = (T0.U_RoutSeq + 1)
+					INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+					INNER JOIN OWHS T4 ON T4.WhsCode = T0.WhsCode AND T4.BPLid = T5.BPLId
+					INNER JOIN OWHS T6 ON T6.U_Routing = T3.Name AND T6.BPLid = T5.BPLId
+					WHERE T0.DocEntry = @InvenTransBaseEntry
+					AND T0.WhsCode NOT LIKE ('REJ%')
+					--AND T5.U_TransferType = 'B'
+				END
+				ELSE
+				BEGIN
+					SELECT TOP 1 @ReceiptWhsName = T4.WhsName, @SeqNxtRoutWhsName = T6.WhsName, @BaseQty = ISNULL(T0.Quantity, 0), @ProdOrdNum = T0.BlockNum, 
+					@GoodsReceiptBase = T0.BaseType			
+					FROM IGN1 T0 
+					INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T1.ObjType = T0.BaseType AND T1.ItemCode = T0.ItemCode AND CAST(T1.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR) 
+					--INNER JOIN OITT T2 ON T2.Code = T0.ItemCode
+					--INNER JOIN ITT2 T3 ON T3.Father = T2.Code AND T3.SeqNum = 2
+					INNER JOIN WOR4 T3 ON T3.DocEntry = T1.DocEntry AND T3.SeqNum = (T0.U_RoutSeq + 1)
+					INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+					INNER JOIN OWHS T4 ON T4.WhsCode = T0.WhsCode AND T4.BPLid = T5.BPLId
+					INNER JOIN OWHS T6 ON T6.U_Routing = T3.Name AND T6.BPLid = T5.BPLId
+					WHERE T0.DocEntry = @InvenTransBaseEntry
+					AND T0.WhsCode NOT LIKE ('REJ%')
+					--AND T5.U_TransferType = 'B'
+				END
+
+
+				IF @CurQty > @BaseQty
+				BEGIN
+					SET @error = 1002
+					SET @error_message = 'Quantity must Less than or Equal to Receipt quantity.'
+					-- + CAST(@CurQty AS nvarchar(MAX)) + ' --- ' + CAST(@BaseQty AS nvarchar(MAX))
+				END
+				ELSE IF @ReceiptWhsName <> @LFWhsName
+				BEGIN
+					SET @error = 1002
+					SET @error_message = 'From Warehouse must be ' + @ReceiptWhsName + '.'
+				END
+				-- If From Whs is Jobwork
+				ELSE IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LFWhsName) 
+				BEGIN
+					-- If To Whs is also Jobwork
+					IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LTWhsName) 
+					BEGIN
+						UPDATE OWTR SET U_CurSeqNo = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+						UPDATE WTR1 SET U_RoutSeq = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+					END
+					-- If To Whs is from Route Seq and must belongs to BOM seq
+					ELSE IF EXISTS(SELECT T0.Father FROM ITT2 T0 
+									INNER JOIN OWHS T1 ON T1.U_Routing = T0.Name
+									WHERE T0.Father = @ItemCode AND T1.WhsName = @LTWhsName AND T1.BPLid = @CurInvTranBranchID)
+					BEGIN
+						-- Checking whether selected Seq on Inv.Trans. belongs to BOM Seq or not
+						IF NOT EXISTS(SELECT T0.Father FROM ITT2 T0 
+										INNER JOIN OWHS T1 ON T1.U_Routing = T0.Name
+										WHERE T0.Father = @ItemCode AND T1.WhsName = @LTWhsName AND T1.BPLid = @CurInvTranBranchID AND T0.SeqNum = @CurSeqNo)
+						BEGIN
+							SET @error = 1002
+							SET @error_message = 'Please select Current Sequence of To Warehouse as per Routing Process.'
+						END
+						-- Else add document
+					END
+					ELSE -- Give Error msg
+					BEGIN
+						SET @error = 1002
+						--SET @error_message = 'From warehouse must be a Job Work warehouse or from the Route sequence warehouses.'
+						SET @error_message = 'From warehouse must be a from the Route sequence warehouses.'
+					END
+				END 
+				-- If From Whs is 1st Routing Seq. Whs
+				ELSE 
+				BEGIN -- Then checking To whs is from Jobwork or Next Seq Whs
+					IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LTWhsName) 						
+					BEGIN
+						UPDATE OWTR SET U_CurSeqNo = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+						UPDATE WTR1 SET U_RoutSeq = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+					END
+					ELSE IF @LTWhsName = @SeqNxtRoutWhsName
+					BEGIN
+						UPDATE OWTR SET U_CurSeqNo = 2 WHERE DocEntry = @list_of_cols_val_tab_del	
+						UPDATE WTR1 SET U_RoutSeq = 2 WHERE DocEntry = @list_of_cols_val_tab_del	
+					END
+					ELSE
+					BEGIN
+						IF ISNULL(@SeqNxtRoutWhsName, '') = ''
+						BEGIN
+							SET @error = 1006
+							SET @error_message = 'Next Routing sequence is not mapped in Warehouse.'
+						END
+						ELSE
+						BEGIN
+							SET @error = 1001
+							--SET @error_message = 'To Warehouse must be a Job work warehouse or from Route Sequence warehouse (i.e. ' + @SeqNxtRoutWhsName + ').'
+							SET @error_message = 'To Warehouse must be from Route Sequence warehouse (i.e. ' + @SeqNxtRoutWhsName + ').'
+						END
+					END
+				END
+			END
+
+			-- If Ineventory Transfer is based on Goods Receipt only
+			ELSE IF ISNULL(@GoodsReceiptBase, 0) <> 202
+			BEGIN
+
+				IF @Is_GR_Old = 'Yes'
+				BEGIN
+					SELECT TOP 1 @ReceiptWhsName = T4.WhsName, @SeqNxtRoutWhsName = T6.WhsName, @BaseQty = ISNULL(T0.Quantity, 0), @ProdOrdNum = T0.BlockNum, 
+					@GoodsReceiptBase = T0.BaseType			
+					FROM IGN1 T0 
+					--INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseType = 202 AND T1.ItemCode = T0.ItemCode
+					INNER JOIN OITT T2 ON T2.Code = T0.ItemCode
+					INNER JOIN ITT2 T3 ON T3.Father = T2.Code AND T3.SeqNum = T0.U_RoutSeq
+					INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+					INNER JOIN OWHS T4 ON T4.WhsCode = T0.WhsCode AND T4.BPLid = T5.BPLId
+					INNER JOIN OWHS T6 ON T6.U_Routing = T3.Name AND T6.BPLid = T5.BPLId
+					WHERE T0.DocEntry = @InvenTransBaseEntry
+					AND T0.WhsCode NOT LIKE ('REJ%')
+					--AND T5.U_TransferType = 'B'
+				END
+				ELSE
+				BEGIN
+					SELECT TOP 1 @ReceiptWhsName = T4.WhsName, @SeqNxtRoutWhsName = T6.WhsName, @BaseQty = ISNULL(T0.Quantity, 0), @ProdOrdNum = T0.BlockNum, 
+					@GoodsReceiptBase = T0.BaseType			
+					FROM IGN1 T0 
+					INNER JOIN OWOR T1 ON T1.ItemCode = T0.ItemCode AND CAST(T1.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR)
+					--INNER JOIN OITT T2 ON T2.Code = T0.ItemCode
+					--INNER JOIN ITT2 T3 ON T3.Father = T2.Code AND T3.SeqNum = 2
+					INNER JOIN WOR4 T3 ON T3.DocEntry = T1.DocEntry AND T3.SeqNum = T0.U_RoutSeq
+					INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+					INNER JOIN OWHS T4 ON T4.WhsCode = T0.WhsCode AND T4.BPLid = T5.BPLId
+					INNER JOIN OWHS T6 ON T6.U_Routing = T3.Name AND T6.BPLid = T5.BPLId
+					WHERE T0.DocEntry = @InvenTransBaseEntry
+					AND T0.WhsCode NOT LIKE ('REJ%')
+					--AND T5.U_TransferType = 'B'
+				END
+
+				DECLARE @LastInventoryTransSeq AS INTEGER
+				DECLARE @LastBranchID AS INTEGER
+
+				SET @LastInventoryTransSeq = 0
+				SET @LastBranchID = 0
+
+-- If Goods Receipt Transfer Type is OLD
+				IF ISNULL(@GoodIssueTransferType, '') = 'O' 
+				BEGIN
+					SET @GISeqNo = ''
+					SET @SeqNxtRoutWhsName = ''
+
+					SELECT TOP 1 @GISeqNo = T2.U_RoutSeq 
+					FROM OWTR T0 
+					INNER JOIN WTR1 T1 ON T1.DocEntry = T0.DocEntry
+					INNER JOIN IGN1 T2 ON T2.DocEntry = T1.BaseEntry AND T2.ObjType = T1.BaseType AND T2.ItemCode = T1.ItemCode AND T2.BlockNum = T1.BlockNum
+						AND T2.LineNum = T1.BaseLine
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					AND T1.WhsCode NOT LIKE 'REJ%'
+
+					SELECT TOP 1 @SeqNxtRoutWhsName = T3.WhsName
+					FROM WTR1 T0
+					INNER JOIN ITT2 T1 ON T1.Father = T0.ItemCode
+					INNER JOIN OWTR T2 ON T2.DocEntry = T0.DocEntry
+					INNER JOIN OWHS T3 ON T3.U_Routing = T1.Name AND T3.BPLid = T2.BPLId
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					AND T1.SeqNum = (@GISeqNo + 1)
+					AND T0.WhsCode NOT LIKE 'REJ%'
+					--AND T1.Name = T3.U_Routing
+
+					IF @SeqNxtRoutWhsName <> @HTWhsName
+					BEGIN
+						SET @error = 1002
+						SET @error_message = 'To Warehouse must be a from Route Sequence warehouse (i.e. ' + @SeqNxtRoutWhsName + ').'
+						-- + CAST(@CurQty AS nvarchar(MAX)) + ' --- ' + CAST(@BaseQty AS nvarchar(MAX))
+	
+						SET @GISeqNo = ''
+						SET @SeqNxtRoutWhsName = ''
+					END
+					ELSE IF @SeqNxtRoutWhsName = @HTWhsName
+					BEGIN
+						UPDATE OWTR SET U_CurSeqNo = (@GISeqNo + 1) WHERE DocEntry = @list_of_cols_val_tab_del	
+						UPDATE WTR1 SET U_RoutSeq = (@GISeqNo + 1) WHERE DocEntry = @list_of_cols_val_tab_del	
+					END
+
+					SET @GISeqNo = ''
+					SET @SeqNxtRoutWhsName = ''
+				END 
+-- If Goods Receipt Transfer Type is NOT Old
+				ELSE
+				BEGIN
+					SELECT TOP 1 @LastInventoryTransSeq = ISNULL(T0.U_RoutSeq, 0), @LastBranchID = T1.BPLId
+					FROM WTR1 T0
+					INNER JOIN OWTR T1 ON T1.DocEntry = T1.DocEntry
+					WHERE T0.DocEntry = (SELECT MAX(T00.DocEntry) 
+											FROM WTR1 T00 
+											WHERE T00.ItemCode = @ItemCode AND T00.BlockNum = @ProdOrdNum)
+
+					IF @CurQty > @BaseQty
+					BEGIN
+						SET @error = 1002
+						SET @error_message = 'Quantity must Less than or Equal to Receipt quantity.'
+						-- + CAST(@CurQty AS nvarchar(MAX)) + ' --- ' + CAST(@BaseQty AS nvarchar(MAX))
+					END
+					ELSE IF @ReceiptWhsName <> @LFWhsName
+					BEGIN
+						SET @error = 1002
+						SET @error_message = 'From Warehouse must be ' + @ReceiptWhsName + '.'
+					END
+					-- Multiple Inventory Transfer based on same Goods Receipt is not allowed
+					ELSE IF EXISTS(SELECT A.DocEntry
+										FROM (SELECT DISTINCT T0.DocEntry
+												FROM WTR1 T0
+												INNER JOIN OWTR T1 ON T1.DocEntry = T0.DocEntry
+												INNER JOIN IGN1 T2 ON T2.ObjType = T0.BaseEntry AND T2.ItemCode = T0.ItemCode
+												INNER JOIN OIGN T3 ON T3.DocEntry = T2.DocEntry AND T3.BPLId = T1.BPLId
+												WHERE T0.DocEntry = @list_of_cols_val_tab_del
+												AND T2.BaseType <> '202'
+											) A
+										WHERE A.DOCENTRY <> @list_of_cols_val_tab_del
+									)
+					BEGIN
+						SET @error = 1002
+						SET @error_message = 'Inventory Transfer already done against this Goods Receipt.'
+					END
+					-- If From Whs is Jobwork
+					ELSE IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LFWhsName) 
+					BEGIN
+						-- If To Whs is also Jobwork
+						IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LTWhsName) 
+						BEGIN
+							UPDATE OWTR SET U_CurSeqNo = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+							UPDATE WTR1 SET U_RoutSeq = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+						END
+						-- If To Whs is from Route Seq
+						ELSE IF EXISTS(SELECT T0.Father FROM ITT2 T0 
+										INNER JOIN OWHS T1 ON T1.U_Routing = T0.Name
+										WHERE T0.Father = @ItemCode AND T1.WhsName = @LTWhsName AND T1.BPLid = @CurInvTranBranchID)
+						BEGIN
+							IF NOT EXISTS(SELECT T0.Father FROM ITT2 T0 
+											INNER JOIN OWHS T1 ON T1.U_Routing = T0.Name
+											WHERE T0.Father = @ItemCode AND T1.WhsName = @LTWhsName AND T1.BPLid = @CurInvTranBranchID AND T0.SeqNum = @CurSeqNo)
+							BEGIN
+								SET @error = 1002
+								SET @error_message = 'Please select Current Sequence of To Warehouse as per Routing Process.'
+							END
+						END
+						ELSE -- Give Error msg
+						BEGIN
+							SET @error = 1002
+							--SET @error_message = 'From warehouse must be a Job Work warehouse or from the Route sequence warehouses.'
+							SET @error_message = 'From warehouse must be from the Route sequence warehouses.'
+						END
+					END 
+					-- If From Whs is 1st Routing Seq. Whs
+					ELSE 
+					BEGIN -- Then checking To whs is from Jobwork or Next Seq Whs
+
+						DECLARE @PrvBranchInvTransferDocEntry AS INTEGER
+						SET @PrvBranchInvTransferDocEntry = 0
+
+						--SELECT TOP 1 @PrvBranchInvTransferDocEntry = MAX(T00.DocEntry)
+						--						FROM WTR1 T00 
+						--						INNER JOIN OWTR T01 ON T01.DocEntry = T00.DocEntry
+						--						WHERE T00.ItemCode = @ItemCode AND T00.BlockNum = @ProdOrdNum AND T01.BPLId = 5
+						SELECT TOP 1 @PrvBranchInvTransferDocEntry = MAX(T00.DocEntry)
+												FROM WTR1 T00 
+												INNER JOIN OWTR T01 ON T01.DocEntry = T00.DocEntry
+												WHERE T00.ItemCode = @ItemCode AND T00.BlockNum = @ProdOrdNum AND T01.BPLId = 5
+												AND T00.WhsCode NOT LIKE 'REJ-%'
+
+						SELECT TOP 1 @LastInventoryTransSeq = ISNULL(T0.U_RoutSeq, 0)
+						FROM WTR1 T0
+						INNER JOIN OWTR T1 ON T1.DocEntry = T1.DocEntry
+						WHERE T0.DocEntry = @PrvBranchInvTransferDocEntry
+
+						IF @Is_GR_Old = 'Yes'
+						BEGIN
+							SELECT TOP 1 @SeqNxtRoutWhsName = T0.WhsName
+							FROM OWHS T0
+							INNER JOIN ITT2 T1 ON T1.Name = T0.U_Routing
+							WHERE T0.BPLid = @CurInvTranBranchID
+							AND T1.Father = @ItemCode
+							AND T1.SeqNum = (@LastInventoryTransSeq + 1)
+						END
+						ELSE
+						BEGIN
+							--SELECT @SeqNxtRoutWhsName = T0.WhsName
+							--FROM OWHS T0
+							--INNER JOIN ITT2 T1 ON T1.Name = T0.U_Routing
+							--WHERE T0.BPLid = @CurInvTranBranchID
+							--AND T1.Father = @ItemCode
+							--AND T1.SeqNum = (@LastInventoryTransSeq + 1)
+
+							SELECT TOP 1 @SeqNxtRoutWhsName = T3.WhsName
+							FROM WTR1 T0
+							INNER JOIN OWTR T11 ON T11.DocEntry = T0.DocEntry
+							INNER JOIN OWOR T1 ON CAST(T1.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR)
+							INNER JOIN WOR4 T2 ON T2.DocEntry = T1.DocEntry
+							INNER JOIN OWHS T3 ON T3.U_Routing = T2.Name AND T3.BPLId = T11.BPLId
+							WHERE T2.SeqNum = (ISNULL(@LastInventoryTransSeq, 0) + 1)
+							AND T0.DocEntry = @list_of_cols_val_tab_del
+						END
+
+
+						IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LTWhsName) 						
+						BEGIN
+							UPDATE OWTR SET U_CurSeqNo = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+							UPDATE WTR1 SET U_RoutSeq = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+						END
+						ELSE IF @LTWhsName = @SeqNxtRoutWhsName
+						BEGIN
+							UPDATE OWTR SET U_CurSeqNo = (@LastInventoryTransSeq + 1) WHERE DocEntry = @list_of_cols_val_tab_del	
+							UPDATE WTR1 SET U_RoutSeq = (@LastInventoryTransSeq + 1) WHERE DocEntry = @list_of_cols_val_tab_del	
+						END
+						ELSE
+						BEGIN
+							IF ISNULL(@SeqNxtRoutWhsName, '') = ''
+							BEGIN
+								SET @error = 1006
+								SET @error_message = 'Next Routing sequence is not mapped in Warehouse.'
+							END
+							ELSE
+							BEGIN
+								SET @error = 1004
+								--SET @error_message = 'To Warehouse must be a Job work warehouse or from Route Sequence warehouse (i.e. ' + @SeqNxtRoutWhsName + ').'
+								SET @error_message = 'To Warehouse must be from Route Sequence warehouse (i.e. ' + @SeqNxtRoutWhsName + ').' --+ @LTWhsName + ' - ' + CAST(@GoodsReceiptBase AS nvarchar)
+							END
+						END
+					END
+				END -- If Goods Issue Transfer Type is not Old 
+			END -- End of Goods Issue only
+
+		END -- End of Receipt From Production OR Goods Receipt
+
+
+		-- Inventory Transfer
+		ELSE IF @InvenTransBaseType = '67' 
+		BEGIN
+
+			IF @Is_GR_Old = 'Yes'
+			BEGIN
+				SELECT TOP 1 @ReceiptWhsName = T4.WhsName, @SeqNxtRoutWhsName = T6.WhsName, @BaseQty = ISNULL(T0.Quantity, 0), @ProdOrdNum = T0.BlockNum, @GoodsReceiptBase = T0.BaseType			
+				FROM IGN1 T0 
+				--INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T0.BaseType = 202 AND T1.ItemCode = T0.ItemCode
+				INNER JOIN OITT T2 ON T2.Code = T0.ItemCode
+				INNER JOIN ITT2 T3 ON T3.Father = T2.Code AND T3.SeqNum = T0.U_RoutSeq
+				INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+				INNER JOIN OWHS T4 ON T4.WhsCode = T0.WhsCode AND T4.BPLid = T5.BPLId
+				INNER JOIN OWHS T6 ON T6.U_Routing = T3.Name AND T6.BPLid = T5.BPLId
+				WHERE T0.DocEntry = @InvenTransBaseEntry
+				AND T0.WhsCode NOT LIKE ('REJ%')
+				--AND T0.WhsCode NOT LIKE ('RM')
+				--AND T5.U_TransferType = 'B'
+			END
+			ELSE
+			BEGIN
+				SELECT TOP 1 @ReceiptWhsName = T4.WhsName, @SeqNxtRoutWhsName = T6.WhsName, @BaseQty = ISNULL(T0.Quantity, 0), @ProdOrdNum = T0.BlockNum, @GoodsReceiptBase = T0.BaseType			
+				FROM IGN1 T0 
+				INNER JOIN OWOR T1 ON T1.DocEntry = T0.BaseEntry AND T1.ObjType = T0.BaseType AND T1.ItemCode = T0.ItemCode AND CAST(T1.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR) 
+				--INNER JOIN OITT T2 ON T2.Code = T0.ItemCode
+				--INNER JOIN ITT2 T3 ON T3.Father = T2.Code AND T3.SeqNum = 2
+				INNER JOIN WOR4 T3 ON T3.DocEntry = T1.DocEntry AND T3.SeqNum = T0.U_RoutSeq
+				INNER JOIN OIGN T5 ON T5.DocEntry = T0.DocEntry
+				INNER JOIN OWHS T4 ON T4.WhsCode = T0.WhsCode AND T4.BPLid = T5.BPLId
+				INNER JOIN OWHS T6 ON T6.U_Routing = T3.Name AND T6.BPLid = T5.BPLId
+				WHERE T0.DocEntry = @InvenTransBaseEntry
+				AND T0.WhsCode NOT LIKE ('REJ%')
+				--AND T5.U_TransferType = 'B'
+			END
+
+
+			DECLARE @InvTransPrvToWhsName AS NVARCHAR(MAX)
+			DECLARE @InvTransPrvSeqNo AS INTEGER
+
+			SET @BaseQty = 0
+			SET @ItemCode = ''
+
+			--Base Inventory Transfer details
+			SELECT TOP 1 @ItemCode = T0.ItemCode, @InvTransPrvToWhsName = T2.WhsName, @InvTransPrvSeqNo = T0.U_RoutSeq, @BaseQty = T0.Quantity
+			FROM WTR1 T0
+			INNER JOIN OWTR T1 ON T1.DocEntry = T0.DocEntry
+			INNER JOIN OWHS T2 ON T2.WhsCode = T0.WhsCode
+			--INNER JOIN OITT T3 ON T3.Code = T0.ItemCode
+			WHERE T0.DocEntry = @InvenTransBaseEntry
+			AND T0.WhsCode NOT LIKE ('REJ%')
+
+
+			IF @CurQty > @BaseQty
+			BEGIN
+				SET @error = 1002
+				SET @error_message = 'Quantity must Less than or Equal to Receipt quantity.'
+			END
+			ELSE IF @InvTransPrvToWhsName <> @LFWhsName
+			BEGIN
+				SET @error = 1002
+				SET @error_message = 'From Warehouse must be ' + @InvTransPrvToWhsName + '.'
+			END
+			-- If From Whs is Jobwork
+			ELSE IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LFWhsName) 
+			BEGIN
+				-- If To Whs is also Jobwork
+				IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LTWhsName) 
+				BEGIN
+					UPDATE OWTR SET U_CurSeqNo = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+					UPDATE WTR1 SET U_RoutSeq = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+				END
+				-- If To Whs is from Route
+				ELSE IF EXISTS(SELECT T0.Father FROM ITT2 T0
+								INNER JOIN OWHS T1 ON T1.U_Routing = T0.Name
+									WHERE T0.Father = @ItemCode AND T0.Name = @LTWhsName AND T1.BPLid = @CurInvTranBranchID)
+				BEGIN
+					IF EXISTS(SELECT T0.Father FROM ITT2 T0 WHERE T0.Father = @ItemCode AND T0.SeqNum = @CurSeqNo)							
+					BEGIN
+						IF (SELECT TOP 1 T0.Name FROM ITT2 T0 
+							INNER JOIN OWHS T1 ON T1.U_Routing = T0.Name
+							WHERE T0.Father = @ItemCode AND T1.BPLid = @CurInvTranBranchID AND T0.SeqNum = @CurSeqNo) <> @LTWhsName
+						BEGIN
+							SET @error = 1002
+							SET @error_message = 'Please select Current Sequence of To Warehouse as per Routing Process.'
+						END
+					END
+					ELSE
+					BEGIN
+						SET @error = 1002
+						SET @error_message = 'Please select Current Sequence of To Warehouse as per Routing Process.'
+					END
+
+				END
+				ELSE -- Give Error msg
+				BEGIN
+					SET @error = 1002
+					--SET @error_message = 'To warehouse must be a Job Work warehouse or from the Route sequence warehouses.'
+					SET @error_message = 'To warehouse must be from the Route sequence warehouses.'
+				END
+			END 
+			-- If From Whs is Routing Whs
+			ELSE 
+			BEGIN -- Then checking To whs is from Jobwork or Next Seq Whs
+
+				IF @Is_GR_Old = 'Yes'
+				BEGIN
+					SELECT TOP 1 @SeqNxtRoutWhsName = T2.WhsName
+					FROM ITT2 T0
+					INNER JOIN OWHS T2 ON T2.U_Routing = T0.Name
+					WHERE T0.Father = @ItemCode
+					AND T0.SeqNum = (@InvTransPrvSeqNo + 1)
+					AND T2.BPLid = @CurInvTranBranchID
+				END
+				ELSE
+				BEGIN
+					--SELECT TOP 1 @SeqNxtRoutWhsName = T2.WhsName
+					--FROM WOR4 T0
+					--INNER JOIN OWOR T1 ON T1.DocEntry = T0.DocEntry
+					--INNER JOIN OWHS T2 ON T2.U_Routing = T0.Name
+					--WHERE T1.ItemCode = @ItemCode
+					--AND T0.SeqNum = (@InvTransPrvSeqNo + 1)
+					--AND T2.BPLid = @CurInvTranBranchID
+
+					SELECT TOP 1 @SeqNxtRoutWhsName = T4.WhsName
+					FROM WTR1 T0
+					INNER JOIN OWTR T1 ON T1.DocEntry = T0.DocEntry
+					INNER JOIN OWOR T2 ON CAST(T2.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR)
+					INNER JOIN WOR4 T3 ON T3.DocEntry = T2.DocEntry
+					INNER JOIN OWHS T4 ON T4.U_Routing = T3.Name
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					AND T4.BPLid = T1.BPLId
+					AND T3.SeqNum = (@InvTransPrvSeqNo + 1)
+					
+				END
+
+				IF EXISTS(SELECT T00.WhsCode FROM OWHS T00 WHERE ISNULL(T00.U_ISJOBWORK, 'N') = 'Y' AND T00.WhsName = @LTWhsName) 						
+				BEGIN
+					UPDATE OWTR SET U_CurSeqNo = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+					UPDATE WTR1 SET U_RoutSeq = 99 WHERE DocEntry = @list_of_cols_val_tab_del	
+				END
+				ELSE IF @LTWhsName = @SeqNxtRoutWhsName
+				BEGIN
+					UPDATE OWTR SET U_CurSeqNo = (@InvTransPrvSeqNo + 1) WHERE DocEntry = @list_of_cols_val_tab_del	
+					UPDATE WTR1 SET U_RoutSeq = (@InvTransPrvSeqNo + 1) WHERE DocEntry = @list_of_cols_val_tab_del	
+				END
+				ELSE
+				BEGIN
+					DECLARE @MaxRoutSeq AS INTEGER
+					SET @MaxRoutSeq = 0
+
+					SELECT TOP 1 @MaxRoutSeq = MAX(T0.SeqNum) FROM ITT2 T0 WHERE T0.Father = @ItemCode
+
+					IF @MaxRoutSeq = @InvTransPrvSeqNo AND ISNULL(@SeqNxtRoutWhsName, '') = ''
+					BEGIN
+						SET @error = 1005
+						SET @error_message = 'You can not do Inventory Transfer as Item is already in Final Warhouse.'
+					END
+					ELSE
+					BEGIN
+						IF ISNULL(@SeqNxtRoutWhsName, '') = ''
+						BEGIN
+							SET @error = 1006
+							SET @error_message = 'Next Routing sequence is not mapped in Warehouse.'
+						END
+						ELSE
+						BEGIN
+							SET @error = 1006
+							--SET @error_message = 'To Warehouse must be a Job work warehouse or from Route Sequence warehouse (i.e. ' + @SeqNxtRoutWhsName + ').'
+							SET @error_message = 'To Warehouse must be from Route Sequence warehouse (i.e. ' + @SeqNxtRoutWhsName + ').' -- +@Is_GR_Old + @ItemCode + ' - ' + CAST(@InvTransPrvSeqNo AS nvarchar) + ' - ' + CAST(@CurInvTranBranchID AS nvarchar)
+						END
+					END
+
+				END
+			END
+		END -- End of Receipt From Production
+	END
+
+
+--	Issue To Production And Goods Issue 60
+	IF (@object_type = '60' AND @transaction_type IN ('A', 'U'))
+	BEGIN
+
+		SET @Is_GR_Old = ''
+
+		SELECT TOP 1 @Is_GR_Old = CASE WHEN COUNT(*) > 0 THEN 'Yes' ELSE 'No' END
+		FROM IGN1 T00 
+		INNER JOIN OIGN T01 ON T01.DocEntry = T00.DocEntry
+		WHERE CAST(T00.BlockNum AS NVARCHAR) = (SELECT TOP 1 CAST(T0.BlockNum AS NVARCHAR) FROM IGE1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del)
+		AND ISNULL(T01.U_TransferType, '') = 'O'
+		AND T00.BaseType <> 202
+
+		-- Goods Issue
+		IF EXISTS(SELECT ItemCode
+					FROM IGE1 T0 
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					AND ISNULL(T0.BaseType, '') <> '202')
+		BEGIN
+			SET @TransferType = ''
+			SET @ProdOrder = 0
+
+			SELECT TOP 1 @TransferType = ISNULL(T0.U_TransferType, ''), @ProdOrder = ISNULL(T0.U_ProdOrdNo, 0)
+			FROM OIGE T0 
+			WHERE T0.DocEntry = @list_of_cols_val_tab_del
+
+			IF @TransferType = ''
+			BEGIN
+				SET @error = 10011
+				SET @error_message = 'Please select Transfer Type.'
+			END
+			ELSE IF(EXISTS(SELECT T0.DocEntry FROM OIGE T0 
+							WHERE ISNULL(T0.U_TransferType, '') IN ('O', 'N') AND T0.UserSign NOT IN ('1', '13', '18', '27') AND T0.DocEntry = @list_of_cols_val_tab_del))
+			BEGIN
+				SET @error = 1011
+				SET @error_message = 'You are not authorized for "Old WIP" and "Normal" type of transaction.'
+			END 	
+			ELSE IF @TransferType = 'B'
+			BEGIN
+				IF @Is_GR_Old = 'Yes'
+				BEGIN
+					IF NOT EXISTS(SELECT T0.DocEntry
+								FROM IGE1 T0 
+								INNER JOIN IGE1 T1 ON T1.ItemCode = T0.ItemCode AND T1.BlockNum = T0.BlockNum
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del)
+					BEGIN
+						SET @error = 1001
+						SET @error_message = 'ItemCode is not matching with Production Order Item Code.'
+					END
+				END
+				ELSE
+				BEGIN
+					IF EXISTS(SELECT T0.DocEntry
+								FROM IGE1 T0 
+								INNER JOIN OWOR T1 ON CAST(T1.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR)
+								INNER JOIN OITM T2 ON T2.ItemCode = T1.ItemCode
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del
+								AND T0.ItemCode NOT LIKE '%WIP%'
+								AND T0.ItemCode <> T2.FrgnName and t2.itmsgrpcod Not in (104,118) )
+					BEGIN
+						SET @error = 10014
+						SET @error_message = 'ItemCode is not matching with Production Order Item Code.'
+					END
+				END
+					
+				IF EXISTS(SELECT T0.DocEntry
+							FROM IGE1 T0 
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del
+							AND T0.WhsCode NOT IN (SELECT T01.WhsCode FROM ORST T00 INNER JOIN OWHS T01 ON T01.U_Routing = T00.[Desc]
+													WHERE ISNULL(T00.U_PrimeProcess, 'N') = 'N' AND T01.WhsCode LIKE 'ACC%')
+						)
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'In case of Branch Transfer - Stock will be issued from ACCOUNTING warehouse only.'
+				END
+				ELSE IF EXISTS(SELECT T0.DocEntry
+							FROM IGE1 T0 
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del
+							AND ISNULL(T0.ItemCode, '') <> ''
+							AND ISNULL(T0.BlockNum, '') = '')
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'Please select BlockNum (Production Order Number) in all lines.'
+				END
+				--ELSE IF EXISTS(SELECT T0.ItemCode
+				--					FROM IGE1 T0
+				--					INNER JOIN WTR1 T1 ON T1.ItemCode = T0.ItemCode AND T1.BlockNum = T0.BlockNum AND T1.WhsCode = T0.WhsCode
+				--					INNER JOIN OIGE T2 ON T2.DocEntry = T0.DocEntry
+				--					INNER JOIN OWTR T3 ON T3.DocEntry = T1.DocEntry
+				--					WHERE T1.DocEntry = (SELECT MAX(T01.DocEntry)
+				--											FROM IGE1 T00
+				--											INNER JOIN WTR1 T01 ON T01.ItemCode = T00.ItemCode AND T00.BlockNum = T01.BlockNum AND T00.WhsCode = T01.WhsCode
+				--											INNER JOIN OIGE T02 ON T02.DocEntry = T00.DocEntry
+				--											INNER JOIN OWTR T03 ON T03.DocEntry = T01.DocEntry
+				--											WHERE T00.DocEntry = @list_of_cols_val_tab_del
+				--											AND T02.BPLId = T03.BPLId
+				--										)
+				--					AND T0.Quantity <> T1.Quantity
+				--					AND T2.BPLId = T3.BPLId
+				--					AND ISNULL(T1.BaseRef, '') <> ''
+				--					AND T0.DocEntry = @list_of_cols_val_tab_del
+				--				)
+				--BEGIN
+				--	SET @error = 1001
+				--	SET @error_message = 'Item Quantity must be Equal To with Inventory Transfer Quantity of this Production Order.'
+				--END
+				ELSE IF EXISTS(SELECT T0.ItemCode
+									FROM IGE1 T0
+									INNER JOIN WTR1 T1 ON T1.ItemCode = T0.ItemCode AND T1.BlockNum = T0.BlockNum AND T1.WhsCode = T0.WhsCode
+									INNER JOIN OIGE T2 ON T2.DocEntry = T0.DocEntry
+									INNER JOIN OWTR T3 ON T3.DocEntry = T1.DocEntry
+									WHERE T1.DocEntry = (SELECT MAX(T01.DocEntry)
+															FROM IGE1 T00
+															INNER JOIN WTR1 T01 ON T01.ItemCode = T00.ItemCode AND T00.BlockNum = T01.BlockNum AND T00.WhsCode = T01.WhsCode
+															INNER JOIN OIGE T02 ON T02.DocEntry = T00.DocEntry
+															INNER JOIN OWTR T03 ON T03.DocEntry = T01.DocEntry
+															WHERE T00.DocEntry = @list_of_cols_val_tab_del
+															AND T01.WhsCode NOT LIKE ('REJ%')
+															AND T02.BPLId = T03.BPLId
+														)
+									AND T0.Quantity <> (T1.Quantity - ISNULL((SELECT ISNULL(SUM(ISNULL(T01.Quantity, 0)), 0)
+																			FROM WTR1 T01 
+																			INNER JOIN OWTR T03 ON T03.DocEntry = T01.DocEntry
+																			WHERE T03.BPLId = T3.BPLId
+																			AND T01.WhsCode LIKE ('REJ%')
+																			AND T01.BlockNum = T1.BlockNum
+																			AND T01.ItemCode = T1.ItemCode
+																			AND T01.BaseEntry = T1.DocEntry
+																		), 0)
+														)
+									AND T2.BPLId = T3.BPLId
+									AND ISNULL(T1.BaseRef, '') <> ''
+									AND T0.DocEntry = @list_of_cols_val_tab_del
+								)
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'Item Quantity must be Equal To with Inventory Transfer Quantity of this Production Order.'
+				END
+				ELSE IF (SELECT COUNT(*) 
+					FROM IGE1 T0
+					INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+					INNER JOIN OITL T2 ON T2.DocEntry = T0.DocEntry AND T2.DocType = T0.ObjType AND T2.DocLine = T0.LineNum AND T2.ItemCode = T0.ItemCode
+					INNER JOIN ITL1 T3 ON T3.LogEntry = T2.LogEntry and T3.ItemCode = T3.ItemCode
+					INNER JOIN OBTN T4 ON T4.AbsEntry = T3.MdAbsEntry and T4.ItemCode = T3.ItemCode
+					WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					AND ISNULL(T1.ManBtchNum, 'N') = 'Y'
+					AND T0.BlockNum <> T4.DistNumber) > 0
+				BEGIN  
+					SET @error = 1006  
+					SET @error_message = 'Batch Number must be same as a Block No. (or Production Order No.) for each Line Item.'
+				END  
+
+				-- For Goods Issue next warehouse must next sequncial Whs
+				DECLARE @LastInvTranSeq AS INTEGER
+				SET @LastInvTranSeq = 0
+
+				SELECT TOP 1 @LastInvTranSeq = T0.U_RoutSeq
+				FROM WTR1 T0
+				INNER JOIN OWOR T1 ON T1.ItemCode = T0.ItemCode
+				WHERE T0.DocEntry = (SELECT MAX(T01.DocEntry)
+															FROM IGE1 T00
+															INNER JOIN WTR1 T01 ON T01.ItemCode = T00.ItemCode AND T00.BlockNum = T01.BlockNum AND T00.WhsCode = T01.WhsCode
+															INNER JOIN OIGE T02 ON T02.DocEntry = T00.DocEntry
+															INNER JOIN OWTR T03 ON T03.DocEntry = T01.DocEntry
+															WHERE T00.DocEntry = @list_of_cols_val_tab_del
+															AND T02.BPLId = T03.BPLId
+														)
+				AND T0.WhsCode NOT LIKE 'REJ%'
+
+				IF ISNULL(@LastInvTranSeq, 0) > 0
+				BEGIN
+					DECLARE @GIWhsNameToBe AS NVARCHAR(MAX)
+					DECLARE @GIWhsName AS NVARCHAR(MAX)
+
+					--SET @GIWhsNameToBe = ''
+
+					--IF @Is_GR_Old = 'Y'
+					--BEGIN
+					--END
+					--ELSE
+					--BEGIN
+					--	SELECT TOP 1 @GIWhsNameToBe = T4.WhsName, @GIWhsName = T5.WhsName
+					--	FROM IGE1 T0
+					--	INNER JOIN OIGE T1 ON T1.DocEntry = T0.DocEntry
+					--	INNER JOIN OWOR T2 ON T2.ItemCode = T0.ItemCode AND CAST(T2.DocNum AS NVARCHAR) = CAST(T0.BlockNum AS NVARCHAR) 
+					--	INNER JOIN ITT2 T3 ON T3.Father = T0.ItemCode
+					--	INNER JOIN OWHS T4 ON T4.U_Routing = T3.Name AND T4.BPLid = T1.BPLId
+					--	INNER JOIN OWHS T5 ON T5.WhsCode = T0.WhsCode
+					--	WHERE T0.DocEntry = @list_of_cols_val_tab_del
+					--	AND T0.WhsCode NOT LIKE 'REJ%'
+					--	AND T3.SeqNum = (@LastInvTranSeq + 1)
+					--END
+
+					--IF @GIWhsName <> @GIWhsNameToBe
+					--BEGIN
+					--	SET @error = 1001  
+					--	SET @error_message = 'Warehouse must be ' + @GIWhsNameToBe + '.'
+					--END
+					--ELSE
+					--BEGIN
+						UPDATE OIGE SET U_CurSeqNo = @LastInvTranSeq WHERE DocEntry = @list_of_cols_val_tab_del	
+						UPDATE IGE1 SET U_RoutSeq = @LastInvTranSeq WHERE DocEntry = @list_of_cols_val_tab_del	
+					--END
+				END
+			END
+
+			ELSE IF @TransferType = 'P'
+			BEGIN
+				IF @ProdOrder = 0
+				BEGIN
+					SET @error = 1001
+					SET @error_message = 'Please select Production Order.'
+				END
+				ELSE
+				BEGIN
+					IF EXISTS(SELECT T0.DocEntry 
+								FROM OIGE T0 
+								INNER JOIN IGE1 T1 ON T1.DocEntry = T0.DocEntry
+								INNER JOIN OWOR T2 ON T2.DocEntry = T0.U_ProdOrdNo
+								INNER JOIN WOR1 T3 ON T3.DocEntry = T2.DocEntry
+								WHERE T0.DocEntry = @list_of_cols_val_tab_del
+								AND ISNULL(T1.BaseEntry, 0) <> 202
+								AND T3.ItemCode <> T1.ItemCode)
+					BEGIN
+						SET @error = 1001
+						SET @error_message = 'Item are not matching with Production Order.'
+					END
+				END
+			END
+		END
+		--ELSE
+		--BEGIN
+		--	IF EXISTS (SELECT T0.ItemCode FROM IGN1 T0 
+		--				INNER JOIN WOR1 T1 ON T1.DocEntry = T0.BaseEntry AND T1.LineNum = T0.BaseLine AND T1.ItemCode = T0.ItemCode	
+		--				WHERE T0.DocEntry = @list_of_cols_val_tab_del
+		--				AND T0.BaseType = 202)
+		--	BEGIN
+		--		SET @error = 1011
+		--		SET @error_message = 'You cannot Issue quantity more than Planned quantity.'
+		--	END
+		--END
+	END
+---------------------------------------------------------------------------------------
+IF @object_type = 'AttachBOM' AND @transaction_type IN ('A','U')
+BEGIN	
+		DECLARE @AItemList NVARCHAR (100);
+		DECLARE @RoutSeq111 Int;
+
+		SET @AItemList = (SELECT T0.U_BOMItemCode FROM [dbo].[@ATTACHHEAD] T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del);
+		SET @RoutSeq111 = (SELECT T0.U_BOMRoutSeq  FROM [dbo].[@ATTACHHEAD] T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del);
+
+		
+		IF(EXISTS(SELECT  T0.DocEntry FROM [dbo].[@ATTACHHEAD] T0 WHERE  ISNULL(T0.U_BOMItemCode,'') ='' AND T0.DocEntry = @list_of_cols_val_tab_del))
+			BEGIN
+				SET @error = '1025'
+				SET @error_message = 'Please Enter the Item Code'
+			END
+	ELSE IF(EXISTS(SELECT T0.DocEntry FROM [dbo].[@ATTACHHEAD] T0 WHERE  ISNULL(T0.U_BOMRoutSeq,'') ='' AND T0.DocEntry = @list_of_cols_val_tab_del))
+			BEGIN
+				SET @error = '1025'
+				SET @error_message = 'Please Enter the Rout Sequence'
+			END 
+	ELSE IF(EXISTS(SELECT  T0.DocEntry FROM [dbo].[@ATTACHHEAD] T0 WHERE  ISNULL(T0.U_RoutSeqName,'') ='' AND T0.DocEntry = @list_of_cols_val_tab_del))
+			BEGIN
+				SET @error = '1025'
+				SET @error_message = 'Please Enter the Rout Sequence Name'
+			END 
+	ELSE IF(NOT EXISTS( SELECT T0.DocEntry	 
+							FROM [dbo].[@ATTACHHEAD] T0
+								INNER JOIN ITT2 T1 ON T1.Father = T0.U_BOMItemCode AND T1.SeqNum = T0.U_BOMRoutSeq 
+									WHERE T0.DocEntry = @list_of_cols_val_tab_del))
+			BEGIN
+				SET @error = '1026'
+				SET @error_message = 'Rout Squence does not exist in Item BOM'
+			END 
+			
+	ELSE IF(NOT EXISTS( SELECT T0.DocEntry	 
+							FROM [dbo].[@ATTACHHEAD] T0
+								INNER JOIN ITT2 T1 ON T1.Father = T0.U_BOMItemCode AND T1.SeqNum = T0.U_BOMRoutSeq 
+									WHERE  T1.Name = T0.U_RoutSeqName AND T0.DocEntry = @list_of_cols_val_tab_del))
+			BEGIN
+				SET @error = '1027'
+				SET @error_message = 'Routing Sequence Name is not matching with Rout Name'
+			END 
+	ELSE  IF 1 != (SELECT COUNT(T0.DocEntry) FROM [dbo].[@ATTACHHEAD] T0 WHERE T0.U_BOMItemCode = @AItemList AND T0.U_BOMRoutSeq = @RoutSeq111)
+			BEGIN
+				SET @error = '1028'
+				SET @error_message = 'This entry is already exist.'
+			END 
+			
+	END
+	-----------------------------------------------
+
+	IF @object_type = '67' AND @transaction_type IN ('A','U')
+	BEGIN
+		IF EXISTS(SELECT T1.DocEntry FROM WTR1 T1 INNER JOIN OWOR  T2 ON T1.BlockNum = T2.DocNum
+					WHERE T1.DocEntry = @list_of_cols_val_tab_del AND T2.PostDate >= '20210824'
+					
+					GROUP BY T1.DocEntry,T1.BaseQty 
+						HAVING SUM(T1.Quantity) <> T1.BaseQty )
+
+				BEGIN
+					SET @error = 10
+					SET @error_message  = 'Base Quantity must be same as Total transfer quantity' 
+				END
+	END
+
+--############################################################################
+--############################################################################
+--############################################################################
+
+IF (@object_type='67' AND @transaction_type IN ('A' , 'U'))
+BEGIN
+	IF  EXISTS (select Distinct(T0.DocEntry) from OWTR T0
+		Inner join WTR1 T1
+		on T0.DocEntry=T1.DocEntry
+	 	WHERE  T0.UserSign  not in (SELECT a.U_USERID FROM [dbo].[@USERLINKING] a INNER JOIN [dbo].[@WHSELINKING] b
+		ON a.DocEntry=b.DocEntry
+		where b.U_WHSECODE=t1.FromWhsCod) AND T0.DocEntry = @list_of_cols_val_tab_del)
+		BEGIN
+			SET @error = 104
+			SET @error_message = 'User is not mapped with From Wareshoue!!'
+		END
+	
+END
+------------------------------------------------------------------NEW GST BY VIVEK 24-11-2021-------------------------------------------
+IF @object_type = '18' AND @transaction_type IN ('A')
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM PCH12 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.LocGSTN !='02ABAFP1912D1Z2' ) )
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'GST NO. Should be 02ABAFP1912D1Z2 in Location ' 
+				END 
+END
+
+IF @object_type = '19' AND @transaction_type IN ('A')
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM RPC12 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.LocGSTN !='02ABAFP1912D1Z2' ) )
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'GST NO. Should be 02ABAFP1912D1Z2 in Location ' 
+				END 
+END
+
+IF @object_type = '13' AND @transaction_type IN ('A')
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM INV12 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.LocGSTN !='02ABAFP1912D1Z2' ) )
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'GST NO. Should be 02ABAFP1912D1Z2 in Location ' 
+				END 
+END
+
+IF @object_type = '14' AND @transaction_type IN ('A')
+BEGIN
+	IF(EXISTS(SELECT T0.DocEntry FROM RIN12 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.LocGSTN !='02ABAFP1912D1Z2' ) )
+				
+				BEGIN
+					SET @error = 5001;
+					SET @error_message = 'GST NO. Should be 02ABAFP1912D1Z2 in Location ' 
+				END 
+END
+------------------------------------------------------------------NEW GST BY VIVEK 24-11-2021-------------------------------------------
+------------------------------------------------------------------Production Process Start BY VIVEK 17-04-2022----------------------------------
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+DECLARE @Seq AS nvarchar (3)
+DECLARE @ProdNum AS nVarChar (50)
+DECLARE @ItemCod AS nVarChar (50)
+SELECT @Seq = U_SEQU FROM [dbo].[@TURNH]
+ WHERE DocEntry = @list_of_cols_val_tab_del
+SELECT @ProdNum = U_PORN FROM [dbo].[@TURNH]
+ WHERE DocEntry = @list_of_cols_val_tab_del
+SELECT @ItemCod = U_ITCD FROM [dbo].[@TURNH]
+ WHERE DocEntry = @list_of_cols_val_tab_del
+ IF 1 != (SELECT COUNT(DocEntry)
+FROM [dbo].[@TURNH] WITH(NOLOCK) WHERE 
+@ProdNum = U_PORN and @ItemCod = U_ITCD And U_SEQU in ( @Seq)
+ ) --AND (@Seq IS NOT NULL OR @Seq <> '')
+BEGIN
+SELECT @ERROR = 1
+SELECT @ERROR_MESSAGE = 'Production Process of this sequence of this production order is Already Exist'
+END
+end
+/*
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+DECLARE @Seq1 AS nvarchar (3)
+DECLARE @ProdNum1 AS nVarChar (50)
+DECLARE @ItemCod1 AS nVarChar (50)
+SELECT @Seq1 = MAX(U_SEQU) FROM [dbo].[@TURNH]
+WHERE DocEntry = @list_of_cols_val_tab_del
+Select @ProdNum1 = U_PORN FROM [dbo].[@TURNH]
+WHERE DocEntry = @list_of_cols_val_tab_del
+Select @ItemCod1 = U_ITCD FROM [dbo].[@TURNH]
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 !=
+(SELECT Count(T0.DocEntry) FROM [dbo].[@TURNH] T0 WITH(NOLOCK) 
+WHERE T0.DOCENTRY = @list_of_cols_val_tab_del and @ProdNum1 = T0.U_PORN and @ItemCod1 = T0.U_ITCD And T0.U_SEQU-1 not in (@Seq1)
+) 
+BEGIN
+SELECT @ERROR = 1
+SELECT @ERROR_MESSAGE = 'Production Process of this production order is Should be in sequence'
+END
+end
+*/
+
+/*IF @transaction_type IN (N'A') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (Select sum(T1.U_POKP) + (Sum(T2.U_REWO)) From [dbo].[@TURNH] T1 Inner Join [Dbo].[@TURND] t2 on t2.DocEntry=t1.DocEntry Where T1.U_PORN = T0.U_PORN And T0.U_ITCD=T1.U_ITCD And T1.U_SEQU =T0.U_SEQU) = '0' 
+And T0.U_Sequ != '1')
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of this production order is Should be in sequence'
+end
+end 20012023*/
+
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (Select T1.U_PROS From [dbo].[@TURNH] T1 Where T1.U_PORN = T0.U_PORN And T0.U_ITCD=T1.U_ITCD And T1.U_SEQU+1 =T0.U_SEQU) = 'O')
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of previous sequence of this production order should be closed first'
+end
+end
+
+/*
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (Select T1.U_PROS From [dbo].[@TURNH] T1 Where T1.U_PORN = T0.U_PORN And T0.U_ITCD=T1.U_ITCD And T1.U_SEQU+2 =T0.U_SEQU) = 'O')
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of previous sequence of this production order should be closed first'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (Select T1.U_PROS From [dbo].[@TURNH] T1 Where T1.U_PORN = T0.U_PORN And T0.U_ITCD=T1.U_ITCD And T1.U_SEQU+3 =T0.U_SEQU) = 'O')
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of previous sequence of this production order should be closed first'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (Select T1.U_PROS From [dbo].[@TURNH] T1 Where T1.U_PORN = T0.U_PORN And T0.U_ITCD=T1.U_ITCD And T1.U_SEQU+4 =T0.U_SEQU) = 'O')
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of previous sequence of this production order should be closed first'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (Select T1.U_PROS From [dbo].[@TURNH] T1 Where T1.U_PORN = T0.U_PORN And T0.U_ITCD=T1.U_ITCD And T1.U_SEQU+5 =T0.U_SEQU) = 'O')
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of previous sequence of this production order should be closed first'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (Select T1.U_PROS From [dbo].[@TURNH] T1 Where T1.U_PORN = T0.U_PORN And T0.U_ITCD=T1.U_ITCD And T1.U_SEQU+6 =T0.U_SEQU) = 'O')
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of previous sequence of this production order should be closed first'
+end
+end
+*/
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and ISNULL(T0.U_SEQU, '') = '' )
+begin
+select @Error = 1001, 
+@error_message = 'Production Process sequence of this production order can not Blank'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and ISNULL(T0.U_LOCA, '') = '' )
+begin
+select @Error = 1001, 
+@error_message = 'Production Process Location of this production order can not Blank'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM "@TURNH" T0
+Inner Join [dbo].[@TURND] T1 On T1.DocEntry=T0.DocEntry
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (ISNULL(T1.U_SHFT, '') = '' or ISNULL(T1.U_SHSD, '') = '' or ISNULL(T1.U_SHST, '') = '' or ISNULL(T1.U_ENDD, '') = '' or ISNULL(T1.U_SHET, '') = ''
+ or ISNULL(T1.U_SHMI, '') = '' ) And ISNULL(T1.U_SHST, '') != ISNULL(T1.U_SHET, ''))
+begin
+select @Error = 1001, 
+@error_message = 'Shift,StartDate,Time,EndDate,Time and Total Available Time of this production order process can not Blank'
+end
+end
+/*
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURND] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and  T0.U_SHSD != T0.U_ENDD And T0.U_SHFT != 'N' )
+begin
+select @Error = 1001, 
+@error_message = 'Shift StartDate and EndDate of this production order process should be same except Night Shift'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURND] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and  T0.U_SHSD != T0.U_ENDD-1 And T0.U_SHFT = 'N' )
+begin
+select @Error = 1001, 
+@error_message = 'Shift EndDate of this production order process should be only one day more '
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T1.DocEntry FROM [dbo].[@TURND] T1
+where T1.DOCENTRY = @list_of_cols_val_tab_del 
+and (ISNULL(T1.U_OKPR, '') = '' ---or ISNULL(T1.U_TOTL, '') = '' 
+or ISNULL(T1.U_OPNA, '') = '' or ISNULL(T1.U_OPCT, '') = '' or ISNULL(T1.U_POPE, '') = '' or ISNULL(T1.U_LOAE, '') = '' ))
+begin
+select @Error = 1001, 
+@error_message ='OK Production,Operator,Operator Cost,Operator Efficency and Lot Acceptance of this production order process can not Blank'
+end
+end
+*/
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T1
+Inner Join [dbo].[@TURND] T0 On T1.DocEntry = T0.DocEntry
+where T1.DOCENTRY = @list_of_cols_val_tab_del 
+and  (Cast(CONVERT(varchar,T0.U_SHSD,112)as int) > Cast(CONVERT(varchar,GETDATE(),112)as int) 
+Or Cast(CONVERT(varchar,T0.U_ENDD,112)as int) > Cast(CONVERT(varchar,GETDATE(),112)as int)))
+---IF CAST(T0.U_ENDD AS VARCHAR(10)) = CAST(GETDATE() AS VARCHAR(10))
+begin
+select @Error = 1001, 
+@error_message = 'Shift StartDate & EndDate of this production order process should be below current date'
+end
+end
+
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0
+Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+Inner Join "@ROTIH" T2 On T0.U_ITCD=T2.U_ITEM
+Inner Join "@ROTID" T3 On T2.DocEntry= T3.DocEntry And T0.U_SEQU=T3.LineId
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (SELECT SUM(P1.U_TOTL) From [dbo].[@TURND] P1 Where P1.DocEntry=T0.DocEntry ) > (T0.U_PQTY*1.1) And T3.U_PRCO='TURNING')
+begin
+select @Error = 1001, 
+@error_message ='Sum of Total should be less than (10% + Planned Qty) of this production order process'
+end
+end
+
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0
+Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+Inner Join "@ROTIH" T2 On T0.U_ITCD=T2.U_ITEM
+Inner Join "@ROTID" T3 On T2.DocEntry= T3.DocEntry And T0.U_SEQU=T3.LineId
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(SELECT (SUM(P1.U_TOTL) + ISNULL(SUM(Cast(P1.U_BREM as Int)) ,0.00)) From [dbo].[@TURND] P1 
+Where P1.DocEntry=T0.DocEntry ) != T0.U_POKP  And T3.U_PRCO Not In ('QUALITY','FINAL QUALITY','TURNING','ACCOUNTING'))
+begin
+select @Error = 1001, 
+@error_message ='Sum of Total should be equal to Planned Qty of this production order process'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0
+Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+Inner Join "@ROTIH" T2 On T0.U_ITCD=T2.U_ITEM
+Inner Join "@ROTID" T3 On T2.DocEntry= T3.DocEntry And T0.U_SEQU=T3.LineId
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(SELECT (SUM(P1.U_TOTL)-(SUM(P1.U_SERE)+SUM(P1.U_REJE)+SUM(P1.U_REWO))) From [dbo].[@TURND] P1 
+Where P1.DocEntry=T0.DocEntry ) != T0.U_POKP  And T3.U_PRCO In ('ACCOUNTING'))
+begin
+select @Error = 1001, 
+@error_message ='Sum of OK+Variance should be equal to Previous Qty in Accounting of this production order process'
+end
+end
+
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0
+Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+Inner Join "@ROTIH" T2 On T0.U_ITCD=T2.U_ITEM
+Inner Join "@ROTID" T3 On T2.DocEntry= T3.DocEntry And T0.U_SEQU=T3.LineId
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and (SELECT ((SUM(P2.U_TOAQ)+SUM(P2.U_TRAQ))-(SUM(P2.U_REJE)+SUM(ISNULL(P2.U_OKAR,0.00))+SUM(ISNULL(P2.U_RARW,0.00)))) 
+From [dbo].[@TURNH] P1 
+Inner Join [dbo].[@TURND] P2 On P1.DocEntry=P2.DocEntry 
+Where P1.DocEntry=T0.DocEntry ) != T0.U_POKP And T3.U_PRCO In ('QUALITY','FINAL QUALITY'))
+begin
+select @Error = 1001, 
+@error_message ='Sum of Total should be equal to Previous OK Qty of this production order process'
+end
+end
+
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0
+---Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+INNER JOIN [dbo].[@ROTIH] T2 ON T0.U_ITCD=T2.U_ITEM
+Inner Join [dbo].[@ROTID] T3 ON T2.DocEntry=T3.DocEntry And Cast(T0.U_SEQU as Int)=Cast(T3.LineId as Int)
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and Cast(T3.U_CTPT as decimal(19,6)) = 0.00000 And T3.U_PRCO not in ('QUALITY','FINAL QUALITY','ACCOUNTING','FINAL ACCOUTING'
+) And T0.U_LOCA != '4')
+begin
+select @Error = 1001, 
+@error_message ='Process Cost of this Item is Not define in Routing'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0
+---Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+INNER JOIN [dbo].[@ROTIH] T2 ON T0.U_ITCD=T2.U_ITEM
+Inner Join [dbo].[@ROTID] T3 ON T2.DocEntry=T3.DocEntry And Cast(T0.U_SEQU as Int)=Cast(T3.LineId as Int)
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and Cast(T3.U_TOLC as decimal(19,6)) = 0.00000 And T3.U_PRCO in ('TURNING','HOBBING' ,'DRILLING','CENTRELESS GRINDING','MILLING/SLOTTING',
+'BACK DRILLING/BORING/SLITTING','HONNING','HONNING REWORK','ASSEMBLY/PUNCHING') And T0.U_LOCA != '4')
+begin
+select @Error = 1001, 
+@error_message ='Tool Cost of this Item is Not define in Routing'
+end
+end
+
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0
+---Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+INNER JOIN [dbo].[@ROTIH] T2 ON T0.U_ITCD=T2.U_ITEM
+Inner Join [dbo].[@ROTID] T3 ON T2.DocEntry=T3.DocEntry And Cast(T0.U_SEQU as Int)=Cast(T3.LineId as Int)
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and Cast(T3.U_TMCY as decimal(19,6)) = 0.00000 And T3.U_PRCO in ('TURNING','HOBBING' ,'DRILLING','CENTRELESS GRINDING','MILLING/SLOTTING',
+'BACK DRILLING/BORING/SLITTING','HONNING','HONNING REWORK','ASSEMBLY/PUNCHING','HEAT TREATMENT/POLISHING','CARBURIZING','POLISHING'
+) And T0.U_LOCA != '4')
+begin
+select @Error = 1001, 
+@error_message ='Cycle Time of this Item is Not define in Routing'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0
+Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+INNER JOIN [dbo].[@MAMA] T2 On T1.U_MACM=T2.U_MACO
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and T1.U_MACM is Not Null and T0.U_LOCA != T2.U_LOCA)
+begin
+select @Error = 1001, 
+@error_message ='Machine of same location required for this production order process'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 
+Inner Join OWOR T1 On T0.U_PORN = T1.DocNum  And T0.U_ITCD=T1.ItemCode
+Inner Join WOR1 T2 On T2.DocEntry=T1.DocEntry And T1.ItemCode=T0.U_ITCD
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and T2.IssuedQty <= 0.00 )
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of this production order can not done if issued Qty is less 0'
+end
+end 
+
+
+
+/*
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 
+Inner Join OWOR T1 On T0.U_PORN = T1.DocNum  And T0.U_ITCD=T1.ItemCode
+Inner Join WOR1 T2 On T2.DocEntry=T1.DocEntry And T1.ItemCode=T0.U_ITCD
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+--and (T2.PlannedQty-T2.IssuedQty) > 0 )
+begin
+select @Error = 1001, 
+@error_message = 'Production Process of this production order can not done if issued Qty is less than planned qty'
+end
+end 
+*/
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 
+Inner Join OWOR T1 On T0.U_PORN = T1.DocNum  
+--Inner Join WOR1 T2 On T2.DocEntry=T1.DocEntry And T1.ItemCode=T0.U_ITCD
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+ And T0.U_ITCD != T1.ItemCode )
+begin
+select @Error = 1001, 
+@error_message = 'If Item Code And Name define on production order is not matched please add document again'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 
+Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+Inner Join "@ROTIH" T2 On T0.U_ITCD=T2.U_ITEM
+Inner Join "@ROTID" T3 On T2.DocEntry= T3.DocEntry And T0.U_SEQU=T3.LineId 
+Inner Join OWOR T4 On T0.U_PORN = T4.DocNum  And T0.U_ITCD=T4.ItemCode
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and T1.U_MACM != T4.U_Machinenam  And T3.U_PRCO='TURNING' And T0.U_LOCA !='4' And T1.U_MACM is Not Null)
+begin
+select @Error = 1001, 
+@error_message = 'Machine Code Should be matched with Machine on Production Order'
+end
+end
+/*
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@TURNH] T0 
+Inner Join [dbo].[@TURND] T1 On T0.DocEntry=T1.DocEntry
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+and T0.UserSign not In (Select P3.U_UserId From "@ROTID" P0 Inner Join "@ROTIH" P1 On P1.DocEntry=P0.DocEntry 
+INNER JOIN "@PROLIN" P2  ON P0.U_PRCO =P2.U_PRCO Inner Join "@USRLINK" P3 On P3.DocEntry=P2.DocEntry Where P0.LineId= T0.U_SEQU And P1.U_ITEM= T0.U_ITCD))
+begin
+select @Error = 1001, 
+@error_message = 'You are not Authorised to add and update in this Sequence of Production Order'
+end
+end
+*/
+
+------------------------------------------------------------------Production Process End BY VIVEK 17-04-2022----------------------------------
+---------------------------------------------------Routing Master Start---------------------------------------------------------------------
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'ROTIH')
+begin
+DECLARE @ItemCod12 AS nVarChar (100)
+SELECT @ItemCod12 = U_ITEM FROM [dbo].[@ROTIH]
+ WHERE DocEntry = @list_of_cols_val_tab_del
+ IF 1 != (SELECT COUNT(DocEntry)
+FROM [dbo].[@ROTIH] WITH(NOLOCK) WHERE 
+U_ITEM in ( @ItemCod12)
+ ) --AND (@Seq IS NOT NULL OR @Seq <> '')
+BEGIN
+SELECT @ERROR = 2
+SELECT @ERROR_MESSAGE = 'Routing of this ItemCode is Already Exist'
+END
+end
+--------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'ROTIH')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@ROTIH] T0 where T0.DOCENTRY = @list_of_cols_val_tab_del 
+And (ISNULL(T0.U_ITEM, '') = '' Or ISNULL(T0.U_ITNA,'')='') )
+begin
+SELECT @ERROR = 2
+SELECT @ERROR_MESSAGE = 'Routing of ItemCode,ItemName with Empty value cannot define'
+end
+end
+/*
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'ROTIH')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@ROTIH] T0
+Inner Join [dbo].[@ROTID] T1 On T0.DocEntry=T1.DocEntry 
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+And T0.UserSign Not In ('1','25','37'))
+begin
+SELECT @ERROR = 2
+SELECT @ERROR_MESSAGE = 'You are not authorised to Add or update Routing'
+end
+end
+*/
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'ROTIH')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@ROTIH] T0
+Inner Join [dbo].[@ROTID] T1 On T0.DocEntry=T1.DocEntry 
+where T0.DOCENTRY = @list_of_cols_val_tab_del 
+And (ISNULL(T1.U_PRCO, '') = ''  or ISNULL(T1.U_MPRS, '') = '' or ISNULL(T1.LineId, '') = '' or ISNULL(T1.U_QUAP, '') = '' ) )
+begin
+SELECT @ERROR = 2
+SELECT @ERROR_MESSAGE = 'Routing of ItemCode with Empty value of Process,MainProcess,Sequence and Quality Applicable cannot define'
+end
+end
+/*
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'ROTIH')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@ROTIH] T0
+Inner Join [dbo].[@ROTID] T1 On T0.DocEntry=T1.DocEntry 
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T1.U_PRCO not in ('ACCOUNTING','QUALITY','FINAL ACCOUTING','FINAL QUALITY')
+And (T1.U_CTPT = 0.000000 Or T1.U_TMCY = 0.000000 ))
+begin
+SELECT @ERROR = 2
+SELECT @ERROR_MESSAGE = 'Process cost and Cycle Time of Main Process should be more than 0.00'
+end
+end
+
+IF @transaction_type IN (N'U') AND (@Object_type = N'ROTIH')
+Begin
+IF Exists (SELECT T0.DocEntry FROM [dbo].[@ROTIH] T0 WITH(NOLOCK)
+WHERE T0.DocEntry = @list_of_cols_val_tab_del AND 
+---T0.UserSign != '1' and 
+T0.U_ITEM =ISNULL((Select Top 1 (U_ITCD) FROM [dbo].[@TURNH] Where U_ITCD =T0.U_ITEM),'Not Match')) 
+BEGIN
+SELECT @ERROR = 200000
+SELECT @ERROR_MESSAGE = 'Routing of this ItemCode cannot change as process exist in process screen'
+END
+end
+
+----------Routing mandatory For production order ----
+IF (@object_type = '202' AND @transaction_type in ('A','U'))  
+BEGIN 
+If Exists ( Select T0.DocEntry FROM OWOR T0
+--Inner Join [dbo].[@ROTIH] T1 On T1.U_ITEM=T0.ItemCode
+WHERE T0.ItemCode Not in (Select T1.U_ITEM From [dbo].[@ROTIH] T1 Where T1.U_ITEM=T0.ItemCode) and T0.DocEntry = @list_of_cols_val_tab_del)
+Begin  
+SET @Error =2 
+SET @Error_message = 'Please add Routing of this Production Item Code.'  
+END
+END
+*/
+---------------------------------------------------Routing Master End---------------------------------------------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'MAMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@MAMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(ISNULL(T0.U_LOCA,'') =''  or ISNULL(T0.U_MACO,'') ='' or ISNULL(T0.U_MANA,'') ='' or ISNULL(T0.U_MACT,'') ='' or ISNULL(T0.U_MACOS,'')='' ) )
+begin
+SELECT @ERROR = 3
+SELECT @ERROR_MESSAGE = 'Machine Master with Empty value of Code,Name,Cost,Type and Location cannot define'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'MAMA')
+begin
+DECLARE @ItemCod14 AS nVarChar (200)
+SELECT @ItemCod14 = A.U_MACO FROM [dbo].[@MAMA] A
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT Count(T0.DocEntry) FROM [dbo].[@MAMA] T0 WITH(NOLOCK)
+WHERE T0.U_MACO in (@ItemCod14)) 
+BEGIN
+SELECT @ERROR = 3
+SELECT @ERROR_MESSAGE = 'Machine Master of this Code is already Exist '
+END
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'MAMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@MAMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T0.UserSign not in ('1') )
+begin
+SELECT @ERROR = 3
+SELECT @ERROR_MESSAGE = 'You are not Authorised to Add or update Machine Master'
+end
+end
+
+---------------------------------------------------Machine Master End---------------------------------------------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'OPMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@OPMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(ISNULL(T0.U_LOCA,'') =''  or ISNULL(T0.U_OPCO,'') ='' or ISNULL(T0.U_OPNA,'') ='' or ISNULL(T0.U_OPCT,'') ='' or ISNULL(T0.U_OPTY,'')='' 
+or ISNULL(T0.U_NOTO,'') ='' or ISNULL(T0.U_ACTI,'')='' or ISNULL(T0.U_DPRT,'')='' ) )
+begin
+SELECT @ERROR = 4
+SELECT @ERROR_MESSAGE = 'Operator Master with Empty value of Code,Name,Cost,Type,Department,No.of Machine,Active(Y/N) and Location cannot define'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'OPMA')
+begin
+DECLARE @ItemCod15 AS nVarChar (200)
+SELECT @ItemCod15 = A.U_OPCO FROM [dbo].[@OPMA] A
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT Count(T0.DocEntry) FROM [dbo].[@OPMA] T0 WITH(NOLOCK)
+WHERE T0.U_OPCO in (@ItemCod15)) 
+BEGIN
+SELECT @ERROR = 4
+SELECT @ERROR_MESSAGE = 'Operator Master of this Code is already Exist '
+END
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'OPMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@OPMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T0.UserSign not in ('1') )
+begin
+SELECT @ERROR = 4
+SELECT @ERROR_MESSAGE = 'You are not Authorised to Add or update Operator Master'
+end
+end
+
+---------------------------------------------------Operator Master End---------------------------------------------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'SIMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@SIMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(ISNULL(T0.U_SICO,'') =''  or ISNULL(T0.U_SINA,'') ='' or ISNULL(T0.U_SIPC,'') ='' or ISNULL(T0.U_TYPE,'') ='' or ISNULL(T0.U_DEPA,'')='' 
+or ISNULL(T0.U_NOSC,'') ='' or ISNULL(T0.U_ACTI,'')='' ) )
+begin
+SELECT @ERROR = 5
+SELECT @ERROR_MESSAGE = 'ShiftIncharge Master with Empty value of Code,Name,Cost,Type, No. of Machine,Active(Y/N) and Department cannot define'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'SIMA')
+begin
+DECLARE @ItemCod16 AS nVarChar (200)
+SELECT @ItemCod16 = A.U_SICO FROM [dbo].[@SIMA] A
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT Count(T0.DocEntry) FROM [dbo].[@SIMA] T0 WITH(NOLOCK)
+WHERE T0.U_SICO in (@ItemCod16)) 
+BEGIN
+SELECT @ERROR = 5
+SELECT @ERROR_MESSAGE = 'Shift Incharge Master of this Code is already Exist '
+END
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'SIMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@SIMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T0.UserSign not in ('1') )
+begin
+SELECT @ERROR = 5
+SELECT @ERROR_MESSAGE = 'You are not Authorised to Add or update ShiftIncharge Master'
+end
+end
+---------------------------------------------------ShiftIncharge Master End---------------------------------------------------------------------
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'PRMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@PRMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(ISNULL(T0.U_PRCO,'') =''  or ISNULL(T0.U_PRNA,'') ='' or ISNULL(T0.U_PRLE,'') ='' or ISNULL(T0.U_PRTP,'') ='' ))
+begin
+SELECT @ERROR = 6
+SELECT @ERROR_MESSAGE = 'Process Master with Empty value of Code,Name,Type and Priority cannot define'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'PRMA')
+begin
+DECLARE @ItemCod17 AS nVarChar (200)
+SELECT @ItemCod17 = A.U_PRCO FROM [dbo].[@PRMA] A
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT Count(T0.DocEntry) FROM [dbo].[@PRMA] T0 WITH(NOLOCK)
+WHERE T0.U_PRCO in (@ItemCod17)) 
+BEGIN
+SELECT @ERROR = 6
+SELECT @ERROR_MESSAGE = 'Process Master of this Code is already Exist '
+END
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'PRMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@PRMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T0.UserSign not in ('1') )
+begin
+SELECT @ERROR = 6
+SELECT @ERROR_MESSAGE = 'You are not Authorised to Add or update Process Master'
+end
+end
+
+---------------------------------------------------Process Master End---------------------------------------------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'REMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@REMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(ISNULL(T0.U_RECO,'') =''  or ISNULL(T0.U_REDE,'') ='' ))
+begin
+SELECT @ERROR = 7
+SELECT @ERROR_MESSAGE = 'Reason Of Rework Master with Empty value of Code and Name cannot define'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'REMA')
+begin
+DECLARE @ItemCod18 AS nVarChar (300)
+SELECT @ItemCod18 = A.U_REDE FROM [dbo].[@REMA] A
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT Count(T0.DocEntry) FROM [dbo].[@REMA] T0 WITH(NOLOCK)
+WHERE T0.U_REDE in (@ItemCod18)) 
+BEGIN
+SELECT @ERROR = 7
+SELECT @ERROR_MESSAGE = 'Reason Of Rework Master of this Name is already Exist '
+END
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'REMA')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@REMA] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T0.UserSign not in ('1') )
+begin
+SELECT @ERROR = 7
+SELECT @ERROR_MESSAGE = 'You are not Authorised to Add or update Reason of Rework Master'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'RERE')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@RERE] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(ISNULL(T0.U_RRCO,'') =''  or ISNULL(T0.U_RRDE,'') ='' ))
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Reason Of Rejection Master with Empty value of Code and Name cannot define'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'RERE')
+begin
+DECLARE @ItemCod19 AS nVarChar (300)
+SELECT @ItemCod19 = A.U_RRDE FROM [dbo].[@RERE] A
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT Count(T0.DocEntry) FROM [dbo].[@RERE] T0 WITH(NOLOCK)
+WHERE T0.U_RRDE in (@ItemCod19)) 
+BEGIN
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'Reason Of Rejection Master of this Name is already Exist '
+END
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'RERE')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@RERE] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T0.UserSign not in ('1') )
+begin
+SELECT @ERROR = 8
+SELECT @ERROR_MESSAGE = 'You are not Authorised to Add or update Reason of Rejection Master'
+end
+end
+
+------------------------------------------------Reason of rework and rejection Master End-------------------------------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'SMAS')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@SMAS] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(ISNULL(T0.U_SHCO,'') =''  or ISNULL(T0.U_SHNA,'') ='' or ISNULL(T0.U_SHTI,'') ='' or ISNULL(T0.U_SHET,'') ='' or ISNULL(T0.U_BRKT,'') ='' ))
+begin
+SELECT @ERROR = 9
+SELECT @ERROR_MESSAGE = 'Shift Master with Empty value of Code,Name,Start Time,End Time and Break Time cannot define'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'SMAS')
+begin
+DECLARE @ItemCod20 AS nVarChar (200)
+SELECT @ItemCod20 = A.U_SHCO FROM [dbo].[@SMAS] A
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT Count(T0.DocEntry) FROM [dbo].[@SMAS] T0 WITH(NOLOCK)
+WHERE T0.U_SHCO in (@ItemCod20) ) 
+BEGIN
+SELECT @ERROR = 9
+SELECT @ERROR_MESSAGE = 'Shift Master of this Code is already Exist '
+END
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'SMAS')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@SMAS] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T0.UserSign not in ('1') )
+begin
+SELECT @ERROR = 9
+SELECT @ERROR_MESSAGE = 'You are not Authorised to Add or update Shift Master'
+end
+end
+
+------------------------------------------------Shift Master End-------------------------------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'BRDM')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@BRDM] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And
+(ISNULL(T0.U_BRDC,'') =''  or ISNULL(T0.U_BRDN,'') =''  or ISNULL(T0.U_BRDT,'') ='' ))
+begin
+SELECT @ERROR = 10
+SELECT @ERROR_MESSAGE = 'Breakdown Master with Empty value of Code,Name and Type cannot define'
+end
+end
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'BRDM')
+begin
+DECLARE @ItemCod21 AS nVarChar (200)
+SELECT @ItemCod21 = A.U_BRDC FROM [dbo].[@BRDM] A
+WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT Count(T0.DocEntry) FROM [dbo].[@BRDM] T0 WITH(NOLOCK)
+WHERE T0.U_BRDC in (@ItemCod21) ) 
+BEGIN
+SELECT @ERROR = 10
+SELECT @ERROR_MESSAGE = 'Breakdown Master of this Code is already Exist '
+END
+End
+
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'BRDM')
+Begin
+if exists (SELECT T0.DocEntry FROM [dbo].[@BRDM] T0
+where T0.DOCENTRY = @list_of_cols_val_tab_del And T0.UserSign not in ('1') )
+begin
+SELECT @ERROR = 9
+SELECT @ERROR_MESSAGE = 'You are not Authorised to Add or update Breakdown Master'
+end
+end
+----------------------------------------------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '20')
+BEGIN 
+	if Exists (Select T0.DocEntry  FROM OPDN T0 INNER JOIN PDN1 T1 ON T0.DocEntry =T1.DocEntry 
+	 WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+				and Isnull(T1.TaxCode,'')='' )
+
+Begin                      
+					  SELECT @Error = 24, @error_message = 'Select Tax Code'
+END  
+
+End  
+------------------------------------------------------------------
+iF (@object_type = '20' AND @transaction_type IN ('A','U'))
+
+BEGIN
+
+DECLARE @VendorRefNo AS VarChar (20)
+
+DECLARE @BPCode AS VarChar (20)
+
+DECLARE @PIndicator AS nvarchar (20)
+
+SELECT @VendorRefNo = U_partyinvioceno FROM dbo.OPDN
+
+     WHERE DocEntry = @list_of_cols_val_tab_del
+
+SELECT @BPCode = CardCode FROM dbo.opdn
+
+  WHERE DocEntry = @list_of_cols_val_tab_del
+  
+  SELECT @PIndicator = PIndicator FROM dbo.opdn
+
+  WHERE DocEntry = @list_of_cols_val_tab_del
+
+IF 1 != (SELECT COUNT(DocEntry) 
+FROM opdn WITH(NOLOCK) WHERE U_partyinvioceno = @VendorRefNo 
+ and CardCode=@BPCode and PIndicator=@PIndicator ) AND (@VendorRefNo IS NOT NULL OR @VendorRefNo <> '')
+
+BEGIN
+
+SELECT @ERROR = 28
+
+SELECT @ERROR_MESSAGE = 'Party Invoice No. is Duplicate for same Vendor'
+
+END
+
+end
+--------------------------------------------Validation---------------------------------------------------------------------
+IF (@object_type='202' and @transaction_type = 'U') beGIN
+
+		If Exists (Select A.DocEntry From OWOR a 
+		Where a."DocEntry" = @list_of_cols_val_tab_del AND a."Status" = 'L' and a."UserSign2"=1
+		AND (a."LineDirty"-1) = ISNULL((Select Max(x."LineDirty") From AWOR x Where x."DocEntry" = a."DocEntry"),0))
+		Begin
+	Select @error=29
+		select	@error_message = 'Not Authorized to Update Production Order';
+		END 
+	END 
+---------------Sandeep------------------
+IF (@object_type='20') and @transaction_type in ('A','U')
+
+BEGIN
+IF exists (select t0.DocEntry from OPDN t0
+inner join PDN1 t1 on t0.DocEntry=t1.DocEntry 
+Left join OSTC on OSTC.Code = t1.TaxCode
+
+Left join (
+Select OSTC.TfcId AS "BB",OPDN.DocEntry
+from OPDN
+Left join PDN3 on pdn3.DocEntry = OPDN.DocEntry
+left join OSTC on OSTC.Code = pdn3.TaxCode
+
+Where OPDN.DocEntry = @list_of_cols_val_tab_del)A on a.DocEntry = t1.DocEntry
+
+where OSTC.TfcId <> a.BB or (t1.TaxCode is null or t1.TaxCode = '') and T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN
+set @error_message = 'GRPO Tax Name and Freight Tax Name should be same'
+set @error=120
+END
+END
+--------------------------------------------------
+IF (@object_type='20') and @transaction_type in ('A','U')
+BEGIN
+IF exists (select t0.DocEntry from OPDN t0
+inner join PDN1 t1 on t0.DocEntry=t1.DocEntry 
+left join PDN3 t2 on t0.DocEntry=t2.DocEntry
+where t2.DistrbMthd <> 'T' and
+T0.DocEntry = @list_of_cols_val_tab_del)
+
+BEGIN
+
+set @error_message= 'Please Select DisTrib Method - Row Total'
+set @error=130
+END
+END
+------------------------------------------------------
+IF (@object_type='20') and @transaction_type in ('A','U')
+BEGIN
+IF exists (select t0.DocEntry from OPDN t0
+inner join PDN1 t1 on t0.DocEntry=t1.DocEntry 
+left join PDN3 t2 on t0.DocEntry=t2.DocEntry
+where t2.TaxDistMtd <> 'N' and
+T0.DocEntry = @list_of_cols_val_tab_del)
+
+BEGIN
+
+set @error_message = 'Please Select Freight Tax Distrib Method - None'
+set @error=140
+END
+END
+
+----------------
+IF (@object_type='20') and @transaction_type in ('A','U')
+BEGIN
+IF exists (
+select t0.DocEntry 
+from OPDN t0
+Left join OCRD on t0.CardCode = OCRD.Cardcode 
+where OCRD.U_EInvoice = 'Yes' and OCRD.CardType = 'S' and (t0.U_Ack is null or t0.U_Ack = '')
+and T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN
+
+set @error_message = 'Please Add Acknowledgement Number'
+set @error=150
+END
+END
+------------------------------------
+IF (@object_type='59' and @transaction_type in ('A','U'))
+ beGIN
+
+		If Exists (Select A.DocEntry from oign a
+ inner join ign1 on ign1.docentry  = a.docentry and ign1.basetype = '202'
+ Left join wor1 on wor1.Docentry = ign1.baseentry
+ Left join owor b on b.DocEntry = wor1.DocEntry
+		Where a."DocEntry" = @list_of_cols_val_tab_del AND b.Status <> 'R'
+		and (isnull(B.PlannedQty,0) > isnull(B.CmpltQty,0)) )--and IGN1.BaseType = '202')
+		Begin
+	Select @error=29
+		select	@error_message = 'your completetd Quantity not equal to planned qty'
+		END 
+	END 
+-------------------------------------------------------------------------------------
+	/*IF @object_type = 'TURNH' and @transaction_type = N'A'
+
+BEGIN
+
+	IF EXISTS (select DocEntry from [dbo].[@TURND] Where U_OPNA is Null AND DOCENTRY = @list_of_cols_val_tab_del )
+
+	Begin
+
+	set @error = -1
+
+	set @error_message = 'Please fill Operator name'
+
+	end
+	end*/
+-----------------------Sandeep----------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = N'TURNH')
+BEGIN
+IF EXISTS (
+SELECT t0.DocEntry
+From "@TURNH" T0
+INNER JOIN "@TURND" T5 ON T5.DocEntry = T0.DocEntry
+lEFT Join "@ROTIH" T1 On T0.U_ITCD=T1.U_ITEM
+lEFT Join "@ROTID" T2 On T1.DocEntry= T2.DocEntry And T0.U_SEQU = T2.LineId
+LEFT JOIN 
+(SELECT T5.DocEntry,T0.U_PORN,T0.U_ITCD,T0.U_SEQU,max(b.dd) AS "cc"
+
+From "@TURNH" T0
+INNER JOIN "@TURND" T5 ON T5.DocEntry = T0.DocEntry
+Left join(
+select ROW_NUMBER() OVER(PARTITION BY T2.U_porn  ORDER BY T2.U_PORN asc) AS 'dd' ,t2.U_PORN
+from "@TURNH" T2 
+)b on b.U_PORN = t0.U_porn
+
+where t0.DocEntry = @list_of_cols_val_tab_del
+group by T5.DocEntry,T0.U_PORN,T0.U_ITCD,T0.U_SEQU )A ON  A.U_PORN = t0.U_PORN AND t0.U_ITCD= A.U_ITCD 
+
+WHERE T0.DocEntry = @list_of_cols_val_tab_del  AND  t0.U_SEQU <> a.cc and (a.cc is not null or a.cc <> ''))
+BEGIN
+SET @error=433333
+SET @error_message='New Live_Production Process of this production order is Should be in sequence'
+END
+END
+--------------------------Sandeep----------------------------
+IF @transaction_type IN (N'A') AND (@Object_type = '59')
+BEGIN
+IF EXISTS (
+ Select t1.Docentry
+ from OIGN t1
+ Inner join IGN1 t2 on t2.DocEntry = t1.DocEntry
+ Left join
+ (
+ Select t20.itemcode,t1.DocEntry,t10.U_TYPE,
+ (Select Case When ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) < 0.00 then 0.00 Else
+ ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) End From OAT1 X Where X.ItemCode=T20.FrgnName And X.LineStatus='O')'Blanket_open_Qty',
+ (Select ISNULL(SUM(MaxStock),0.00) From OITW Where ItemCode = T20.FrgnName And WhsCode in ('FG','FG-B')) 'Max_Q',
+ (Select ISNULL(SUM(MinStock),0.00) From OITW Where ItemCode = T20.FrgnName And WhsCode in ('FG','FG-B')) 'Min',
+ (Select ISNULL(Sum(Opencreqty),0.00) from RDR1 where ItemCode = T20.FrgnName And Agrno Is not null ) 'Open_CreQty',
+ (Select ISNULL(Sum(Opencreqty),0.00) from RDR1 where ItemCode = T20.FrgnName And Agrno Is null ) 'StandAloneSaleOrder',
+ (Select ISNULL(Sum(T10.OnHand),0.00) From OITW T10 
+ Inner join oitm T11 on t11.ItemCode=T10.ItemCode Where T10.WhsCode='FG' and T11.FrgnName= T20.FrgnName)'FG_Stock'
+
+FROM OIGN t1
+Inner join IGN1 t2 on t2.DocEntry = t1.DocEntry
+LEFT  JOIN oitm t20 ON t2.Itemcode = t20.ItemCode
+LEFT  JOIN "@BPMD" t10 on t10."U_BPCD" = t20.U_customercode
+LEFT OUTER JOIN RDR1 S1 ON T20.FrgnName=S1.ItemCode And S1.LineStatus ='O'
+LEFT outer JOIN OAT1 S2 On T20.FrgnName = S2.ItemCode And S2.LineStatus = 'O' --and t20.ItemCode = s2.itemcode
+LEFT OUTER JOIN OITW S3 on T20.FrgnName = S3.ItemCode And S3.WhsCode In ('FG') 
+Where t1.docentry = @list_of_cols_val_tab_del 
+) A on a.DocEntry = t2.DocEntry
+Where t1.docentry = @list_of_cols_val_tab_del and T1.UserSign2 NOT IN ('1') and t2.BaseType = '202' and (a.FG_Stock > (a.StandAloneSaleOrder + a.Max_Q)) 
+and a.U_TYPE IN ('3','4','5','6'))
+BEGIN
+SET @error=433333
+SET @error_message='Over Stocking Alert ! 3 to 6'
+END
+END
+------------------------------Sandeeep------------------------------------------
+IF @transaction_type IN (N'A',N'U') AND (@Object_type = '59')
+BEGIN
+IF EXISTS (
+ Select t1.Docentry
+ from OIGN t1
+ Inner join IGN1 t2 on t2.DocEntry = t1.DocEntry
+ Left join OITM t3 on t3.ItemCode = t2.ItemCode
+ LEFT  JOIN "@BPMD" t10 on t10."U_BPCD" = t3.U_customercode
+ Left join
+ (
+ Select t20.itemcode,t1.DocEntry,
+ (Select Case When ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) < 0.00 then 0.00 Else
+ ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) End From OAT1 X Where X.ItemCode=T20.FrgnName And X.LineStatus='O')'Blanket_open_Qty',
+ (Select ISNULL(SUM(MaxStock),0.00) From OITW Where ItemCode = T20.FrgnName And WhsCode in ('FG','FG-B')) 'Max_Q',
+ (Select ISNULL(SUM(MinStock),0.00) From OITW Where ItemCode = T20.FrgnName And WhsCode in ('FG','FG-B')) 'Min',
+ (Select ISNULL(Sum(Opencreqty),0.00) from RDR1 where ItemCode = T20.FrgnName And Agrno Is not null ) 'Open_CreQty',
+ (Select ISNULL(Sum(Opencreqty),0.00) from RDR1 where ItemCode = T20.FrgnName And Agrno Is null ) 'StandAloneSaleOrder',
+ (Select ISNULL(Sum(T10.OnHand),0.00) From OITW T10 
+ Inner join oitm T11 on t11.ItemCode=T10.ItemCode Where T10.WhsCode='FG' and T11.FrgnName= T20.FrgnName)'FG_Stock'
+FROM OIGN t1
+Inner join IGN1 t2 on t2.DocEntry = t1.DocEntry
+LEFT  JOIN oitm t20 ON t2.Itemcode = t20.ItemCode
+LEFT OUTER JOIN RDR1 S1 ON T20.FrgnName=S1.ItemCode And S1.LineStatus ='O'
+LEFT outer JOIN OAT1 S2 On T20.FrgnName = S2.ItemCode And S2.LineStatus = 'O' --and t20.ItemCode = s2.itemcode
+LEFT OUTER JOIN OITW S3 on T20.FrgnName = S3.ItemCode And S3.WhsCode In ('FG') 
+Where t1.docentry = @list_of_cols_val_tab_del 
+) A on a.DocEntry = t2.DocEntry
+Where t1.docentry = @list_of_cols_val_tab_del and T1.UserSign2 NOT IN ('1') and t2.BaseType = '202' and ( A.FG_Stock > A.Blanket_open_Qty+a.StandAloneSaleOrder ) and t10.U_TYPE in ('1','2') )
+BEGIN
+SET @error=45555
+SET @error_message='Over Stocking Alert (Blanket) ! 1,2'
+END
+END
+-----------------------------Sandeep---------------------------
+
+IF (@Object_type = '202' AND  @transaction_type in ('A','U'))
+
+BEGIN
+IF EXISTS (
+ Select t1.Docentry
+ from OWOR t1
+ Inner join WOR1 t2 on t2.DocEntry = t1.DocEntry
+ Left join
+ (
+ Select Distinct t20.itemcode,t1.DocEntry,t10.U_TYPE,
+ (Select Case When ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) < 0.00 then 0.00 Else
+ ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) End From OAT1 X Where X.ItemCode=T20.FrgnName And X.LineStatus='O')'Blanket_open_Qty',
+ (Select ISNULL(SUM(MaxStock),0.00) From OITW Where ItemCode = T20.FrgnName And WhsCode in ('FG','FG-B')) 'Max_Q',
+ (Select ISNULL(SUM(MinStock),0.00) From OITW Where ItemCode = T20.FrgnName And WhsCode in ('FG','FG-B')) 'Min',
+ (Select ISNULL(Sum(Opencreqty),0.00) from RDR1 where ItemCode = T20.FrgnName And Agrno Is not null ) 'Open_CreQty',
+ (Select ISNULL(Sum(Opencreqty),0.00) from RDR1 where ItemCode = T20.FrgnName And Agrno Is null ) 'StandAloneSaleOrder',
+ (Select ISNULL(Sum(T10.OnHand),0.00) From OITW T10 
+ Inner join oitm T11 on t11.ItemCode=T10.ItemCode Where T10.WhsCode='FG' and T11.FrgnName= T20.FrgnName)'FG_Stock',
+(Select ISNULL(Sum(T10.OnOrder),0.00) From OITW T10 
+ Inner join oitm T11 on t11.ItemCode=T10.ItemCode Where T10.WhsCode= 'FG' and T11.FrgnName= T20.FrgnName)'OnOrder1'
+
+FROM OWOR t1
+Inner join WOR1 t2 on t2.DocEntry = t1.DocEntry
+LEFT  JOIN oitm t20 ON t2.Itemcode = t20.ItemCode
+LEFT  JOIN "@BPMD" t10 on t10."U_BPCD" = t20.U_customercode
+LEFT OUTER JOIN RDR1 S1 ON T20.FrgnName=S1.ItemCode And S1.LineStatus ='O'
+LEFT outer JOIN OAT1 S2 On T20.FrgnName = S2.ItemCode And S2.LineStatus = 'O' --and t20.ItemCode = s2.itemcode
+LEFT OUTER JOIN OITW S3 on T20.FrgnName = S3.ItemCode And S3.WhsCode In ('FG') 
+Where t1.docentry = @list_of_cols_val_tab_del 
+) A on a.DocEntry = t2.DocEntry
+Where t1.docentry = @list_of_cols_val_tab_del and (a.FG_Stock+a.OnOrder1) > (a.StandAloneSaleOrder + a.Max_Q) and a.U_TYPE IN ('3','4','5','6') and t1.Warehouse = 'FG') 
+BEGIN
+SET @error=46666
+SET @error_message='FG Stock Alert ! 3 to 6'
+END
+END
+----------------Sandeep-------------------------------------
+IF(@Object_type = '202' AND  @transaction_type in ('A','U'))
+BEGIN
+IF EXISTS (
+ Select t1.Docentry
+ from OWOR t1
+ Inner join WOR1 t2 on t2.DocEntry = t1.DocEntry
+ Left join OITM t3 on t3.ItemCode = t2.ItemCode
+ LEFT  JOIN "@BPMD" t10 on t10."U_BPCD" = t3.U_customercode
+ Left join
+ (
+ Select Distinct t20.itemcode,t1.DocEntry,
+ (Select Case When ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) < 0.00 then 0.00 Else
+ ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) End From OAT1 X Where X.ItemCode = T20.FrgnName And X.LineStatus = 'O')'Blanket_open_Qty',
+ (Select ISNULL(SUM(MaxStock),0.00) From OITW Where ItemCode = T20.FrgnName And WhsCode in ('FG','FG-B')) 'Max_Q',
+ (Select ISNULL(SUM(MinStock),0.00) From OITW Where ItemCode = T20.FrgnName And WhsCode in ('FG','FG-B')) 'Min',
+ (Select ISNULL(Sum(Opencreqty),0.00) from RDR1 where ItemCode = T20.FrgnName And Agrno Is not null ) 'Open_CreQty',
+ (Select ISNULL(Sum(Opencreqty),0.00) from RDR1 where ItemCode = T20.FrgnName And Agrno Is null) 'StandAloneSaleOrder',
+ (Select ISNULL(Sum(T10.OnHand),0.00) From OITW T10 
+ Inner join oitm T11 on t11.ItemCode=T10.ItemCode Where T10.WhsCode= 'FG' and T11.FrgnName= T20.FrgnName)'FG_Stock',
+ (Select ISNULL(Sum(T10.OnOrder),0.00) From OITW T10 
+ Inner join oitm T11 on t11.ItemCode=T10.ItemCode Where T10.WhsCode= 'FG' and T11.FrgnName= T20.FrgnName)'OnOrder1'
+FROM OWOR t1
+Inner join WOR1 t2 on t2.DocEntry = t1.DocEntry
+LEFT  JOIN oitm t20 ON t2.Itemcode = t20.ItemCode
+LEFT OUTER JOIN RDR1 S1 ON T20.FrgnName=S1.ItemCode And S1.LineStatus ='O'
+LEFT outer JOIN OAT1 S2 On T20.FrgnName = S2.ItemCode And S2.LineStatus = 'O' --and t20.ItemCode = s2.itemcode
+LEFT OUTER JOIN OITW S3 on T20.FrgnName = S3.ItemCode And S3.WhsCode In ('FG') 
+Where t1.docentry = @list_of_cols_val_tab_del 
+) A on a.DocEntry = t2.DocEntry
+Where t1.docentry = @list_of_cols_val_tab_del  and ( (A.FG_Stock+A.OnOrder1) > A.Blanket_open_Qty+a.StandAloneSaleOrder ) and t10.U_TYPE in ('1','2') and t1.Warehouse = 'FG' )
+BEGIN
+SET @error=4777
+SET @error_message='FG Stock Alert (Blanket) ! 1,2'
+END
+END	
+
+------------------------------Sandeep--------------------------------     
+IF @transaction_type IN ('A','U') AND (@Object_type = '202') 
+BEGIN
+If Exists (sELECT t0.DocEntry
+fROM OWOR T0
+lEFT JOIN(
+SELECT U_PPQT,U_PARI,U_DATE
+ FROM "@BOMD"
+ lEFT JOIN "@BOMH" ON "@BOMH".DocEntry = "@BOMD".DocEntry
+ WHERE  "@BOMD".DocEntry = (Select max(DocEntry) From  "@BOMH"))K ON K.U_PARI = T0.ItemCode
+lEFT join
+(Select isnull(sum(t6.PlannedQty),0) AS "PLANQTY",t6.StartDate,t6.ItemCode
+from OWOR t6 
+group by t6.StartDate,t6.ItemCode)S on s.ItemCode = T0.ItemCode and S.StartDate >= K.U_DATE 
+
+Left Join 
+(Select isnull(Sum(PlannedQty),0) AS "QTY2",OWOR.ItemCode as "ITEM"
+from OWOR 
+where OWOR.Status = 'C'  
+group by ItemCode)M on m.ITEM = t0.ItemCode
+
+Where t0.DocEntry = @list_of_cols_val_tab_del and ( S."PlanQTY"- isnull(M.QTY2,0)) >= isnull(K.U_PPQT,0) 
+and  t0.Warehouse NOT IN ('FG') and Isnull(t0.U_SOT,'') NOT IN ('OTHERS') )  
+Begin
+Select @error=4888
+select	@error_message = 'Please Check Production Plan'
+END 
+END 
+--------------------------Sandeep---------------------------------------------
+IF @transaction_type IN ('A','U') AND (@Object_type = '4')
+BEGIN
+IF EXISTS (
+ Select t1.itemCode
+ From OITM t1
+Where t1.ItemCode = @list_of_cols_val_tab_del and (t1.U_DR is null or t1.U_DR = '') and t1.ItmsGrpCod In ('101','104','118'))
+BEGIN
+SET @error=44444
+SET @error_message= 'Drawing No. should not be blank'
+END
+END
+-----------------------Sandeep-----------------------
+IF @transaction_type IN ('A','U') AND (@Object_type = '17')
+BEGIN
+IF EXISTS (
+ Select t1.DocEntry
+ From ORDR t1
+ Inner join RDR1 t0 on t1.Docentry = t0.Docentry
+ Left Join OITM On OITM.ItemCode = t0.ItemCode
+Where t1.DocEntry = @list_of_cols_val_tab_del and (t0.U_DRN <> OITM.U_DR) )
+BEGIN
+SET @error=4555
+SET @error_message= 'Drawing No. should be Same as Item Drawing No.'
+END
+END
+-------------------------Sandeep--------------------------------
+IF (@object_type='202' and @transaction_type in (N'U'))
+ beGIN
+
+		If Exists (Select A.DocEntry 
+		from owor a
+        inner join WOR1 on WOR1.docentry  = a.docentry 
+		Where a."DocEntry" = @list_of_cols_val_tab_del AND a.Status <> 'R'
+		and (isnull(a.PlannedQty,0) > isnull(a.CmpltQty,0)) )--and IGN1.BaseType = '202')
+		Begin
+	Select @error=29
+		select	@error_message = 'your completetd Quantity not equal to planned qty'
+		END 
+	END 
+---------------------------------------------------------------------
+IF @transaction_type IN ('A','U')  AND (@Object_type = '59')
+BEGIN
+IF EXISTS( Select t0.DocEntry 
+From OIGN t0
+Inner join IGN1 t1 on t1.DocEntry = t0.DocEntry and t1.BaseType = '202'
+Left join WOR1 t2  on t2.DocEntry = t1.BaseEntry 
+Inner join OWOR t3 on t3.DocEntry = t2.DocEntry
+Where t0.DocEntry = @list_of_cols_val_tab_del and (t3.U_PPP is Null or  t3.U_PPP = '') and t1.whsCode NOT In ('RM','RMB','JWPAPC') and t3.warehouse NOt In ('FG','WIP-NPD')  )
+BEGIN
+SET @error=21122025
+SET @error_message= 'You can not Add This Document Beacuse your Final Accounting not closed'
+END
+END
+------------------------------------------------------------------------
+IF @transaction_type IN ('A','U')  AND (@Object_type = '59')
+BEGIN
+IF EXISTS( Select t0.DocEntry 
+From OIGN t0
+Inner join IGN1 t1 on t1.DocEntry = t0.DocEntry and t1.BaseType = '202'
+Left join WOR1 t2  on t2.DocEntry = t1.BaseEntry 
+Inner join OWOR t3 on t3.DocEntry = t2.DocEntry
+Where t0.DocEntry = @list_of_cols_val_tab_del and t3.U_PPP IN ('FINAL ACCOUTING') and t3.U_PPS <> 'C' and  t1.whsCode NOT In ('RM','RMB','JWPAPC') and t3.warehouse NOt In ('FG','WIP-NPD')  )
+BEGIN
+SET @error=21122025
+SET @error_message= 'You can not Add This Document Beacuse your Final Accounting not closed'
+END
+END
+-----------------------Sandeep-----------------------------
+If @object_type = '202' and @transaction_type in ('A','U')
+Begin
+IF Exists (
+Select t0.DocEntry
+from OWOR T0
+Left Join(
+Select Sum(B.BaseQty) AS 'ProdQty',Sum(D.Quantity) AS 'BomQty',
+B.DocEntry
+from OWOR A
+Inner Join WOR1 B on A.DocEntry = B.DocEntry
+Left Join ITT1 D on D.Father = a.ItemCode and b.ItemCode = D.Code
+where A.DocEntry = @list_of_cols_val_tab_del and b.ItemType = '4'
+Group By b.DocEntry)M on M.DocEntry =  T0.DocEntry
+where t0.DocEntry = @list_of_cols_val_tab_del and m.ProdQty <> m.BomQty and  t0.Warehouse IN ('FG'))
+Begin
+Set @error = 30
+Set @error_message = 'Base Quantity should be same as Bom Quantity'
+end 
+end
+--------------------------------------------------------
+If @object_type = '202' and @transaction_type in ('A','U')
+Begin
+IF Exists (
+Select t0.DocEntry
+from OWOR T0
+Where T0.DocEntry = @list_of_cols_val_tab_del and Isnull(t0.U_OverHead,0) >= Isnull(t0.U_Price,0) and  t0.Warehouse IN ('FG'))
+Begin
+Set @error = 30
+Set @error_message = 'Production Overhead Cost Price Should be less Sale Price'
+end 
+end
+-------------------------------------------------------
+If @object_type = '202' and @transaction_type in ('A','U')
+Begin
+IF Exists (
+Select t0.DocEntry
+from OWOR T0
+Left Join(
+Select Sum(B.BaseQty) AS 'ProdQty',B.DocEntry,b.ItemCode
+from OWOR A
+Inner Join WOR1 B on A.DocEntry = B.DocEntry
+where A.DocEntry = @list_of_cols_val_tab_del and b.ItemType = '290' and b.ItemCode = 'OVERHEAD'
+Group By b.DocEntry,b.ItemCode)M on M.DocEntry = t0.DocEntry
+Where T0.DocEntry = @list_of_cols_val_tab_del and m.ProdQty <> Isnull(t0.U_OverHead,0) and M.ItemCode In ( 'OVERHEAD') and  t0.Warehouse IN ('FG') )
+Begin
+Set @error = 30
+Set @error_message = 'Overhead Cost Should Be Same as Production Over Head Quantity'
+end 
+end
+
+
+--------------------------------------General store 
+
+IF @object_type = 'MATRH' and  @transaction_type in ('A','U')
+BEGIN
+IF EXISTS (Select T0.docentry from "@MATRH" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_BRANH,'') = '')
+BEGIN
+Set @error = 333333
+Set @error_message = 'Branch is not mentioned , please mention branch '
+end 
+end
+
+--------------------------------------------------------------------
+IF @object_type = 'MATRH' and  @transaction_type in ('A','U')
+BEGIN
+IF EXISTS (Select T0.docentry from "@MATRH" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_REQUS,'') = '')
+BEGIN
+Set @error = 333334
+Set @error_message = 'Requster is not mentioned , please mention requester '
+end 
+end
+
+
+IF @object_type = 'MATRH' and  @transaction_type in ('A','U')
+BEGIN
+IF EXISTS (Select T0.docentry from "@MATRD" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_ITMNM,'') = '')
+BEGIN
+Set @error = 333335
+Set @error_message = 'Item is not mentioned , please mention Item '
+end 
+end
+
+IF @object_type = 'MATRH' and  @transaction_type in ('A')
+BEGIN
+IF EXISTS (Select T0.docentry from "@MATRD" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_QUAN,0) = 0)
+BEGIN
+Set @error = 333335
+Set @error_message = 'quantity is 0'
+end 
+end
+
+IF @object_type = 'MATRH' and  @transaction_type in ('A')
+BEGIN
+IF EXISTS (Select T0.docentry from "@MATRD" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_DRCS,'') = '')
+BEGIN
+Set @error = 333335
+Set @error_message = 'Select Dist.Rule'
+end 
+end
+
+IF @object_type = 'MATRH' and  @transaction_type in ('A')
+BEGIN
+IF EXISTS (Select T0.docentry from "@MATRH" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_RENAME,'') = '')
+BEGIN
+Set @error = 333335
+Set @error_message = 'FILL Rename'
+end 
+end
+--------------------------------RAWMATERIAL----------------------------------------------------
+IF @object_type = 'RMIH' and  @transaction_type in ('A','U')
+BEGIN
+IF EXISTS (Select T0.docentry from "@RMIH" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_BRANH,'') = '')
+BEGIN
+Set @error = 333333
+Set @error_message = 'Branch is not mentioned , please mention branch '
+end 
+end
+
+--------------------------------------------------------------------
+IF @object_type = 'RMIH' and  @transaction_type in ('A','U')
+BEGIN
+IF EXISTS (Select T0.docentry from "@RMIH" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_REQUS,'') = '')
+BEGIN
+Set @error = 333334
+Set @error_message = 'Requster is not mentioned , please mention requester '
+end 
+end
+
+
+IF @object_type = 'RMIH' and  @transaction_type in ('A')
+BEGIN
+IF EXISTS (Select T0.docentry from "@RMIR" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_ITMNM,'') = '')
+BEGIN
+Set @error = 333335
+Set @error_message = 'Item is not mentioned , please mention Item '
+end 
+end
+
+IF @object_type = 'RMIH' and  @transaction_type in ('A')
+BEGIN
+IF EXISTS (Select T0.docentry from "@RMIR" t0
+Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(U_QUAN,0) = 0)
+BEGIN
+Set @error = 333335
+Set @error_message = 'quantity is 0'
+end 
+end
+
+------------------------------------------IMO Date------------------------------------------
+
+
+IF @object_type = 'IMOH' and  @transaction_type in ('U')
+BEGIN
+IF  EXISTS (Select T0.docentry,T0.LineId from [@IMOD] t0
+Where t0.DocEntry = @list_of_cols_val_tab_del --and isnull(T0.LineId, '') = ''
+ and
+ Isnull(t0.U_DIPQ,'') ='')
+BEGIN
+Set @error = 333336
+Set @error_message = 'Dispatch Qty is not blank!'
+end 
+end
+---------------------IMO Date diff
+IF @object_type = 'IMOH' and  @transaction_type in ('U')
+BEGIN
+IF  EXISTS (Select T0.docentry,T0.LineId from [@IMOD] t0
+Where t0.DocEntry = @list_of_cols_val_tab_del --and isnull(T0.LineId, '') = ''
+and datediff(day,t0.U_dmaod,t0.U_codd)>1
+ and
+ Isnull(t0.U_RFDLY,'') ='')
+BEGIN
+Set @error = 333337
+Set @error_message = 'Reason is not blank !'
+end 
+end
+
+------------------------------------------------OPPORTUNITY NAME UNIQUE
+IF @object_type = '97' and  @transaction_type in ('A','U')
+BEGIN
+DECLARE @OPNAME nvarchar(255)
+DECLARE @CNT int
+SET @OPNAME = (Select t0.name from dbo.OOpr t0 where t0.OpprId = @list_of_cols_val_tab_del )
+
+SET @CNT = (Select Count(k.OpprId)
+ from OOPr k where k.Name = @OPNAME)
+
+ IF @CNT != 1
+
+BEGIN
+Select @error = 35643,
+ @error_message='Opportunity name already exist, please use new unique name!'
+
+
+END
+END
+--------------------------------------------------------------------------------------------------------------------
+IF @object_type = '202' and  @transaction_type in ('A','U')
+BEGIN
+DECLARE @BTHNAME nvarchar(255)
+DECLARE @CNT1 int
+SET @BTHNAME = (Select t0.U_BatchNo from dbo.OWOR t0 where t0.DocEntry = @list_of_cols_val_tab_del )
+
+SET @CNT1 = (Select Count(k.U_BatchNo)
+ from OWOR k where k.U_BatchNo = @BTHNAME)
+
+ IF @CNT != 1
+
+BEGIN
+Select @error = 20243,
+ @error_message='Batch no. already exist, please use new batch no.!'
+
+
+END
+END
+
+
+
+
+
+------------------------------------------------------------------------------
+/*IF @object_type = '60' and @transaction_type in ('A','U')
+
+BEGIN
+DECLARE @INCNT int
+DECLARE @REQNUM int
+
+SET @REQNUM = (SELECT t0.U_GINUM from OIGE t0 where Docentry = @list_of_cols_val_tab_del)
+SET @INCNT = (SELECT Count(t0.docentry) from OIGE t0 where t0.U_GINUM = @REQNUM)
+
+IF @INCNT >= 1
+BEGIN
+Set @error = 33333787
+Set @error_message = 'ENTRY ALREADY DONE'
+
+END 
+END*/
+----------------------Sandeep-----------------------
+--If @object_type = '17' and  @transaction_type IN ('A','U')
+--BEGIN 
+
+--if exists 
+-- (Select t0.DocEntry
+
+--From ORDR T0
+--Inner Join RDR1 t1 on t1.Docentry = t0.Docentry
+--Left Join OAT1 C on t1.AgrNo = C.AgrNo 
+
+--LEft Join (
+--Select isnull(Sum(b.Quantity),0) 'SaleQty', b.AgrNo
+--, (Select Case When ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) < 0.00 then 0.00 Else
+-- ISNULL(SUM(X.PlanQty),0.00)-ISNULL(SUM(X.CumQty),0.00) End From OAT1 X Where X.ItemCode= b.ItemCode And X.LineStatus = 'O'and b.AgrNo = x.AgrNo)'Blanket_open_Qty'
+
+
+--From ORDR A
+--Inner join rdr1 b on b.Docentry = A.Docentry
+--Group by b.AgrNo,b.ItemCode )ll on ll.AgrNo = c.AgrNo 
+
+--Where t0.DocEntry = @list_of_cols_val_tab_del and isnull(ll.SaleQty,0) >  isnull(ll.Blanket_open_Qty,0)) 
+
+--begin
+--set @error =100
+--set @error_message = 'Please check Blanket Agreement' 
+--end
+--End
+--------------------------------------------------
+--IF @object_type = '17' AND @transaction_type in ('A','U')
+--BEGIN
+   
+--    IF  EXISTS (
+  --      SELECT RDR1.ItemCode
+    --    FROM RDR1
+      --  WHERE RDR1.DocEntry = @list_of_cols_val_tab_del
+   --     GROUP BY RDR1.ItemCode
+   --     HAVING COUNT(RDR1.ItemCode) > 1
+ --   )
+ --   BEGIN
+    
+ --       SET @error = 259;
+ --       SET @error_message = 'ItemCode cannot be repeated';
+ --   END
+--END
+---------------------------------------Sales Order Qty is exceed From blankent agreement-------------------------------------------------------------------------------------------
+IF @object_type = '17' and  @transaction_type in ('A','U')
+BEGIN
+Declare  @Blanket table(agrno int,agrLineNum int,Itemcode nvarchar(50),planqty decimal(25,4));-- DECIMAL(25,2)
+--SET @BOMQTY=SELECT SUM(B.Quantity)/100 fROM OITT A iNNER jOIN itt1 B ON B.Father=A.Code wHERE B.cODE NOT LIKE ('%wASTAGE%') AND B.CODE NOT LIKE('%aLL%') AND A.CODE=(SELECT OWOR.ITEMCODE FROM OWOR WHERE OWOR.DOCENTRY=@list_of_cols_val_tab_del )
+insert into @Blanket(agrno,agrLineNum,Itemcode,planqty)
+Select Distinct T1.agrno,t1.agrLineNum,t1.ItemCode,T1.PlanQty From RDR1 T0 Inner Join OAT1 T1 On T1.agrno=t0.agrno Where t0.DocEntry=@list_of_cols_val_tab_del;
+	
+IF EXISTS
+(SELECT t0.docEntry from RDR1 t0
+--LEFT JOIN RDR1 t1 on t0.OriginAbs = t1.DocEntry and t0.ItemCode = t1.ItemCode
+--Inner Join WOR1 T1 On T1.DocEntry=t0.DocEntry
+inner join  @Blanket t2 on t2.agrno=t0.agrno and t2.agrLineNum=t0.AgrlnNum and t2.ItemCode=T0.ItemCode
+--Inner Join IGE21 t2 On t2.DocEntry=T1.DocEntry
+
+
+WHERE  --t1.ItemCode NOT LIKE ('%wASTAGE%') AND t1.ItemCode NOT LIKE('%aLL%') and  
+t0.DocEntry = @list_of_cols_val_tab_del and  
+(Select sum(a.Quantity) from RDR1  a  Inner Join ORDR b on a.DocEntry=b.DocEntry 
+Where t0.agrno=a.agrno and t0.AgrlnNum=a.AgrlnNum and a.itemcode=t2.Itemcode and b.CANCELED='N'
+group by a.agrno ,a.AgrlnNum , a.itemcode )>t2.planqty
+)
+
+BEGIN
+SET @error = 778
+SET @error_message = 'Sales Order Qty is exceed From blankent agreement '
+--Drop Table @blanket
+END
+END
+-----------------------BreakDown Master End----------------------------
+-- Select the return values
+select @error, @error_message
+
+end
+
+

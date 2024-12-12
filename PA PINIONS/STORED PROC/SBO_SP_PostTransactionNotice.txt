@@ -1,0 +1,73 @@
+USE [PAP_LIVE_Branch]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_PostTransactionNotice]    Script Date: 12/11/2024 3:17:39 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[SBO_SP_PostTransactionNotice]
+
+@object_type nvarchar(20), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+select @error_message = N'Ok'
+
+--------------------------------------------------------------------------------------------------------------------------------
+If @object_type='TURNH' and (@transaction_type in ('A','U') )
+
+UPDATE T1 SET t1.U_PPD = t0.DocEntry,
+t1.U_PPP=J.U_PRCO
+,t1.U_pps= t0.U_PROS 
+from  "@TURNH" t0
+Inner Join OWOR T1 On  t0.U_PORN = t1.DocNum and t0.U_ITCD = t1.ItemCode
+Left Join [dbo].[@ROTIH] I On t0.U_ITCD = I.U_ITEM 
+left Join [dbo].[@ROTID] J On J.DocEntry = I.DocEntry And t0.U_SEQU = J.LineId 
+Where t0.DocEntry= @list_of_cols_val_tab_del and  t1.Warehouse Not In ('FG')  AND isnull(J.U_PRCO,'') IN 
+('FINAL ACCOUTING') 
+
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+IF @object_type = '60' and (@transaction_type in ('A','U'))
+
+UPDATE t0
+SET T0.U_ISQT = t1.quantity
+from ige1 t1 
+inner Join "@MATRD" t0 on t0.DocEntry = t1.U_BASEDOC and t0.LineId = t1.U_BASEL and t0.Object = t1.U_OBJTYPE and T1.ItemCode=T0.U_ITMNM
+where t1.DocEntry = @list_of_cols_val_tab_del AND t0.DocEntry = t1.U_BASEDOC and t0.LineId = t1.U_BASEL and T1.ItemCode=T0.U_ITMNM
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------
+
+
+IF @object_type = '60' and (@transaction_type in ('A','U'))
+UPDATE t0 
+SET U_BQIS = t2.U_Noofbar,U_IFPREF = t3.DocNum,U_INVN = t6.DistNumber
+from "@RMIR" t0
+Inner Join "@RMIH" t1 on t0.DocEntry = t1.DocEntry
+Inner Join IGE1 t2 on t1.DocNum = t2.U_BASEDOC and t0.LineId = t2.U_BASEL and t0.U_ITMNM = t2.ItemCode and t0.Object = t2.U_OBJTYPE
+Inner Join OIGE t3  on t2.DocEntry = t3.DocEntry
+LEFT join (select S0."DocEntry", S0."DocLine", S1."SysNumber", -sum(S1."Quantity") as "AllocQty" 
+ from OITL S0 
+ INNER join ITL1 S1 on S0."LogEntry" = S1."LogEntry" 
+ where S0."DocType" = 60 group by S0."DocEntry", S0."DocLine", S1."SysNumber") T5 on t2."DocEntry" = T5."DocEntry" and t2."LineNum" = T5."DocLine" 
+ LEFT join OBTN T6 on T5."SysNumber" = T6."SysNumber" and t2."ItemCode" = T6."ItemCode"
+ where t2.DocEntry = @list_of_cols_val_tab_del 
+
+-- Select the return values
+select @error, @error_message
+
+end

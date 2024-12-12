@@ -1,0 +1,19 @@
+CREATE PROCEDURE CIS_CSPCOMM
+(
+	in F_Comm DECIMAL (19,6),
+	in T_Comm DECIMAL (19,6)
+	
+)
+AS
+BEGIN
+SELECT T0."U_CSPCode", T0."U_TotalComm", T1."CardName", T1."U_Cricle", T3."Name" AS State, T1."U_DCCode", T1."U_DCName",T0."U_Month" || '/' || 
+T0."U_Year" AS Month FROM  "@CCPM_PAYMTSTAT" AS T0 
+LEFT OUTER JOIN OCRD T1 ON T1."CardCode" = T0."U_CSPCode" 
+LEFT OUTER JOIN CRD1 T2 ON T2."CardCode" = T0."U_CSPCode"
+LEFT OUTER JOIN OCST T3 ON T3."Code" = T2."State" 
+WHERE T0."U_TotalComm" >= F_Comm AND T0."U_TotalComm"  <= T_Comm;
+END;
+
+
+
+

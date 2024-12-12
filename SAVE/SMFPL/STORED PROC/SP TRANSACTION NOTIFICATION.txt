@@ -1,0 +1,199 @@
+CREATE PROCEDURE SBO_SP_TransactionNotification
+(
+	in object_type nvarchar(30), 				-- SBO Object Type
+	in transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+	in num_of_cols_in_key int,
+	in list_of_key_cols_tab_del nvarchar(255),
+	in list_of_cols_val_tab_del nvarchar(255)
+)
+LANGUAGE SQLSCRIPT
+AS
+-- Return values
+error  int;				-- Result (0 for no error)
+error_message nvarchar (200); 		-- Error string to be displayed
+begin
+
+error := 0;
+error_message := N'Ok';
+
+--------------------------------------------------------------------------------------------------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and Ifnull(T0."Phone1",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 1,'Please Select MSME.......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+---------------------------Sandeep---------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T0."Cellular",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 2,'Please Select Mobile Phone Number .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ -----------------------Sandeep----------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T0."Fax",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 3,'Please Select Fy year .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ----------------------Sandeep-------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T0."E_Mail",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 4,'Please Select E_Mail.......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ -------------------------Sandeep-------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U' ) 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and Ifnull(T0."CntctPrsn",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 5,'Please Select contact Person.......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ---------------------------Sandeep---------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and Ifnull(T1."Street",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 6,'Please Select Street .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ---------------------------Sandeep--------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T1."Block",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 7,'Please Select Block .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ----------------------------Sandeep----------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T1."City",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 8,'Please Select City .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ------------------------------Sandeep----------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and Ifnull(T1."ZipCode",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 9,'Please Select ZipCode .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ------------------------------Sandeep------------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T1."TaxOffice",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 10,'Please Select TaxOffice .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ---------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD7 T1 ON T1."CardCode" = t0."CardCode" and t0."CardType" = t1."AddrType"
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  IfNull(T1."TaxId0",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('101'))
+Then
+SELECT 11,'Please Select PAN No........!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+--------------------------------------------------------------------------------------------------------------------------------
+
+-------------------Himanshu
+
+IF :object_type = '20' and (:transaction_type= 'A' OR :transaction_type = 'U') 
+THEN
+IF EXISTS
+(
+Select t0."DocEntry" from OPDN t0
+Inner Join PDN1 t1 on t0."DocEntry" = t1."DocEntry"
+Inner Join OPOR t2 on t1."BaseEntry" =  t2."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del   and t0."DocDate" < t2."DocDate")
+
+THEN 
+SELECT 11234,'GRPO Posting date is smaller than PO posting Date!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+----------
+
+
+IF :object_type = '18' and (:transaction_type= 'A' OR :transaction_type = 'U') 
+THEN
+IF EXISTS
+(
+Select t0."DocEntry" from OPCH t0
+Inner Join PCH1 t1 on t0."DocEntry" = t1."DocEntry"
+Inner Join OPDN t3 on t1."BaseEntry" = t3."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."BaseType" = '20'   and t0."DocDate" < t3."DocDate")
+
+THEN 
+SELECT 22234,'AP Invoice Posting date is smaller than GRPO posting Date!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ 
+ -------------------
+
+
+-- Select the return values
+select :error, :error_message FROM dummy;
+
+end;

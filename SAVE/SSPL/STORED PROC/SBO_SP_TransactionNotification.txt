@@ -1,0 +1,1185 @@
+CREATE PROCEDURE SBO_SP_TransactionNotification
+(
+	in object_type nvarchar(30), 				-- SBO Object Type
+	in transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+	in num_of_cols_in_key int,
+	in list_of_key_cols_tab_del nvarchar(255),
+	in list_of_cols_val_tab_del nvarchar(255)
+)
+LANGUAGE SQLSCRIPT
+AS
+
+temp_var_0 int;
+temp_var_1 nVarchar(1000);
+DOB INT; 	
+qry nvarchar(5000);
+ptype nvarchar(250);
+-- Return values
+cnt int; 
+
+error  int;				-- Result (0 for no error)
+error_message nvarchar (200); 		-- Error string to be displayed
+begin
+
+error := 0;
+error_message := N'Ok';
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--	ADD	YOUR	CODE	HERE
+
+--------------------------------------------------------------------------------------------------------------------------------
+IF :object_type = 'BDP' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+
+/*
+select sum("Counts")  into temp_var_0 from(select 0 as "Counts" from dummy
+union all
+SELECT count(ifnull(T0."U_LimitId",0)) as "counts"  FROM "@CBS_BDP1" T0 
+where  ifnull(T0."U_LimitId",'0')!='0' 
+group by ifnull(T0."U_LimitId",'0') Having Count(ifnull(T0."U_LimitId",0))>1) dummy;
+ If :temp_var_0 > 0 Then
+            error := -111;
+            error_message := 'Limit Id not be duplicate';
+      End If;
+      temp_var_0 := 0;
+*/
+
+
+select Max("Counts")  into temp_var_0 from(
+select 0 as "Counts" from dummy
+Union
+SELECT Max(T0."LineId") as "Counts" FROM 
+"@CBS_BDP1" T0 
+WHERE ifnull(T0."U_LimitId",'0') IN
+(
+	SELECT ifnull(T0."U_LimitId",'0') as "Counts"
+	FROM "@CBS_BDP1" T0 
+	WHERE ifnull(T0."U_LimitId",'0') IN
+	( 
+		SELECT ifnull(T0."U_LimitId",'0')   FROM "@CBS_BDP1" T0 
+		where  ifnull(T0."U_LimitId",'0')!='0' and Trim(T0."U_LimitId")!='' and T0."U_LimitId" is NOT NULL
+		and  T0."DocEntry"=:list_of_cols_val_tab_del
+		union All
+		SELECT ifnull(T0."U_LimitId",'0')   FROM "@CBS_BDP1" T0 
+		where  ifnull(T0."U_LimitId",'0')!='0' and Trim(T0."U_LimitId")!='' and T0."U_LimitId" is NOT NULL
+		and T0."DocEntry"!=:list_of_cols_val_tab_del
+	 ) 
+	 group by ifnull(T0."U_LimitId",'0')
+	 Having Count(ifnull(T0."U_LimitId",0))>1
+)AND T0."DocEntry"=:list_of_cols_val_tab_del
+) dummy;
+
+ If :temp_var_0>0  Then
+            error := -111;
+            error_message := 'Limit Id not be duplicate in Line No.:'|| CAST(:temp_var_0 as Varchar);
+      End If;
+
+      temp_var_0 := 0;
+    
+  SELECT count(T0."DocEntry") into temp_var_0 FROM "@CBS_BDP1" T0 where T0."DocEntry"=:list_of_cols_val_tab_del and "U_Amt"<"U_Limit";
+ If :temp_var_0 > 0 Then
+            error := -111;
+            error_message := 'Limit value is not more than amount';
+      End If;
+
+      temp_var_0 := 0; 
+     
+  SELECT count(T0."DocEntry") into temp_var_0 FROM "@CBS_BDP1" T0 where T0."DocEntry"=:list_of_cols_val_tab_del and "U_Amt" != (IFNULL("U_Limit",0)+IFNULL("U_Secur",0)+IFNULL("U_TR",0)+IFNULL("U_Reg",0));
+ If :temp_var_0 > 0 Then
+           error := -111;
+            error_message := 'Limit value is not more than amount';
+      End If;
+      
+      temp_var_0 := 0;   
+ 
+ 
+   
+	SELECT count(T0."DocEntry") into temp_var_0 
+	FROM "@CBS_BDP1" T0 
+	where ifnull(T0."U_LimitId",'')='' 
+	and ifnull(cast(T0."U_Remarks" as Nvarchar(500)),'')=''  
+	and T0."U_KOID" !='' 
+	and T0."DocEntry"=:list_of_cols_val_tab_del;
+	
+	If :temp_var_0 > 0 Then
+            error := -111;
+            error_message := 'Limit Id or Remarks  cannnot be Left Empty';
+    End If;
+
+
+      temp_var_0 := 0;  
+/*SELECT Count(T0."DocEntry") into temp_var_0 FROM "@CBS_BDP1" T0 where ifnull(cast(T0."U_Remarks" as Nvarchar(500)),'')='' and T0."U_KOID" !='' and T0."DocEntry"=:list_of_cols_val_tab_del;
+ If :temp_var_0 > 0 Then
+            error := -111;
+            error_message := 'Remarks cannnot be Left Empty';
+      End If;
+      temp_var_0 := 0;  
+*/
+      Select(SELECT T1."U_RowVaild"  FROM  "@CBS_OBDP" T1 
+where T1."DocEntry"=:list_of_cols_val_tab_del )INTO temp_var_1 FROM dummy;
+
+
+ If :temp_var_1='0' Then
+            error := -191;
+            error_message := 'At Least one Row';
+      End If;
+      
+   SELECT count(T0."DocEntry") into temp_var_0 FROM "@CBS_BDP1" T0 where T0."DocEntry"=:list_of_cols_val_tab_del and IFNULL("U_MapStat",'')='' AND "U_KOID" !='' ;
+ If :temp_var_0 > 0 Then
+            error := -121;
+            error_message := 'Mapping Status Should be Yes for filled KOID.';
+      End If;
+      temp_var_0:=0;
+      SELECT count(T0."DocEntry") into temp_var_0 FROM "@CBS_BDP1" T0 where T0."DocEntry"=:list_of_cols_val_tab_del and IFNULL("U_MapStat",'')='Y' AND IFNULL("U_KOID",'') ='' ;
+ If :temp_var_0 > 0 Then
+            error := -122;
+            error_message := 'KOID Should be filled For Mapping Status Yes.';
+      End If;
+        
+END IF;
+---Reconciliation--start
+
+if :object_type='30' and (:transaction_type ='A')
+then
+
+select "U_Postfrm" into ptype from OJDT where "TransId"=list_of_cols_val_tab_del;
+
+if :ptype='BDP'
+then
+(select  REPLACE(REPLACE("U_Query",'<TransId>',list_of_cols_val_tab_del),'$','''') 
+as "qryct" into  qry from "@TEMP_QUERY" where "U_PostFrom"='BDP' and "U_SubType"='STMT2');
+EXECUTE IMMEDIATE  qry;
+(select  REPLACE(REPLACE("U_Query",'<TransId>',list_of_cols_val_tab_del),'$','''') 
+as "qryct" into  qry from "@TEMP_QUERY" where "U_PostFrom"='BDP' and "U_SubType"='STMT1');
+EXECUTE IMMEDIATE  qry;
+(select  REPLACE(REPLACE("U_Query",'<TransId>',list_of_cols_val_tab_del),'$','''') 
+as "qryct" into  qry from "@TEMP_QUERY" where "U_PostFrom"='BDP' and "U_SubType"='OCRD');
+EXECUTE IMMEDIATE  qry;
+EXECUTE IMMEDIATE 'delete from "@TEMP_QUERY" where "U_PostFrom"=''BDP''';
+end if;
+
+
+
+if :ptype='IMPS'
+then
+(select  REPLACE(REPLACE("U_Query",'<TransId>',list_of_cols_val_tab_del),'$','''') 
+as "qryct" into  qry from "@TEMP_QUERY" where "U_PostFrom"='IMPS' and "U_SubType"='OCRD');
+EXECUTE IMMEDIATE  qry;
+(select  REPLACE(REPLACE("U_Query",'<TransId>',list_of_cols_val_tab_del),'$','''') 
+as "qryct" into  qry from "@TEMP_QUERY" where "U_PostFrom"='IMPS' and "U_SubType"='IMPS');
+EXECUTE IMMEDIATE  qry;
+
+EXECUTE IMMEDIATE 'delete from "@TEMP_QUERY" where "U_PostFrom"=''IMPS''';
+end if;
+
+--EXECUTE IMMEDIATE 'delete from "@TEMP_QUERY"';
+
+
+--error := 100;
+--error_message := qry;
+
+--select REPLACE(REPLACE("U_Query",'<TransId>',:list_of_cols_val_tab_del),'$','''') from "@TEMP_QUERY";
+end if;
+
+---Reconciliation--end
+
+
+if :object_type='OEXP' and (:transaction_type ='A') Then
+Select(SELECT T1."U_RowVaild"  FROM  "@CBS_OEXP" T1 
+where T1."DocEntry"=:list_of_cols_val_tab_del )INTO temp_var_1 FROM dummy;
+
+ If :temp_var_1='0' Then
+            error := -191;
+            error_message := 'At Least one';
+      End If;
+      
+Select(SELECT T1."U_DateVaild"  FROM  "@CBS_OEXP" T1 
+where T1."DocEntry"=:list_of_cols_val_tab_del )INTO temp_var_1 FROM dummy;
+
+ If :temp_var_1='0' Then
+            error := -192;
+            error_message := 'Please Fill Date';
+      End If;    
+END if;
+
+
+
+--	ADD	YOUR	CODE	HERE
+/*
+IF :object_type = 'CBS_OAPMAS' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+
+SELECT count(*) into temp_var_0 FROM "@CBS_OAPMAS" WHERE "DocEntry" = :list_of_cols_val_tab_del AND "U_Sendby" = "U_Approvedby";
+IF :temp_var_0 = 1 THEN 
+error := 100;
+error_message := 'We can not set sender and approver same ...!';
+ END IF;
+temp_var_0 :=0;
+END IF;
+IF :object_type = 'OCIRL' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "Name" into Name FROM "@CBS_OCRI" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_OCRI" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "Name"=:Name; 
+		IF :temp_var_0 >= 1 THEN 
+			error := 100;
+			error_message := 'Please check, This entry already exists...!';
+		 END IF;
+		temp_var_0 := 0;
+END IF;
+IF :object_type = 'CBSOSSP' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "U_CName" into Name FROM "@CBS_OSTSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_SCode" into State FROM "@CBS_OSTSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_OSTSP" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "U_CName"=:Name and "U_SCode"=:State; 
+		IF :temp_var_0 >= 1 THEN 
+			error := 100;
+			error_message := 'Please check, This entry already exists...!';
+		 END IF;
+		temp_var_0 := 0;
+END IF;
+IF :object_type = 'CBSONWSP' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "U_CName" into Name FROM "@CBS_ONWSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_SCode" into State FROM "@CBS_ONWSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "Name" into Network FROM "@CBS_ONWSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_ONWSP" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "U_CName"=:Name and "U_SCode"=:State and "Name"=:Network; 
+		IF :temp_var_0 >= 1 THEN 
+			error := 100;
+			error_message := 'Please check, This entry already exists...!';
+		 END IF;
+		temp_var_0 := 0;
+END IF;
+IF :object_type = 'CBSOZOSP' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "U_CName" into Name FROM "@CBS_OZOSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_SCode" into State FROM "@CBS_OZOSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Network" into Network FROM "@CBS_OZOSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "Name" into Zones FROM "@CBS_OZOSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_OZOSP" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "U_CName"=:Name and "U_SCode"=:State and "U_Network"=:Network AND "Name"=:Zones; 
+		IF :temp_var_0 >= 1 THEN 
+			error := 100;
+			error_message := 'Please check, This entry already exists...!';
+		 END IF;
+		temp_var_0 := 0;
+END IF;
+IF :object_type = 'CBSORSP' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "U_CName" into Name FROM "@CBS_ORSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_SCode" into State FROM "@CBS_ORSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Network" into Network FROM "@CBS_ORSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Zone" into Zones FROM "@CBS_ORSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "Name" into Region FROM "@CBS_ORSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_ORSP" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "U_CName"=:Name and "U_SCode"=:State and "U_Network"=:Network and "U_Zone"=:Zones and "Name"=:Region; 
+		IF :temp_var_0 >= 1 THEN 
+			error := 100;
+			error_message := 'Please check, This entry already exists...!';
+		 END IF;
+		temp_var_0 := 0;
+END IF;
+IF :object_type = 'CBSODTSP' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "U_CName" into Name FROM "@CBS_ODTSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_SCode" into State FROM "@CBS_ODTSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Network" into Network FROM "@CBS_ODTSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Zone" into Zones FROM "@CBS_ODTSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Region" into Region FROM "@CBS_ODTSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;  
+	SELECT "Name" into District FROM "@CBS_ODTSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_ODTSP" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "U_CName"=:Name and "U_SCode"=:State and "U_Network"=:Network AND "U_Zone"=:Zones and "U_Region"=:Region and "Name"=:District; 
+		IF :temp_var_0 = 1 THEN 
+			error := 100;
+			error_message := 'Please check, This entry already exists...!';
+		 END IF;
+		temp_var_0 := 0;
+END IF;
+IF :object_type = 'CBSOBKSP' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "U_CName" into Name FROM "@CBS_OBKSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_SCode" into State FROM "@CBS_OBKSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Network" into Network FROM "@CBS_OBKSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Zone" into Zones FROM "@CBS_OBKSP" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Region" into Region FROM "@CBS_OBKSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_District" into District FROM "@CBS_OBKSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "Name" into Block FROM "@CBS_OBKSP" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_OBKSP" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "U_CName"=:Name and "U_SCode"=:State and "U_Network"=:Network AND "U_Zone"=:Zones and "U_Region"=:Region and "U_District"=:District and "Name"=:Block; 
+		IF :temp_var_0 >= 1 THEN 
+			error := 100;
+			error_message := 'Please check, This entry already exists...!';
+		 END IF;
+		temp_var_0 := 0;
+END IF;
+IF :object_type = 'CBSOPYT' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "U_CName" into Name FROM "@CBS_OPYT" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_SCode" into State FROM "@CBS_OPYT" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Network" into Network FROM "@CBS_OPYT" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Zone" into Zones FROM "@CBS_OPYT" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Region" into Region FROM "@CBS_OPYT" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_District" into District FROM "@CBS_OPYT" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Block" into Block FROM "@CBS_OPYT" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "Name" into Panchayat FROM "@CBS_OPYT" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_OPYT" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "U_CName"=:Name and "U_SCode"=:State and "U_Network"=:Network AND "U_Zone"=:Zones and "U_Region"=:Region and "U_District"=:District and "U_Block"=:Block and "Name"=:Panchayat; 
+		IF :temp_var_0 >= 1 THEN 
+			error := 100;
+			error_message := 'Please check, This entry already exists...!';
+		 END IF;
+		temp_var_0 := 0;
+END IF;
+IF :object_type = 'CBSOVLAG' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+	SELECT "U_CName" into Name FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_SCode" into State FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Network" into Network FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Zone" into Zones FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Region" into Region FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT "U_District" into District FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Block" into Block FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del;
+	SELECT "U_Panchayat" into Panchayat FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del;  
+	SELECT "Name" into Village FROM "@CBS_OVLAG" WHERE "DocEntry" = :list_of_cols_val_tab_del; 
+	SELECT count(*) into temp_var_0 FROM "@CBS_OVLAG" WHERE "DocEntry" <> :list_of_cols_val_tab_del and "U_CName"=:Name and "U_SCode"=:State and "U_Network"=:Network AND "U_Zone"=:Zones and "U_Region"=:Region and "U_District"=:District and "U_Block"=:Block and "U_Panchayat"=:Panchayat and "Name"=:Village; 
+	IF :temp_var_0 >= 1 THEN 
+		error := 100;
+		error_message := 'Please check, This entry already exists...!';
+	 END IF;
+	temp_var_0 := 0;
+END IF;
+*/
+-------------------------------------------------------------------------------
+---------------------Limit Notification-------------------------------
+
+--------------------------------------------------------------------------------------------------------------------------------
+/*
+if:object_type='2' and (:transaction_type ='A' or :transaction_type='U')
+then
+
+
+SELECT Count(*) into cnt FROM OCRD 
+	WHERE "CardCode"<>list_of_cols_val_tab_del and 
+
+		"Cellular" in (SELECT "Cellular" FROM OCRD WHERE "CardCode"=list_of_cols_val_tab_del) ;
+
+     if :cnt>0 then
+            error := -2;
+           error_message := 'Mobile Number Already Exists...!!!';
+     end if;
+
+SELECT Count(*) into cnt FROM OCRD 
+	WHERE "CardCode"=:list_of_cols_val_tab_del and IFNULL(OCRD."Cellular",'')<>'' and 
+LENGTH("Cellular") <> 10;
+
+
+    if :cnt>0 then
+           error := -2;
+           error_message := 'Mobile Number Should Be 10 Digits...!!!';
+     end if;
+     
+SELECT Count(*) into cnt FROM OCRD 
+WHERE "CardCode"=:list_of_cols_val_tab_del and IFNULL(OCRD."E_Mail",'')<>'' and 
+"E_Mail" NOT LIKE '_%@__%.__%';
+
+     if :cnt>0 then
+            error := -2;
+           error_message := 'Email is Not Valid...!!!';
+     end if;
+     
+ SELECT Count(*) into cnt FROM OCRD 
+	WHERE "CardCode"<>list_of_cols_val_tab_del and 
+
+		"E_Mail" in (SELECT "E_Mail" FROM OCRD WHERE "CardCode"=list_of_cols_val_tab_del) ;
+
+     if :cnt>0 then
+            error := -2;
+           error_message := 'Email Id Is Already Exists...!!!';
+     end if;
+
+SELECT "CardType" into CardType FROM OCRD WHERE "CardCode"=:list_of_cols_val_tab_del;
+select  (IFNULL("U_CSPCOMM",0)+IFNULL("U_SAVECOMM",0)+IFNULL("U_DCCOMM",0)+IFNULL("U_SUBDC",0)) into Percentage
+FROM OCRD WHERE "CardCode"=:list_of_cols_val_tab_del ;
+if :CardType = 'C' then
+   if :Percentage>100 then
+            error := -2;
+            error_message := 'Total Commission Percentage Should not be greater then 100';
+ end if;
+end if;     
+
+
+     
+end if;
+
+*/
+
+
+if :object_type='ICUpPost' and (:transaction_type ='A') Then
+	Select(SELECT IFNULL(T1."U_RowVaild", 0)  FROM  "@ICICIHEADER" T1 
+	where T1."DocEntry"=:list_of_cols_val_tab_del )INTO temp_var_1 FROM dummy;
+
+	If :temp_var_1='0' Then
+    	error := -1913;
+        error_message := 'No Data Found in rows.';
+	End If;  
+END if;
+
+
+IF :object_type = '30' AND (:transaction_type = 'A') THEN
+
+	DECLARE DataS NVARCHAR(10);
+	DECLARE SBI_H_Cnt INTEGER;
+	DECLARE SBI_L_Cnt INTEGER;
+	DECLARE KIOS_H_Cnt INTEGER;
+	DECLARE KIOS_L_Cnt INTEGER;
+
+	SELECT T0."DataSource" INTO DataS
+	FROM OJDT T0 WHERE T0."TransId" = :list_of_cols_val_tab_del;
+	
+	IF :DataS = 'S' THEN
+		
+		SELECT COUNT(*) INTO SBI_H_Cnt
+		FROM (SELECT DISTINCT T2."U_FileName" FROM "@STMTDETAIL" T2 
+		WHERE T2."U_Date" = (SELECT T00."RefDate" FROM OJDT T00 WHERE "TransId" = :list_of_cols_val_tab_del));
+		
+		SELECT COUNT(*) INTO SBI_L_Cnt
+		FROM (SELECT DISTINCT T3."U_FILENAME" FROM "@SBI_STMT" T3 
+		WHERE T3."U_TxnDate" = (SELECT T00."RefDate" FROM OJDT T00 WHERE "TransId" = :list_of_cols_val_tab_del));
+	
+		SELECT COUNT(*) INTO KIOS_H_Cnt
+		FROM "@KIOSDETAIL" T0 
+		WHERE T0."U_Date" = (SELECT T00."RefDate" FROM OJDT T00 WHERE T00."TransId" = :list_of_cols_val_tab_del);
+			
+		SELECT COUNT(*) INTO KIOS_L_Cnt
+		FROM (SELECT DISTINCT T1."U_FILENAME" FROM "@SBI_KIOS" T1 
+		WHERE T1."U_TDate" = (SELECT T00."RefDate" FROM OJDT T00 WHERE "TransId" = :list_of_cols_val_tab_del));
+		
+		IF :SBI_H_Cnt <> :SBI_L_Cnt THEN
+			error := 122;
+			error_message := 'SBI Bank statement upload details are not matching.';
+		END IF;
+
+		
+		IF :KIOS_H_Cnt <> :KIOS_L_Cnt THEN
+			error := 122;
+			error_message := 'KIOS statement upload details are not matching.';
+		END IF;
+	
+	END IF;
+	
+	SELECT COUNT(*) INTO cnt 
+	FROM OJDT
+	WHERE "TransId" = :list_of_cols_val_tab_del
+	AND "DataSource" IN ('O', 'S')
+	AND IFNULL("U_Postfrm", '') = ''
+	AND IFNULL("Ref2", '') <> '';
+	
+	IF :cnt > 0 THEN
+		UPDATE OJDT SET "U_Postfrm" = "Ref2" WHERE "TransId" = :list_of_cols_val_tab_del;
+	END IF;
+
+END IF;
+
+
+--------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------
+--DISTRICT----------------------------------------------------------------------------------------------
+IF :object_type = 'AddDistrict' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+		SELECT(SELECT Count(*) FROM "@AADDDISTRICT" 
+			WHERE "Code" <> :list_of_cols_val_tab_del AND 
+			"U_DistName" IN (SELECT "U_DistName" FROM "@AADDDISTRICT" 
+					WHERE "Code" = :list_of_cols_val_tab_del)) INTO cnt FROM DUMMY ;
+
+	IF :cnt>0 then
+            error := 22;
+           error_message := 'District already exists.';
+     END IF;
+   END IF;
+ --Circle ------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddCircle' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+		SELECT(SELECT Count(*) FROM "@AADDCIRCLE" 
+			WHERE "Code" <> :list_of_cols_val_tab_del AND 
+			"U_CircleName" IN (SELECT "U_CircleName" FROM "@AADDCIRCLE" 
+					WHERE "Code" = :list_of_cols_val_tab_del)) INTO cnt FROM DUMMY ;
+
+	IF :cnt>0 then
+            error := 22;
+           error_message := 'Circle already exists.';
+     END IF;
+   END IF;
+
+--Block ------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddBlock' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+		SELECT(SELECT Count(*) FROM "@AADDBLOCK" 
+			WHERE "Code" <> :list_of_cols_val_tab_del AND 
+			"U_BlockName" IN (SELECT "U_BlockName" FROM "@AADDBLOCK" 
+					WHERE "Code" = :list_of_cols_val_tab_del)) INTO cnt FROM DUMMY ;
+
+	IF :cnt>0 then
+            error := 22;
+           error_message := 'Block already exists.';
+     END IF;
+   END IF;
+ --Panchayat ------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddPanch' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+		SELECT(SELECT Count(*) FROM "@AADDPANCH" 
+			WHERE "Code" <> :list_of_cols_val_tab_del AND 
+			"U_PanchName" IN (SELECT "U_PanchName" FROM "@AADDPANCH" 
+					WHERE "Code" = :list_of_cols_val_tab_del)) INTO cnt FROM DUMMY ;
+
+	IF :cnt>0 then
+            error := 22;
+           error_message := 'Panchayat already exists.';
+     END IF;
+   END IF;
+--Village ------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddVillage' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+		SELECT(SELECT Count(*) FROM "@AADDVILLAGE" 
+			WHERE "Code" <> :list_of_cols_val_tab_del AND 
+			"U_VillageName" IN (SELECT "U_VillageName" FROM "@AADDVILLAGE" 
+					WHERE "Code" = :list_of_cols_val_tab_del)) INTO cnt FROM DUMMY ;
+
+	IF :cnt>0 then
+            error := 22;
+           error_message := 'Village already exists.';
+     END IF;
+   END IF;
+   
+ --Location Mapping ------------------------------------------------------------------------------------------------------
+IF :object_type = 'LOCMAP' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+		SELECT(SELECT Count(*) FROM "@ADDH" 
+				WHERE "DocEntry" <> :list_of_cols_val_tab_del  AND 
+					"U_CIRCLE" IN (SELECT "U_CIRCLE" FROM "@ADDH" WHERE "DocEntry" = :list_of_cols_val_tab_del)
+					 AND "U_STATE" IN (SELECT "U_STATE" FROM "@ADDH" WHERE "DocEntry" = :list_of_cols_val_tab_del)) INTO cnt FROM DUMMY ;
+		
+	
+	IF :cnt>0 then
+            error := 222;
+           error_message := 'Circle and State combination is alredy exists in Location Mapping.';
+     END IF;
+   END IF;
+------------------------------------------------------------------------------------------------------------------------     
+IF :object_type = 'LOCMAP' AND (:transaction_type ='A' or :transaction_type='U') 
+	THEN 
+		  SELECT(SELECT Count(*) FROM "@ADDH" T0 
+			    	INNER JOIN  "@ADDL" T1 ON T0."DocEntry" = T1."DocEntry" 
+			    	WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+			    	GROUP BY T0."U_CIRCLE", T0."U_STATE", T1."U_DISTRICT", T1."U_BLOCK", T1."U_PANCH", T1."U_VILLAGE"
+			    	HAVING COUNT(*) > 1
+		    	  ) INTO cnt FROM DUMMY;
+    			
+    	IF :cnt > 1 then
+            error := 225;
+        	error_message := 'Entered combination of Circle, State, District, Block, Punchayat and Village is already exists.';
+     	END IF;
+   END IF;
+ ---------------------------------------------------------------------------------------------------------
+IF :object_type = 'CSPAgreement' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+				SELECT(SELECT Count(*) FROM "@CSPAGATHEAD" 
+				WHERE "DocEntry" <> :list_of_cols_val_tab_del  AND 
+					"U_CSPCode" IN (SELECT "U_CSPCode" FROM "@CSPAGATHEAD" WHERE "DocEntry" = :list_of_cols_val_tab_del)
+					 ) INTO cnt FROM DUMMY ;
+		
+	
+	IF :cnt>0 then
+            error := 221;
+           error_message := 'CSP Agreement already exists.';
+     END IF;
+     		SELECT(SELECT Count(*) FROM "@CSPAGATLINE" 
+					WHERE "DocEntry" = :list_of_cols_val_tab_del  AND "U_ValidFrom" > "U_ValidTo"
+					 ) INTO cnt FROM DUMMY ;
+		
+	
+	IF :cnt>0 then
+            error := 2211;
+           error_message := 'Valid From Date should not be greater than To Date.';
+     END IF;  			
+     
+  END IF;
+/*  
+--Location Mapping match withSEL CRD1 ------------------------------------------------------------------------------------------------------
+IF :object_type = '2' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+     
+ 	    SELECT(SELECT Count(*) FROM CRD1 T0 
+				INNER JOIN "@ADDH" T1 ON UPPER(IFNULL(T1."U_CIRCLE",'')) = UPPER(IFNULL(T0."U_Circle",''))
+					AND UPPER(T0."State") = UPPER(IFNULL(T1."U_STATE",'')) 
+				INNER JOIN  "@ADDL" T3 ON T1."DocEntry" = T3."DocEntry" 
+					AND UPPER(IFNULL(T0."U_District",'')) = UPPER(IFNULL(T3."U_DISTRICT",''))
+					AND UPPER(IFNULL(T0."U_Block",'')) = UPPER(IFNULL(T3."U_BLOCK",''))
+					AND UPPER(IFNULL(T0."U_Panchayat",'')) = UPPER(IFNULL(T3."U_PANCH",''))
+					AND UPPER(IFNULL(T0."U_Village",'')) = UPPER(IFNULL(T3."U_VILLAGE",''))
+				WHERE T0."CardCode" = :list_of_cols_val_tab_del 
+				) INTO cnt FROM DUMMY ;	
+		IF :cnt = 0 then
+	            error := 200005;
+	           error_message := 'Address combination of Circle, State, District, Block, Punchayat and Village not defined in Location Mapping.';
+	     END IF;
+	      
+	   IF :cnt<>0 then
+		  SELECT((SELECT  COUNT(*)   FROM CRD1 T0 
+				INNER JOIN "@ADDH" T1 ON UPPER(IFNULL(T1."U_CIRCLE",'')) = UPPER(IFNULL(T0."U_Circle",''))
+					AND UPPER(T0."State") = UPPER(IFNULL(T1."U_STATE",'')) 
+				INNER JOIN  "@ADDL" T3 ON T1."DocEntry" = T3."DocEntry" 
+					AND UPPER(IFNULL(T0."U_District",'')) = UPPER(IFNULL(T3."U_DISTRICT",''))
+					AND UPPER(IFNULL(T0."U_Block",'')) = UPPER(IFNULL(T3."U_BLOCK",''))
+					AND UPPER(IFNULL(T0."U_Panchayat",'')) = UPPER(IFNULL(T3."U_PANCH",''))
+					AND UPPER(IFNULL(T0."U_Village",'')) = UPPER(IFNULL(T3."U_VILLAGE",''))		
+				WHERE T0."CardCode"=:list_of_cols_val_tab_del )
+			-
+				(SELECT COUNT(*)  FROM "CRD1" WHERE "CardCode"=:list_of_cols_val_tab_del) 
+				) INTO cnt FROM DUMMY ;	
+		IF :cnt <> 0 then
+	            error := 200006;
+	           error_message := 'Address combination of Circle, State, District, Block, Punchayat and Village not defined in Location Mapping.';
+	     END IF; 
+     END IF;       
+     
+   END IF;
+*/
+
+----IIBF Certificate on OCRD----------------------------------------------------------------------------------------------------
+IF :object_type = '2' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN     
+ 	    SELECT(SELECT Count(*) FROM OCRD T0
+				WHERE T0."CardCode" = :list_of_cols_val_tab_del
+					  AND T0."U_IIBF_Qualify" ='Y'	
+					  AND IFNULL(CAST(T0."U_IIBF_Certi" AS CHAR),'?') ='?' ) INTO cnt FROM DUMMY ;	
+		IF :cnt > 0 then
+	            error := 101010;
+	           error_message := 'IIBF Certificate should not be blank if Business Partner IIBF Qualify';
+	     END IF;
+	     
+--Update Circle 
+	SELECT (SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND IFNULL(T1."U_Circle",'?') = '?'
+					)INTO cnt FROM DUMMY;
+					
+	IF :cnt > 0 THEN
+		 UPDATE OCRD SET OCRD."U_Cricle" = '' WHERE "CardCode" = :list_of_cols_val_tab_del ;   		
+	END IF;
+		     
+	IF cnt = 0 THEN	
+			UPDATE OCRD SET OCRD."U_Cricle" =  T2."U_CircleName"		 		
+					FROM OCRD			
+					INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+									  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDCIRCLE" T2 ON T1."U_Circle" = T2."Code"
+			WHERE OCRD."CardCode" = :list_of_cols_val_tab_del ;   
+	END IF;
+	
+--Update District
+	SELECT (SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND IFNULL(T1."U_District",'?') = '?'
+					)INTO cnt FROM DUMMY;
+	IF :cnt > 0 THEN
+		 UPDATE OCRD SET OCRD."U_District" = '' WHERE "CardCode" = :list_of_cols_val_tab_del ;   		
+	END IF;
+	
+	IF cnt = 0 THEN	
+			UPDATE OCRD SET OCRD."U_District" = T2."U_DistName"		 		
+				FROM OCRD 			
+				INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+								  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+				INNER JOIN "@ADDDISTRICT" T2 ON T1."U_District" = T2."Code"
+			WHERE OCRD."CardCode" = :list_of_cols_val_tab_del ;   
+	END IF;
+
+
+--Update Block
+	SELECT (SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND IFNULL(T1."U_Block",'?') = '?'
+					)INTO cnt FROM DUMMY;
+	
+	IF :cnt > 0 THEN
+		 UPDATE OCRD SET OCRD."U_Block" = '' WHERE "CardCode" = :list_of_cols_val_tab_del ;
+	END IF;
+	
+	IF cnt = 0 THEN	
+			UPDATE OCRD SET OCRD."U_Block" = T2."U_BlockName"	 		
+				FROM OCRD 
+				INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+								  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+				INNER JOIN "@ADDBLOCK" T2 ON T1."U_Block" = T2."Code"
+			WHERE OCRD."CardCode" = :list_of_cols_val_tab_del ;
+	END IF;
+	
+--Update Panchayat
+	SELECT (SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND IFNULL(T1."U_Panchayat",'?') = '?'
+					)INTO cnt FROM DUMMY;
+
+	IF :cnt > 0 THEN
+		 UPDATE OCRD SET OCRD."U_Panchayat" = '' WHERE "CardCode" = :list_of_cols_val_tab_del ;   
+	END IF;
+
+	IF cnt = 0 THEN	
+			UPDATE OCRD SET OCRD."U_Panchayat" = T2."U_PanchName"		 		
+					FROM OCRD 
+					INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+									  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDPANCH" T2 ON T1."U_Panchayat" = T2."Code"
+			WHERE OCRD."CardCode" = :list_of_cols_val_tab_del ;   
+	END IF;
+
+--Update Village
+	SELECT (SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND IFNULL(T1."U_Village",'?') = '?'
+					)INTO cnt FROM DUMMY;
+					
+	IF :cnt > 0 THEN
+		 UPDATE OCRD SET OCRD."U_Village" = '' WHERE "CardCode" = :list_of_cols_val_tab_del ;   
+	END IF;
+	
+	IF cnt = 0 THEN	
+			UPDATE OCRD SET OCRD."U_Village" = T2."U_VillageName"	 		
+				FROM OCRD 
+				INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+								  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+				INNER JOIN "@ADDVILLAGE" T2 ON T1."U_Village" = T2."Code" 
+			WHERE OCRD."CardCode" = :list_of_cols_val_tab_del ;   
+	END IF;
+
+  	IF :cnt = 0 Then
+		SELECT(SELECT Count(*)
+				FROM OCRD T0
+				INNER JOIN "@CSPAGATHEAD"  T1 ON T0."U_CSPAgreement" = T1."DocEntry"
+				WHERE T0."CardCode" = :list_of_cols_val_tab_del AND T1."U_CSPCode" <> T0."CardCode" OR  T1."U_CSPName" <> T0."CardName"
+    		)INTO cnt FROM DUMMY;
+ 		IF :cnt > 0 then
+	            error := 200006;
+	           error_message := 'CSP Document Code or Name not match with Business Partener Code or Name';
+	     END IF;
+     END IF;
+	     
+  IF  :cnt = 0 Then
+	SELECT(SELECT Count(*)
+				FROM OCRD T0
+				INNER JOIN "@CSPPOLATHEAD"  T1 ON T0."U_PoliceDoc" = T1."DocEntry"
+				WHERE T0."CardCode" = :list_of_cols_val_tab_del AND T1."U_CSPCode" <> T0."CardCode" OR  T1."U_CSPName" <> T0."CardName"
+    		)INTO cnt FROM DUMMY;
+ 		IF :cnt > 0 then
+	            error := 200007;
+	           error_message := 'CSP Police Document Code or Name not match with Business Partener Code or Name';
+	     END IF;
+	END IF;
+	
+   IF :cnt = 0 then
+	SELECT(SELECT Count(*)
+				FROM OCRD T0
+				INNER JOIN "@CHEQUEH"  T1 ON T0."U_Cheque" = T1."DocEntry"
+				WHERE T0."CardCode" = :list_of_cols_val_tab_del AND T1."U_Code" <> T0."CardCode" OR  T1."U_Name" <> T0."CardName"	
+    		)INTO cnt FROM DUMMY;
+ 		IF :cnt > 0 then
+	            error := 200008;
+	           error_message := 'Cheque and other Details Code or Name not match with Business Partener Code or Name';
+	     END IF;
+	  END IF;
+ IF :cnt = 0 then  
+ 	 
+ 	 SELECT( SELECT Count(*) FROM OCRD T10 WHERE T10."CardCode" = :list_of_cols_val_tab_del
+			AND IFNULL(T10."U_CSPDOB",'')=(SELECT TOP 1 IFNULL(T20."U_CSPDOB",'') FROM ACRD T20 
+								WHERE  T20."CardCode" = :list_of_cols_val_tab_del ORDER BY "LogInstanc" DESC)) INTO DOB FROM DUMMY ;
+	IF DOB > 0 THEN							
+	SELECT( SELECT Count(*) FROM OCRD T10 WHERE T10."CardCode" = :list_of_cols_val_tab_del
+				AND IFNULL(T10."U_CSPDOB",'') <>'' 
+					AND IFNULL(T10."U_CSPAGE",0)<>(SELECT TOP 1 IFNULL(T20."U_CSPAGE",0) FROM ACRD T20 
+								WHERE  T20."CardCode" = :list_of_cols_val_tab_del ORDER BY "LogInstanc" DESC)) INTO cnt FROM DUMMY ;
+ 	
+		IF :cnt > 0 then
+	            error := 2;
+	           error_message := 'You Can not Change the CSP Age manually';
+	     END IF;
+	 END IF;
+ END IF;
+ END IF;
+
+----CSP Document---------------------------------------------------------------------------------------------
+IF :Object_type = 'CSPAgreement' AND (:transaction_type = 'A' OR :transaction_type = 'U' )
+	THEN
+		SELECT(SELECT Count (*) FROM "@CSPAGATHEAD"  T0
+					WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND 
+							IFNULL(T0."U_CSPCode",'') NOT IN (SELECT T00."CardCode" FROM OCRD T00 
+																WHERE T00."GroupCode" IN (111,113,116,118)) 
+			  ) INTO Cnt FROM DUMMY;
+			  
+		IF Cnt > 0 then
+			error := 101011;
+			error_message := 'This Business Partner does not exist in CSP Group';	
+		END IF;
+		
+	IF Cnt=0 THEN	
+		SELECT(SELECT Count (*) 
+					FROM "@CSPAGATHEAD"  T0
+					INNER JOIN OCRD T1 ON T0."U_CSPCode" = T1."CardCode"
+					WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND  IFNULL(T0."U_CSPName",'') <> IFNULL(T1."CardName",'') 
+			  ) INTO Cnt FROM DUMMY;
+			  
+		IF Cnt > 0 then
+			error := 101012;
+			error_message := 'This Business Partner Name does not exist in CSP Group';	
+		END IF; 
+	END IF;
+	
+	IF Cnt=0 THEN
+		SELECT (SELECT Count (*) FROM "@CSPAGATLINE"  T0 
+					WHERE  IFNULL(T0."U_ValidFrom",'')='' 
+					OR IFNULL(T0."U_ValidTo",'')='' 
+					OR IFNULL(CAST(T0."U_Attach" AS CHAR),'?')='?'
+				)INTO Cnt From Dummy;	
+				
+			IF Cnt > 0 then
+			error := 101013;
+			error_message := 'Valid From, Valid To and Attachment filed should not be blank';	
+		END IF;
+	END IF;				  
+END IF;
+
+
+----CSP Police Document---------------------------------------------------------------------------------------------
+IF :Object_type = 'CSPPolDoc' AND (:transaction_type = 'A' OR :transaction_type = 'U' )
+	THEN
+		SELECT(SELECT Count (*) FROM "@CSPPOLATHEAD"  T0
+					WHERE IFNULL(T0."U_CSPCode",'') NOT IN (SELECT T00."CardCode" FROM OCRD T00 
+																WHERE T00."GroupCode" IN (111,113,116,118)) 
+			  ) INTO Cnt FROM DUMMY;
+			  
+		IF Cnt > 0 then
+			error := 101011;
+			error_message := 'This Business Partner does not exist in CSP Group';	
+		END IF;
+		
+	IF Cnt=0 THEN	
+		SELECT(SELECT Count (*) 
+					FROM "@CSPPOLATHEAD"  T0
+					INNER JOIN OCRD T1 ON T0."U_CSPCode" = T1."CardCode"
+					WHERE IFNULL(T0."U_CSPName",'') <> IFNULL(T1."CardName",'') AND T0."DocEntry" = :list_of_cols_val_tab_del 
+			  ) INTO Cnt FROM DUMMY;
+			  
+		IF Cnt > 0 then
+			error := 101012;
+			error_message := 'This Business Partner Name does not exist in CSP Group';	
+		END IF; 
+	END IF;
+	
+	IF Cnt=0 THEN
+		SELECT (SELECT Count (*) FROM "@CSPPOLATLINE"  T0 
+					WHERE  IFNULL(T0."U_ValidFrom",'')='' 
+					OR IFNULL(T0."U_ValidTo",'')='' 
+					OR IFNULL(CAST(T0."U_Attach" AS CHAR),'?')='?'
+				)INTO Cnt From Dummy;	
+				
+			IF Cnt > 0 then
+			error := 101013;
+			error_message := 'Valid From, Valid To and Attachment filed should not be blank';	
+		END IF;
+	END IF;
+END IF;
+--Circle ------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddCircle' AND (:transaction_type='U')
+	THEN
+			SELECT(SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDCIRCLE" T2 ON T1."U_Circle" = T2."Code"
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND T0."U_Cricle" <> T2."U_CircleName"
+				  )INTO cnt FROM DUMMY ;
+	IF :cnt>0 then
+            UPDATE OCRD SET OCRD."U_Cricle" =  T2."U_CircleName"		 		
+					FROM OCRD 
+					INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+									  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDCIRCLE" T2 ON T1."U_Circle" = T2."Code"
+					WHERE OCRD."CardCode" = :list_of_cols_val_tab_del  ;
+     END IF;
+   END IF;
+ --District------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddDistrict' AND (:transaction_type='U')
+	THEN
+			SELECT(SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDDISTRICT" T2 ON T1."U_District" = T2."Code"
+					WHERE T0."U_District" <> T2."U_DistName"	
+				  )INTO cnt FROM DUMMY ;
+	IF :cnt>0 then
+            UPDATE OCRD SET OCRD."U_District" = T2."U_DistName"		 		
+				FROM OCRD 		
+				INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+								  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+				INNER JOIN "@ADDDISTRICT" T2 ON T1."U_District" = T2."Code";
+     END IF;
+   END IF;
+  --Block------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddBlock' AND (:transaction_type='U')
+	THEN
+			SELECT(SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDBLOCK" T2 ON T1."U_Block" = T2."Code"
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND T0."U_Block" <> T2."U_BlockName"	
+				  )INTO cnt FROM DUMMY ;
+	IF :cnt>0 then
+            UPDATE OCRD SET OCRD."U_Block" = T2."U_BlockName"	 		
+				FROM OCRD 
+				INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+								  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+				INNER JOIN "@ADDBLOCK" T2 ON T1."U_Block" = T2."Code"
+				WHERE OCRD."CardCode" = :list_of_cols_val_tab_del;
+     END IF;
+   END IF;
+ --Panchayat------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddPanch' AND (:transaction_type='U')
+	THEN
+			SELECT(SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDPANCH" T2 ON T1."U_Panchayat" = T2."Code"
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND T0."U_Panchayat" <> T2."U_PanchName"		 		
+				  )INTO cnt FROM DUMMY ;
+	IF :cnt>0 then
+            UPDATE OCRD SET OCRD."U_Panchayat" = T2."U_PanchName"		 		
+					FROM OCRD 
+					INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+									  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDPANCH" T2 ON T1."U_Panchayat" = T2."Code"
+					WHERE OCRD."CardCode" = :list_of_cols_val_tab_del;
+     END IF;
+   END IF;
+  --Village------------------------------------------------------------------------------------------------------
+IF :object_type = 'AddVillage' AND (:transaction_type='U')
+	THEN
+			SELECT(SELECT Count(*)
+					FROM OCRD T0			
+					INNER JOIN CRD1 T1 ON T0."CardCode" = T1."CardCode" 				
+									  AND T0."BillToDef" = T1."Address" AND T1."AdresType"='B'
+					INNER JOIN "@ADDVILLAGE" T2 ON T1."U_Village" = T2."Code" 
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del AND T0."U_Village" <> T2."U_VillageName"	 		
+				  )INTO cnt FROM DUMMY ;
+	IF :cnt>0 then
+            UPDATE OCRD SET OCRD."U_Village" = T2."U_VillageName"	 		
+				FROM OCRD 		
+				INNER JOIN CRD1 T1 ON OCRD."CardCode" = T1."CardCode" 				
+								  AND OCRD."BillToDef" = T1."Address" AND T1."AdresType"='B'
+				INNER JOIN "@ADDVILLAGE" T2 ON T1."U_Village" = T2."Code" 
+				WHERE OCRD."CardCode" = :list_of_cols_val_tab_del ;
+     END IF;
+   END IF;
+----------------------------------------------CSP Code Update In BLock Number--------
+IF :object_type = '67' AND (:transaction_type = 'A' OR :transaction_type = 'U' ) THEN
+
+
+	Update WTR1 Set "BlockNum"= "U_CSPCode" where WTR1."DocEntry" = :list_of_cols_val_tab_del;
+
+END IF;	
+--######################################################################################################
+
+IF :object_type = 'PASSBOOK' AND (:transaction_type ='A' or :transaction_type='U')
+	THEN
+				SELECT(SELECT Count(*) FROM "@PASSBOOK" 
+						WHERE "DocEntry" <> :list_of_cols_val_tab_del  
+						AND "U_CSP_CODE" IN (SELECT "U_CSP_CODE" FROM "@PASSBOOK" WHERE "DocEntry" = :list_of_cols_val_tab_del)
+						AND "U_TXN_DATE" IN (SELECT "U_TXN_DATE" FROM "@PASSBOOK" WHERE "DocEntry" = :list_of_cols_val_tab_del)
+					   ) INTO cnt FROM DUMMY ;
+		
+	
+	IF :cnt>0 then
+            error := 221;
+           error_message := 'This Entry already exists.';
+     END IF;    		
+     
+ END IF;
+
+------------------------Sandeep------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and Ifnull(T0."Phone1",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 1,'Please Select MSME.......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+---------------------------Sandeep---------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T0."Cellular",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 2,'Please Select Mobile Phone Number .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ -----------------------Sandeep----------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T0."Fax",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 3,'Please Select Fy year .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ----------------------Sandeep-------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T0."E_Mail",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 4,'Please Select E_Mail.......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ -------------------------Sandeep-------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U' ) 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and Ifnull(T0."CntctPrsn",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 5,'Please Select contact Person.......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ---------------------------Sandeep---------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and Ifnull(T1."Street",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In('131','130','101'))
+Then
+SELECT 6,'Please Select Street .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ---------------------------Sandeep--------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T1."Block",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 7,'Please Select Block .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ----------------------------Sandeep----------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T1."City",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 8,'Please Select City .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ------------------------------Sandeep----------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and Ifnull(T1."ZipCode",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 9,'Please Select ZipCode .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ------------------------------Sandeep------------------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD1 T1 ON T1."CardCode" = t0."CardCode" and t1."AdresType" = 'B'
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  Ifnull(T1."TaxOffice",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 10,'Please Select TaxOffice .......!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+ ---------------------------------
+IF :Object_type = '2' And (:transaction_type= 'A' OR :transaction_type = 'U') 
+Then
+If Exists 
+(SELECT T0."CardCode"
+ FROM OCRD T0 
+ Left Join CRD7 T1 ON T1."CardCode" = t0."CardCode" and t0."CardType" = t1."AddrType"
+ WHERE T0."CardCode" = :list_of_cols_val_tab_del and  IfNull(T1."TaxId0",'') = '' and T0."CardType" = 'S' and t0."GroupCode" In ('131','130','101'))
+Then
+SELECT 11,'Please Select PAN No........!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+
+----------------------------------------------------------------------------
+
+
+-------------------Himanshu
+
+IF :object_type = '20' and (:transaction_type= 'A' OR :transaction_type = 'U') 
+THEN
+IF EXISTS
+(
+Select t0."DocEntry" from OPDN t0
+Inner Join PDN1 t1 on t0."DocEntry" = t1."DocEntry"
+Inner Join OPOR t2 on t1."BaseEntry" =  t2."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t0."CANCELED" = 'N'   and t0."DocDate" < t2."DocDate")
+
+THEN 
+SELECT 11234,'GRPO Posting date is smaller than PO posting Date!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+----------
+
+
+IF :object_type = '18' and (:transaction_type= 'A' OR :transaction_type = 'U') 
+THEN
+IF EXISTS
+(
+Select t0."DocEntry" from OPCH t0
+Inner Join PCH1 t1 on t0."DocEntry" = t1."DocEntry"
+Inner Join OPDN t3 on t1."BaseEntry" = t3."DocEntry"
+where t0."DocEntry" = :list_of_cols_val_tab_del and t1."BaseType" = '20'   and t0."DocDate" < t3."DocDate" )
+
+THEN 
+SELECT 22234,'AP Invoice Posting date is smaller than GRPO posting Date!!!!!!!!!'
+into Error, error_message from Dummy;
+ End if ;
+ End if;
+
+
+-- Select the return values
+select :error, :error_message FROM dummy;
+
+end;

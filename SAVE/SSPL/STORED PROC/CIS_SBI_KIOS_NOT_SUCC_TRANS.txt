@@ -1,0 +1,88 @@
+CREATE PROCEDURE CIS_SBI_KIOS_NOT_SUCC_TRANS
+(
+	FromDate NVARCHAR(8), 				-- SBO Object Type
+	ToDate NVARCHAR(8)
+)
+LANGUAGE SQLSCRIPT
+AS
+BEGIN
+	DECLARE MinLineNum INT;
+	DECLARE MaxLineNum INT;
+	DECLARE RefNo NVARCHAR(100);
+	DECLARE cnt INT;
+
+	CREATE LOCAL TEMPORARY TABLE #KIOSRef
+	(
+		"ID" BIGINT,
+		"Ref" VARCHAR(100)
+	);
+
+	CREATE LOCAL TEMPORARY TABLE #STMT_DocEntry
+	(
+		"ID" BIGINT,
+		"DocEntry" BIGINT
+	);
+	
+	INSERT INTO #KIOSRef
+	SELECT DISTINCT ROW_NUMBER() OVER(), T1."U_Ref"
+	FROM "@SBI_KIOS" T1
+	WHERE T1."U_Status" <> 'Success'
+	AND IFNULL(T1."U_Ref", '') <> ''
+	AND TO_CHAR("U_TDate", 'yyyymmdd') >= :FromDate
+	AND TO_CHAR("U_TDate", 'yyyymmdd') <= :ToDate;
+
+				
+	MinLineNum := 0;
+	MaxLineNum := 0;
+	
+	SELECT MIN("ID"), MAX("ID") INTO MinLineNum, MaxLineNum
+	FROM #KIOSRef;
+
+	WHILE (MinLineNum <= MaxLineNum) DO
+
+		cnt := 0;
+		RefNo := '';
+		
+		SELECT "Ref" INTO RefNo
+		FROM #KIOSRef WHERE "ID" = :MinLineNum;
+		
+		SELECT COUNT(*) INTO cnt
+		FROM "@SBI_STMT" T0
+		WHERE T0."U_RefernceNo" LIKE '%' + :RefNo + '%';
+		
+		IF cnt = 1 THEN
+
+			INSERT INTO #STMT_DocEntry
+			SELECT DISTINCT ROW_NUMBER() OVER(), T0."DocEntry"
+			FROM "@SBI_STMT" T0
+			WHERE T0."U_RefernceNo" LIKE '%' + :RefNo + '%';
+
+		END IF;
+		
+		MinLineNum := MinLineNum + 1;
+	END WHILE;
+
+	SELECT T0."U_FILENAME", T0."U_JE_TRANSID", T0."U_TxnDate", T0."U_Desc", T0."U_RefNo", T0."U_BnchCde", T0."U_Credit", T0."U_Debit", T0."U_Bal", 
+	T0."U_CardCode", T0."U_RECSTS", T0."U_BnkAcNo", T0."U_Event", T0."U_RefernceNo",  T0."U_KIOSEvent", T0."U_CustName", T0."U_CustAcct", 
+	T0."U_Priority" 	
+	FROM "@SBI_STMT" T0
+	WHERE T0."DocEntry" IN (SELECT T00."DocEntry" FROM #STMT_DocEntry T00);
+
+-- Dropping Temp Table					
+	DROP TABLE #KIOSRef;
+	DROP TABLE #STMT_DocEntry;
+
+END;
+
+
+
+
+
+
+
+
+
+
+
+
+

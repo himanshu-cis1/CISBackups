@@ -1,0 +1,86 @@
+CREATE PROCEDURE CIS_CSP_Wise_Commission_Report
+(
+	in FromDate Date,
+	in ToDate Date
+	
+)
+AS 
+BEGIN
+
+
+	SELECT A.*, 
+		CASE WHEN A."Monthly Commission"='0.00' THEN '1' ELSE '' END "Nill Comm.",
+		CASE WHEN A."Monthly Commission">='1' AND A."Monthly Commission"<= '100'  THEN '1' ELSE '' END "1-100",
+		CASE WHEN A."Monthly Commission">='101' AND A."Monthly Commission"<= '1000'  THEN '1' ELSE '' END "101-1000",
+		CASE WHEN A."Monthly Commission">='1001' AND A."Monthly Commission"<= '5000'  THEN '1' ELSE '' END "1001-5000",
+		CASE WHEN A."Monthly Commission">='5001' AND A."Monthly Commission"<= '10000'  THEN '1' ELSE '' END "5001-10000",
+		CASE WHEN A."Monthly Commission">='10001' AND A."Monthly Commission"<= '15000'  THEN '1' ELSE '' END "10001-15000",
+		CASE WHEN A."Monthly Commission">='15001' AND A."Monthly Commission"<= '20000'  THEN '1' ELSE '' END "15001-20000",
+		CASE WHEN A."Monthly Commission">='20001' THEN '1' ELSE '' END "20001 & Above" 
+FROM(
+		
+		SELECT T1."CardFName" "Save ID",T1."CardCode" "CSP Code", T1."CardName" "CSP Name", T1."U_District" "District", 
+				(SELECT "Name" FROM OCST WHERE T1."State1" = "Code" AND T1."Country" = "Country" )"State1",
+				T1."U_Cricle" "Cricle",T1."U_DCCode", T1."U_DCName",
+				
+				IFNULL((SELECT T11."U_Population" FROM "@CCPM_PAYMTSTAT" T11 
+							WHERE IFNULL(T11."U_CSPCode",'') = IFNULL(SUBSTRING (T0."U_KOID", 1, 8),'') 
+							AND T11."U_Month" = MONTH(T0."U_TDate") AND T11."U_Year" = YEAR(T0."U_TDate") ),'') "Population Category",
+				 
+				IFNULL((SELECT T11."U_RuralComm" FROM "@CCPM_PAYMTSTAT" T11 
+							WHERE IFNULL(T11."U_CSPCode",'') = IFNULL(SUBSTRING (T0."U_KOID", 1, 8),'') 
+							AND T11."U_Month" = MONTH(T0."U_TDate") AND T11."U_Year" = YEAR(T0."U_TDate") ),0)"Rural Commission Rewarded",
+				'' "Date of Inception",
+				
+				COUNT(*)"Transaction Count",SUM(T0."U_Amt") "Transaction Amount",
+				-- SUM(T0."U_Amt")"Amount",
+				
+				IFNULL((SELECT SUM(T11."U_TotalComm") FROM "@CCPM_PAYMTSTAT" T11 
+							WHERE IFNULL(T11."U_CSPCode",'') = IFNULL(SUBSTRING (T0."U_KOID", 1, 8),'') 
+							AND T11."U_Month" = MONTH(T0."U_TDate") AND T11."U_Year" = YEAR(T0."U_TDate") )
+				,0) "Monthly Commission",
+				MONTH(T0."U_TDate") "Month",
+				YEAR(T0."U_TDate")"Year"
+		
+		FROM "SSPLRECODB"."@SBI_KIOS"  T0 
+		INNER JOIN OCRD T1 ON T1."CardCode" = SUBSTRING (T0."U_KOID", 1, 8)
+		WHERE T0."U_TDate" BETWEEN FromDate AND ToDate AND IFNULL(T0."U_Status",'') = 'Success'
+		/*AND IFNULL((SELECT SUM(T11."U_TotalComm") FROM "@CCPM_PAYMTSTAT" T11 
+					WHERE IFNULL(T11."U_CSPCode",'') = IFNULL(T0."U_KOID",'') 
+					AND T11."U_Month" = MONTH(T0."U_TDate") AND T11."U_Year" = YEAR(T0."U_TDate") ),0) =0
+		*/
+		GROUP BY T1."CardFName",T1."CardCode",SUBSTRING (T0."U_KOID", 1, 8),T1."CardName",T1."U_District",
+				 YEAR(T0."U_TDate"),MONTH(T0."U_TDate"),T1."CardName",T1."U_Cricle",T1."State1",T1."Country",
+				 T1."U_DCCode", T1."U_DCName",T1."U_CSPTYPE"
+		)A
+ORDER BY A."Month",A."Year";
+
+/*SELECT T1."CardFName" "Save ID",T1."CardCode" "CSP Code", T1."CardName" "CSP Name", T1."U_District" "District", 
+		(SELECT "Name" FROM OCST WHERE T1."State1" = "Code" AND T1."Country" = "Country" )"State1",
+		T1."U_Cricle" "Cricle",T1."U_DCCode", T1."U_DCName",T1."U_CSPTYPE" "Population Category",T0."U_RuralComm" "Rural Commission Rewarded",
+		'' "Date of Inception", 
+		CAST((SELECT COUNT(*) FROM "@SBI_KIOS"  T01 WHERE T01."U_KOID" = T0."U_CSPCode" 
+			AND MONTH(T01."U_TDate") = T0."U_Month" AND YEAR(T01."U_TDate") = T0."U_Year") AS CHAR) "Transaction Count",
+		CAST((SELECT SUM(T01."U_Amt") FROM "@SBI_KIOS"  T01 WHERE T01."U_KOID" = T0."U_CSPCode"
+			AND MONTH(T01."U_TDate") = T0."U_Month" AND YEAR(T01."U_TDate") = T0."U_Year") AS CHAR) "Transaction Amount",	  
+		CAST(T0."U_TotalComm" AS CHAR)  "Total commission",
+		CASE WHEN IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')='0' THEN 0 ELSE 0 END "0",
+		CASE WHEN IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')>='1' AND IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')<= '100'  THEN '1' ELSE '' END "1-100",
+		CASE WHEN IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')>='101' AND IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')<= '1000'  THEN '1' ELSE '' END "101-1000",
+		CASE WHEN IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')>='1001' AND IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')<= '5000'  THEN '1' ELSE '' END "1001-5000",
+		CASE WHEN IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')>='5001' AND IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')<= '10000'  THEN '1' ELSE '' END "5001-10000",
+		CASE WHEN IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')>='10001' AND IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')<= '15000'  THEN '1' ELSE '' END "10001-15000",
+		CASE WHEN IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')>='15001' AND IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')<= '20000'  THEN '1' ELSE '' END "15001-20000",
+		CASE WHEN IFNULL(CAST(T0."U_TotalComm" AS CHAR),'0')>='20001' THEN '1' ELSE '' END "20001 & Above",
+		CAST(T0."U_Month" AS CHAR) "Month", CAST(T0."U_Year" AS CHAR)"Year"
+
+FROM "@CCPM_PAYMTSTAT"  T0
+
+INNER JOIN OCRD T1 ON T0."U_CSPCode" = T1."CardCode"
+
+WHERE CAST(T0."U_Month" AS CHAR) = Month_1 AND CAST(T0."U_Year" AS CHAR) = YEAR_1;*/
+END;
+
+
+
+

@@ -1,0 +1,21 @@
+CREATE PROCEDURE CIS_WrongTripping
+      (IN DateType2 VARCHAR(20)
+      , out result "@WRONGTRPINIG")
+as
+
+Begin
+
+Result = 
+SELECT 'Code' AS "Code", 'Name' AS "Name", T0."U_CustAcct", T0."U_CardCode",
+T1."U_Cricle" "U_Cricle", T1."U_District" "U_District",
+(SELECT "Name" FROM OCST WHERE T1."State1" = "Code" AND T1."Country" = "Country" )"U_State",
+T0."U_Credit", T0."U_Debit"
+FROM "SSPLRECODB"."@SBI_STMT"  T0 
+INNER JOIN OCRD T1 ON T0."U_CardCode" = T1."CardCode"
+WHERE T0."U_RECSTS"='Y' AND  T0."U_TxnDate" = DateType2
+;
+End
+
+
+
+

@@ -1,0 +1,316 @@
+CREATE PROCEDURE CIS_PROC_ProdConsumption_Calc_Validation (IN DocKey VARCHAR(100), IN ObjType VARCHAR(100)
+													     , IN TransType VARCHAR(100)
+													     , OUT Error INT
+													     , OUT Error_Message VARCHAR(200) 
+													     )
+AS
+BEGIN
+
+	DECLARE MinLine INTEGER;
+	DECLARE Counter INTEGER;
+	DECLARE RQCOUNT INTEGER;
+	DECLARE ItemCode VARCHAR(2000);
+	
+	/*DECLARE Error INTEGER; 
+	DECLARE Error_Message VARCHAR(2000);*/
+
+
+	CREATE LOCAL TEMPORARY TABLE #Temp_ProdNo ("ProdDE" INT); 
+
+	CREATE LOCAL TEMPORARY TABLE #Temp_CalcDetails 
+ 	("PrdNo" INT, "PrdDE" INT, "FG_ItemCode" VARCHAR(1000), "FG_ItemName" VARCHAR(5000)
+ 	, "FG_PlanQty" DECIMAL(19, 6), "FG_CompletedQty" DECIMAL(19, 6), "FG_RejectedQty" DECIMAL(19, 6)
+ 	, "FG_TotalRvdQty"  DECIMAL(19, 6), "RM_Line" INT, "RM_ItemCode" VARCHAR(1000), "RM_ItemName" VARCHAR(5000)
+ 	, "RM_BaseQty" DECIMAL(19, 6), "RM_PlanQty" DECIMAL(19, 6), "RM_IssuedQty" DECIMAL(19, 6)
+ 	, "RBQ" DECIMAL(19, 3), "CBQ" DECIMAL(19, 3), "SBQ" DECIMAL(19, 3), "FQ" DECIMAL(19, 3), "FAQ" DECIMAL(19, 3)
+ 	, "FCR" DECIMAL(19, 3), "CCR" DECIMAL(19, 3), "SCR" DECIMAL(19, 3), "RAQ" DECIMAL(19, 3)
+ 	, "CAQ" DECIMAL(19, 3), "CQ" DECIMAL(19, 3), "SQ" DECIMAL(19, 3), "RQ" DECIMAL(19, 3));
+	
+	IF :ObjType = '60' THEN
+		INSERT INTO #Temp_ProdNo ("ProdDE")  
+		SELECT DISTINCT T1."BaseEntry"
+	    FROM "OIGE" T0
+	    INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+		WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = 202;
+	END IF;
+
+	IF :ObjType = '59' THEN
+		INSERT INTO #Temp_ProdNo ("ProdDE")  
+		SELECT DISTINCT T1."BaseEntry"
+	    FROM "OIGN" T0
+	    INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+		WHERE T0."DocEntry" = :DocKey AND T1."BaseType" = 202;
+	END IF;
+
+	INSERT INTO #Temp_CalcDetails ("PrdNo", "PrdDE", "FG_ItemCode", "FG_ItemName"
+	, "FG_PlanQty", "FG_CompletedQty", "FG_RejectedQty", "FG_TotalRvdQty", "RM_Line"
+	, "RM_ItemCode", "RM_ItemName", "RM_BaseQty", "RM_PlanQty", "RM_IssuedQty")  
+
+	SELECT T0."DocNum", T0."DocEntry", T0."ItemCode", FGITM."ItemName"
+	, T0."PlannedQty", IFNULL(T0."CmpltQty", 0.00) + IFNULL(T0."RjctQty", 0.00), T0."RjctQty"
+	, IFNULL(T0."CmpltQty", 0.00) + IFNULL(T0."RjctQty", 0.00) "FG_TotalRvdQty"
+	, T1."LineNum", T1."ItemCode" "RM_ItemCode", RMITM."ItemName", T1."BaseQty"
+	, T1."PlannedQty" "RM_PlanQty"
+	--, T1."IssuedQty" "RM_IssuedQty"
+	, CASE WHEN :ObjType = '60' THEN SUM(RMISS."Quantity") ELSE SUM(T1."IssuedQty") END "RM_IssuedQty"
+--	,	RMITM."U_ItmCat"
+	FROM "OWOR" T0
+	INNER JOIN "WOR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	INNER JOIN "OITM" FGITM ON T0."ItemCode" = FGItm."ItemCode"
+	INNER JOIN "OITM" RMITM ON T1."ItemCode" = RMITM."ItemCode"	
+	LEFT JOIN "IGE1" RMISS ON :ObjType = '60' --AND RMISS."DocEntry" = :DocKey 
+											AND RMISS."BaseEntry" = T1."DocEntry" AND RMISS."BaseLine" = T1."LineNum"  AND RMISS."BaseType" = '202'
+	WHERE T0."DocEntry" IN (SELECT C0."ProdDE" FROM #Temp_ProdNo C0)
+	AND T1."ItemType" = 4
+	AND RMITM."U_ItmCat" NOT IN ('CMIN','CMRD','SCBP','SCCU','SCFR','SCGZ','SCLF','SCLI','SCMC','SCST','SCVF','SCYN')
+	GROUP BY  T0."DocNum", T0."DocEntry", T0."ItemCode", FGITM."ItemName"
+	, T0."PlannedQty", IFNULL(T0."CmpltQty", 0.00), IFNULL(T0."RjctQty", 0.00), T0."RjctQty"
+	, T1."LineNum", T1."ItemCode", RMITM."ItemName", T1."BaseQty"
+	, T1."PlannedQty" 
+	, RMITM."U_ItmCat";	
+/*	
+	SELECT T0."DocNum", T0."DocEntry", T0."ItemCode", FGITM."ItemName"
+	, T0."PlannedQty", IFNULL(T0."CmpltQty", 0.00) + IFNULL(T0."RjctQty", 0.00), T0."RjctQty"
+	, IFNULL(T0."CmpltQty", 0.00) + IFNULL(T0."RjctQty", 0.00) "FG_TotalRvdQty"
+	, T1."LineNum", T1."ItemCode" "RM_ItemCode", RMITM."ItemName", T1."BaseQty"
+	, T1."PlannedQty" "RM_PlanQty"
+	--, T1."IssuedQty" "RM_IssuedQty"
+	, CASE WHEN :ObjType = '60' THEN RMISS."Quantity" ELSE T1."IssuedQty" END "RM_IssuedQty"
+	FROM "OWOR" T0
+	INNER JOIN "WOR1" T1 ON T0."DocEntry" = T1."DocEntry"
+	INNER JOIN "OITM" FGITM ON T0."ItemCode" = FGItm."ItemCode"
+	INNER JOIN "OITM" RMITM ON T1."ItemCode" = RMITM."ItemCode"	
+	LEFT JOIN "IGE1" RMISS ON :ObjType = '60' --AND RMISS."DocEntry" = :DocKey 
+											AND RMISS."BaseEntry" = T1."DocEntry" AND RMISS."BaseLine" = T1."LineNum"  AND RMISS."BaseType" = '202'
+	WHERE T0."DocEntry" IN (SELECT C0."ProdDE" FROM #Temp_ProdNo C0)
+	AND T1."ItemType" = 4;
+*/
+	/*==================================================================================================*/
+	-- Calculating RBQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "RBQ" = ("RM_BaseQty" / 1.00) * 100.00
+	WHERE "RM_BaseQty" = (SELECT MAX(C0."RM_BaseQty") FROM #Temp_CalcDetails C0);
+	/*==================================================================================================*/
+
+	/*==================================================================================================*/
+	-- Calculating CBQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "CBQ" = ("RM_BaseQty" / 1.00) * 100.00
+	WHERE IFNULL("RM_BaseQty", 0.00) > 0;
+	/*==================================================================================================*/
+
+	/*==================================================================================================*/
+	-- Calculating SBQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "SBQ" = ("RM_BaseQty" / 1.00) * 100.00
+	WHERE IFNULL("RM_BaseQty", 0.00) < 0;
+	/*==================================================================================================*/
+
+	/*==================================================================================================*/
+	-- Calculating RQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "RQ" = "RM_IssuedQty"  * (100.00 / 100.00)
+	WHERE IFNULL("RBQ", 0.00) > 0;
+	/*==================================================================================================*/	
+
+	/*==================================================================================================*/
+--	RM_Line	
+	/*==================================================================================================*/	
+	IF :ObjType = '60' THEN
+	
+		SELECT COUNT(C0."PrdNo") INTO RQCOUNT FROM #Temp_CalcDetails C0 WHERE IFNULL("RQ", 0.00) <> 0;
+		
+		IF IFNULL(:RQCOUNT, 0) > 1 THEN
+			SELECT MIN("RM_Line") INTO MinLine FROM #Temp_CalcDetails C0 WHERE IFNULL("RQ", 0.00) <> 0;
+			UPDATE #Temp_CalcDetails 
+			SET "RQ" = 0.00
+			WHERE IFNULL("RQ", 0.00) <> 0.00 AND "RM_Line" > :MinLine; 		
+		END IF;
+	END IF;	
+	/*==================================================================================================*/	
+
+	/*==================================================================================================*/
+	-- Calculating FQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "FQ" = (IFNULL("RQ", 0.00)  / IFNULL("RBQ", 0.00)) * 100.00
+	WHERE IFNULL("RBQ", 0.00) > 0;
+	/*==================================================================================================*/	
+
+	/*==================================================================================================*/
+	-- Calculating CQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "CQ" = (IFNULL((SELECT MAX(IFNULL("FQ", 0.00))
+						FROM #Temp_CalcDetails C0 
+						--WHERE IFNULL("FQ", 0.00) <> 0
+						), 0.00)  * IFNULL("CBQ", 0.00)) / 100.00
+	WHERE IFNULL("CBQ", 0.00) <> 0 AND IFNULL("RQ", 0.00) = 0;
+	/*==================================================================================================*/	
+
+	/*==================================================================================================*/
+	-- Calculating SQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "SQ" = (IFNULL((SELECT MAX(IFNULL("FQ", 0.00))
+	                    FROM #Temp_CalcDetails C0), 0.00)  * IFNULL("SBQ", 0.00)) / 100.00
+	WHERE IFNULL("SBQ", 0.00) <> 0;
+	/*==================================================================================================*/	
+
+	/*==================================================================================================*/
+	-- Calculating CCR BASED ON RQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "CCR" = ((IFNULL("RQ", 0.00)  - IFNULL("RM_IssuedQty", 0.00)) / IFNULL("RQ", 0.00)) * 100.00
+	WHERE IFNULL("RQ", 0.00) <> 0;
+	/*==================================================================================================*/	
+
+	/*==================================================================================================*/
+	-- Calculating CCR BASED ON CQ
+	/*==================================================================================================*/
+	UPDATE #Temp_CalcDetails
+	SET "CCR" = ((IFNULL("CQ", 0.00)  - IFNULL("RM_IssuedQty", 0.00)) / IFNULL("CQ", 0.00)) * 100.00
+	WHERE IFNULL("CQ", 0.00) <> 0;
+	/*==================================================================================================*/	
+
+--	SELECT * FROM #Temp_CalcDetails;
+
+	IF IFNULL(:ObjType, '') = '59' THEN
+	
+		/*==================================================================================================*/
+		-- Calculating SCR BASED ON SQ
+		/*==================================================================================================*/
+		SELECT COUNT(T0."PrdDE") INTO Counter
+		FROM #Temp_CalcDetails T0
+		WHERE IFNULL("SQ", 0.00) = 0 AND IFNULL("RM_PlanQty", 0.00) < 0;
+		
+		IF IFNULL(:Counter, 0) > 0 THEN 
+		
+			Error := 5900011;
+			Error_Message := 'SQ / FQ is zero.';
+		
+		END IF;
+		
+		IF IFNULL(:Error, 0) = 0 THEN 
+		
+			UPDATE #Temp_CalcDetails
+			SET "SCR" = (IFNULL("SQ", 0.00)  - IFNULL("RM_IssuedQty", 0.00)) / IFNULL("SQ", 0.00)
+			WHERE IFNULL("SQ", 0.00) <> 0;
+		
+		END IF; 
+		/*==================================================================================================*/	
+	
+	
+		/*==================================================================================================*/
+		-- Calculating FCR BASED ON FCR
+		/*==================================================================================================*/
+		IF IFNULL(:Counter, 0) = 0 THEN 
+			SELECT COUNT(T0."PrdDE") INTO Counter
+			FROM #Temp_CalcDetails T0
+			WHERE IFNULL("FQ", 0.00) <> 0;
+		
+			IF IFNULL(:Counter, 0) = 0 THEN 
+			
+				Error := 5900012;
+				Error_Message := 'SQ / FQ is zero.';
+			
+			END IF;
+		END IF;
+	END IF; 
+	
+	IF IFNULL(:Error, 0) = 0 THEN
+	
+		UPDATE #Temp_CalcDetails
+		SET "FCR" = ((IFNULL("FQ", 0.00)  - IFNULL("FG_CompletedQty", 0.00)) / IFNULL("FQ", 0.00)) * 100.00
+		WHERE IFNULL("FQ", 0.00) > 0;
+		
+	END IF;
+	/*==================================================================================================*/	
+
+	/*==================================================================================================*/	
+	-- OUTPUT
+	/*==================================================================================================*/	
+	--SELECT C0."ProdDE" FROM #Temp_ProdNo C0;
+	SELECT * FROM #Temp_CalcDetails;
+	/*==================================================================================================*/	
+	
+	/*==================================================================================================*/	
+	-- Validating
+
+	Counter := 0;
+
+	IF IFNULL(:ObjType, '') = '60' AND IFNULL(:Error, 0) = 0  THEN
+	
+		SELECT COUNT(T0."PrdDE") INTO Counter
+		FROM #Temp_CalcDetails T0
+		WHERE "CCR" > 7.5 OR "CCR" < -7.5;
+	
+		
+		IF :Counter > 0 THEN
+		
+			SELECT STRING_AGG('Item No. ' || T0."RM_ItemCode", '; ') INTO ItemCode
+			FROM #Temp_CalcDetails T0
+			WHERE "CCR" > 7.5 OR "CCR" < -7.5;	
+		 
+			Error := 600001;
+			Error_Message := 'Quantity is not ok for ' || ItemCode;
+		END IF;
+		
+	END IF;	
+	
+	IF IFNULL(:ObjType, '') = '59' AND IFNULL(:Error, 0) = 0 THEN
+	 DECLARE User int;
+	 SELECT Count(*) INTO user  FROM OIGN T0 WHERE T0."DocEntry" = :DocKey AND T0."UserSign" NOT IN  (1,16,54);
+	 IF user > 0 THEN
+	 
+		SELECT COUNT(T0."PrdDE") INTO Counter
+		FROM #Temp_CalcDetails T0
+		LEFT JOIN "OITM" T1 ON T0."FG_ItemCode" = T1."ItemCode"
+		LEFT JOIN "@CIS_ITMCAT" T2 ON T1."U_ItmCat" = T2."Code"
+		WHERE IFNULL(T2."U_XPer", 0.00) <> 0.00
+		AND ("SCR" > 100.00 OR "CCR" < -100.00
+		OR IFNULL("FCR", 0.00) > IFNULL(T2."U_XPer", 0.00)
+		OR IFNULL("FCR", 0.00) < -1 *  IFNULL(T2."U_XPer", 0.00));
+		
+		IF :Counter > 0 THEN
+		
+			SELECT STRING_AGG('Item No. ' || T1."ItemCode", '; ') INTO ItemCode
+--			SELECT STRING_AGG('Item No. ' || T0."FG_CompletedQty", '; ') INTO ItemCode
+			FROM #Temp_CalcDetails T0
+			LEFT JOIN "OITM" T1 ON T0."FG_ItemCode" = T1."ItemCode"
+			LEFT JOIN "@CIS_ITMCAT" T2 ON T1."U_ItmCat" = T2."Code"
+			WHERE "SCR" > 100.00 OR "CCR" < -100.00
+			OR IFNULL("FCR", 0.00) > IFNULL(T2."U_XPer", 0.00)
+			OR IFNULL("FCR", 0.00) < -1 *  IFNULL(T2."U_XPer", 0.00);			
+		
+		
+			Error := 590001;
+			Error_Message := 'Quantity is not ok for ' || ItemCode;
+			
+			
+		END IF;
+	 END IF;	
+	END IF;		
+	/*==================================================================================================*/	
+	
+	SELECT COUNT(*) INTO Counter
+	FROM #Temp_CalcDetails T0;
+	
+	IF IFNULL(:Counter, 0) = 0 THEN
+		Error := 0;
+		Error_Message := '';
+	END IF;
+	
+
+	
+	/*==================================================================================================*/	
+	DROP TABLE #Temp_ProdNo;
+	DROP TABLE #Temp_CalcDetails;
+	/*==================================================================================================*/	
+
+END;
+

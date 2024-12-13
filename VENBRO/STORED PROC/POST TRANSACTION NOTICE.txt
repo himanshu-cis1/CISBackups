@@ -1,0 +1,940 @@
+CREATE PROCEDURE SBO_SP_PostTransactionNotice
+(
+	in object_type nvarchar(30), 				-- SBO Object Type
+	in transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+	in num_of_cols_in_key int,
+	in list_of_key_cols_tab_del nvarchar(255),
+	in list_of_cols_val_tab_del nvarchar(255)
+)
+LANGUAGE SQLSCRIPT
+AS
+-- Return values
+error  int;		
+cstatus integer;
+ sstatus integer;
+ ccstatus integer;
+ rstatus integer;
+ dstatus integer;
+ ustatus integer;
+ action nvarchar(100);
+ 
+ CustName nvarchar(300);
+PayAmt decimal(16,2);
+OrdrNo nvarchar(30);
+ModePay nvarchar(100);
+DrivName Nvarchar(100);
+DrivMob Nvarchar(15);
+CustNo nvarchar(15);
+GUId   varchar(250);
+EwayBillNo varchar(20);
+DocEntry int;
+ -- Result (0 for no error)
+error_message nvarchar (200);
+ent nvarchar(200); 	
+SenderID varchar(200);
+COUNTDOC varchar(100);	
+Check int;
+
+		-- Result (0 for no error)
+--error_message nvarchar (200); 		-- Error string to be displayed
+begin
+
+error := 0;
+error_message := N'Ok';
+---------------------------------------------EWay Bill---------------------------------
+/* E-way Bill insert to Internal Table - Invoice*/
+
+IF :object_type = '13' AND (:transaction_type = 'A' or :transaction_type = 'U') THEN 
+
+
+ (SELECT COUNT(b."U_Ref1")into cstatus FROM "OINV" A 
+ INNER JOIN "AVA_Integration"."@AV_EWBIN" b ON a."DocEntry" = b."U_AV_Docentry" 
+ WHERE A."DocEntry" = :list_of_cols_val_tab_del AND b."U_Ref1" = 'Create'
+ AND 
+b."DBNAME" = (Select CURRENT_SCHEMA from DUMMY));
+
+
+(SELECT t0."U_AVA_Action" INTO action FROM "OINV" t0 WHERE t0."DocEntry" = :list_of_cols_val_tab_del); 
+
+IF :cstatus = 0 and  :action = 'Create' THEN 
+CALL "AVA_EW_INSERTEBIN"('13', :list_of_cols_val_tab_del);
+END IF;
+END IF;
+
+
+-----------------------------------------------------------------------------------------------------------------------
+
+
+IF :object_type = '13' AND :transaction_type = 'U' THEN
+(SELECT COUNT(b."U_Ref1") FROM "OINV" A 
+INNER JOIN "AVA_Integration"."@AV_EWBIN" b ON a."DocEntry" = b."U_AV_Docentry"
+WHERE A."DocEntry" = :list_of_cols_val_tab_del AND
+b."U_Ref1" = 'Create'
+ and 
+b."DBNAME" = (Select CURRENT_SCHEMA from DUMMY));
+ (select t0."U_AVA_Action" into  action from OINV t0 where t0."DocEntry"=:list_of_cols_val_tab_del);
+
+  
+  
+--[Note:Modifier] Use FROM DUMMY if there is no FROM clause in the SELECT statement
+IF :cstatus = 0 AND :action = 'Special'
+ THEN CALL "AVA_EW_INSERTEBIN"('13', :list_of_cols_val_tab_del);
+END IF;
+END IF;
+-----------------------------------------------------------------------------------------------------------------
+
+
+IF :object_type = '13' AND :transaction_type = 'U' THEN 
+(SELECT COUNT(b."U_Ref1") FROM "OINV" A 
+INNER JOIN "AVA_Integration"."@AV_EWBIN" b ON a."DocEntry" = b."U_AV_Docentry" 
+WHERE A."DocEntry" = :list_of_cols_val_tab_del AND b."U_Ref1" = 'Cancel' and 
+ 
+b."DBNAME" = (Select CURRENT_SCHEMA from DUMMY));
+ (select t0."U_AVA_Action" into  action from OINV t0 where t0."DocEntry"=:list_of_cols_val_tab_del);
+
+--[Note:Modifier] Use FROM DUMMY if there is no FROM clause in the SELECT statement
+
+IF 
+--:ccstatus = 0 AND 
+:action = 'Cancel' 
+THEN CALL "AVA_EW_INSERTEBIN"('13', :list_of_cols_val_tab_del);
+END IF;
+END IF;
+
+---------------------------------------------------------------------------------------
+--/* E-way Bill insert to Internal Table- Inventory Transfer*/
+
+
+IF :object_type = '67' AND :transaction_type = 'U' THEN 
+(SELECT COUNT(b."U_Ref1") FROM "OWTR" A 
+INNER JOIN "AVA_Integration"."@AV_EWBIN" b ON a."DocEntry" = b."U_AV_Docentry" 
+WHERE A."DocEntry" = :list_of_cols_val_tab_del AND b."U_Ref1" = 'Create'
+ AND 
+b."DBNAME" = (Select CURRENT_SCHEMA from DUMMY));
+ (select t0."U_AVA_Action" into  action from OINV t0 where t0."DocEntry"=:list_of_cols_val_tab_del);
+--[Note:Modifier] Use FROM DUMMY if there is no FROM clause in the SELECT statement
+
+
+SELECT t0."U_AVA_Action" FROM "OWTR" t0 WHERE t0."DocEntry" = :list_of_cols_val_tab_del;
+--INTO action FROM DUMMY;
+IF :cstatus = 0 AND :action = 'Create' 
+THEN CALL "AVA_EW_INSERTEBIN"('67', :list_of_cols_val_tab_del);
+END IF;
+END IF;
+
+-----------------------------------------------------------------------------------------------------
+IF :object_type = '67' AND :transaction_type = 'U' THEN 
+(SELECT COUNT(b."U_Ref1") FROM "OWTR" A 
+INNER JOIN "AVA_Integration"."@AV_EWBIN" b ON a."DocEntry" = b."U_AV_Docentry" 
+WHERE A."DocEntry" = :list_of_cols_val_tab_del AND b."U_Ref1" = 'Create'
+AND
+b."DBNAME" = (Select CURRENT_SCHEMA from DUMMY));
+ (select t0."U_AVA_Action" into  action from OINV t0 where t0."DocEntry"=:list_of_cols_val_tab_del); 
+
+--[Note:Modifier] Use FROM DUMMY if there is no FROM clause in the SELECT statement
+IF :cstatus = 0 AND :action = 'Special'
+ THEN CALL "AVA_EW_INSERTEBIN"('67', :list_of_cols_val_tab_del);
+END IF;
+END IF;
+
+-------------------------------------------------------------------------------------------------------------
+
+IF :object_type = '67' AND :transaction_type = 'U' THEN 
+SELECT COUNT(b."U_Ref1") FROM "OWTR" A
+ INNER JOIN "AVA_Integration"."@AV_EWBIN" b ON a."DocEntry" = b."U_AV_Docentry" 
+ WHERE A."DocEntry" = :list_of_cols_val_tab_del AND b."U_Ref1" = 'Cancel'; 
+
+ 
+ 
+--[Note:Modifier] Use FROM DUMMY if there is no FROM clause in the SELECT statement
+IF :ccstatus = 0 AND :action = 'Cancel' 
+THEN CALL "AVA_EW_INSERTEBIN"('67', :list_of_cols_val_tab_del);
+END IF;
+END IF;
+
+
+
+------------------------------------------------------------------------
+----------------------------------WhatsApp Integration------------------------------------
+-----------------------------------------Sales Invoice UDF Test--------------------------
+If (:object_type='13' and (:transaction_type='A'))
+THEN
+ 
+(Select A."DocEntry" into DocEntry from "OINV" A where A."DocEntry"=:list_of_cols_val_tab_del); 
+
+(select 91||B."Cellular" into SenderID from "OINV" A inner join "OCRD" B on A."CardCode"=B."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del);
+
+(Select count(A."DocEntry") into CountDoc from "OINV" A 
+inner join "OCRD" B on A."CardCode"=B."CardCode"
+inner join "OCPR" Y1 on Y1."CardCode"= b."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del 
+and  length(y1."Cellolar")='10' and IFNULL(B."Cellular",'')<>'');
+if(:CountDoc>0)
+then
+insert into "WHATS"("SenderID","DocEntry","Message","SMS","Status","IsGroup","Retry","PDF","ReportType","ReportName","ObjectType",
+"CreatedDate")
+
+select 91||B."Cellolar",
+:DocEntry,'*GST Tax Invoice*'||CHAR(13)||CHAR(10)||''||'Dear Customer, we are pleased to confirm dispatch of the goods vide our order acknowledgement no.'||CHAR(13)||CHAR(10)||''
+||(SELECT 
+STRING_AGG(x."BaseRef", ',')  AS 
+"BaseRef"
+from (
+    select distinct "BaseRef" as "BaseRef"
+    FROM INV1  
+    where "DocEntry"=:DocEntry
+) x) ||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||''
+||'*Invoice Details*'||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||''
+
+||'DocNum '||':  '||(select max( A."DocNum") from OINV A where A."DocEntry"=:DocEntry) ||CHAR(13)||CHAR(10)||''
+||'DocDate '||':  '||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||''
+||'DocTotal '||':  '||(select TO_DECIMAL( A."DocTotal",10,2) from OINV A where A."DocEntry"=:DocEntry) ||CHAR(13)||CHAR(10) ||''
+||'Reference '||':  '||(select ifnull( A."NumAtCard",'') from OINV A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10) ||''
+||'Mobile '||':  '||(select ifnull( A."U_Driver_No",'') from OINV A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10) ||''
+||'Despatch '||':  '||(select ifnull( A."U_Despatched",'') from OINV A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'', 
+'Y','0',IFNULL(0,0),'0','Y',
+'Crystal','Invoice','13',CURRENT_TIMESTAMP from "OINV" A 
+inner join "OCPR" B on A."CardCode"=b."CardCode"
+--inner join "CUSTOMERMOBILENUM" B1 on B1."CardCode"= A."CardCode"
+Where  b."U_Type" in ('Sales','Sales & Purchase','Sales & Payment','All') and A."DocEntry"=:list_of_cols_val_tab_del;
+END IF;
+END IF;
+
+
+---------------------------------------------------------------------------------
+
+------------------------------------------PO_UDF_TEST----------------------------------------
+If (:object_type='22' and (:transaction_type='A' or :transaction_type='U'))
+THEN
+ 
+(Select A."DocEntry" into DocEntry from "OPOR" A where A."DocEntry"=:list_of_cols_val_tab_del); 
+(select 91||B."Cellular" into SenderID from "OPOR" A inner join "OCRD" B on A."CardCode"=B."CardCode"
+
+where A."DocEntry"=:list_of_cols_val_tab_del);
+--(Select 'Please find the attached invoice file' into Message from "Dummy");
+--(Select 'Y' into PDF from "Dummy");
+(Select count(A."DocEntry") into CountDoc from "OPOR" A 
+inner join "OCRD" B on A."CardCode"=B."CardCode"
+inner join "OCPR" Y1 on Y1."CardCode"= b."CardCode"
+
+
+where A."DocEntry"=:list_of_cols_val_tab_del 
+and IFNULL(Y1."Cellolar",'')<>'');
+if(:CountDoc>0)
+then
+insert into "WHATS"("SenderID","DocEntry","Message","SMS","Status","IsGroup","Retry","PDF","ReportType","ReportName","ObjectType",
+"CreatedDate")
+
+select  91||B1."Cellolar",:DocEntry,
+Y."Content"||' ' ||Y."ItemDetails"||''||Y."DocTotal"||''
+--||Y."Delivery"||' ' 
+||Y."Payment"||''||Y."Wishes",'Y','0',IFNULL(0,0),'0','Y',
+'Crystal','PurchaseOrder','22',CURRENT_TIMESTAMP 
+from (Select max(X."CardCode") as "CardCode",X."Content",X."Wishes",
+max(X."DocTotal") as "DocTotal",
+--max(X."Delivery") as "Delivery",
+max(X."Payment") as "Payment",
+STRING_AGG("SO",' ') as "ItemDetails" from (select C."CardCode",
+'Dear Vendor, we are glad to confirm our order for the following items.'||CHAR(13)||CHAR(10) as "Content" ,'
+'||'Item Description'||'='|| e."FrgnName"||CHAR(13)||CHAR(10)||''
+||'Qty '||': '|| CAST(CAST(b."Quantity" as DECIMAL(18,2)) as NVARCHAR) ||CHAR(13)||CHAR(10)||''
+||'Rate '||': '||CAST(CAST(b."Price" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' 
+||'Delivery Date '||': '|| TO_NVARCHAR((b."ShipDate"),'DD/MM/YYYY') ||CHAR(13)||CHAR(10)||''  
+as "SO" ,''
+||'DocTotal '||': '||CAST(CAST(a."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal" ,''
+--||'Delivery Date'||'='||TO_NVARCHAR(a."DocDueDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||' ' as "Delivery" ,''
+||'Payment Terms '||': '|| (select max(U."PymntGroup")from OCTG U where U."GroupNum"=a."GroupNum")||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+from POR1 b 
+inner join OPOR a on a."DocEntry"=b."DocEntry" 
+inner join OITM e on e."ItemCode"=b."ItemCode"
+inner join OCRD C on c."CardCode"=a."CardCode"
+inner join OCTG d on d."GroupNum"=a."GroupNum"
+
+where a."DocEntry"=:DocEntry and b."DocEntry"=:list_of_cols_val_tab_del
+and (b."LineNum")=(Select min("LineNum") from POR1 X where X."DocEntry"=b."DocEntry")
+
+UNION ALL
+
+select C."CardCode",
+'Dear Vendor, we are glad to confirm our order for the following items.'||CHAR(13)||CHAR(10) as "Content" ,'
+'||'Item Description '||': '|| e."FrgnName"||CHAR(13)||CHAR(10)||''
+||'Qty '||': '|| CAST(CAST(b."Quantity" as DECIMAL(18,2)) as NVARCHAR) ||CHAR(13)||CHAR(10)||''
+||'Rate '||': '|| CAST(CAST(b."Price" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' 
+||'Delivery Date '||': '|| TO_NVARCHAR((b."ShipDate"),'DD/MM/YYYY') ||CHAR(13)||CHAR(10)||''  
+as "SO",''
+||'DocTotal '||': '||CAST(CAST(a."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal" ,''
+--||'Delivery Date'||'='||TO_NVARCHAR((A."DocDueDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||' ' as "Delivery" ,''
+||'Payment Terms '||': '|| (select max(U."PymntGroup")from OCTG U where U."GroupNum"=a."GroupNum")||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+from POR1 b 
+inner join OPOR a on a."DocEntry"=b."DocEntry"
+inner join OITM e on e."ItemCode"=b."ItemCode" 
+inner join OCRD C on c."CardCode"=a."CardCode"
+inner join OCTG d on d."GroupNum"=a."GroupNum"
+
+where a."DocEntry"=:DocEntry and b."DocEntry"=:list_of_cols_val_tab_del
+and (b."LineNum")>(Select min("LineNum") from POR1 X where X."DocEntry"=b."DocEntry")
+and (b."LineNum")<(Select max("LineNum") from POR1 X where X."DocEntry"=b."DocEntry")
+
+UNION ALL
+
+
+select C."CardCode",
+'Dear Vendor, we are glad to confirm our order for the following items.'||CHAR(13)||CHAR(10) as "Content" ,'
+'||'Item Description '||': '|| e."FrgnName"||CHAR(13)||CHAR(10)||''
+||'Qty '||': '|| CAST(CAST(b."Quantity" as DECIMAL(18,2)) as NVARCHAR) ||CHAR(13)||CHAR(10)||''
+||'Rate '||': '||  CAST(CAST(b."Price" as DECIMAL(18,2)) as NVARCHAR) ||CHAR(13)||CHAR(10)||''  
+||'Delivery Date '||': '|| TO_NVARCHAR((b."ShipDate"),'DD/MM/YYYY') ||CHAR(13)||CHAR(10)||''  
+as "SO",''
+||'DocTotal '||': '||CAST(CAST(a."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal" ,''
+--||'Delivery Date'||'='||TO_NVARCHAR((A."DocDueDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||' ' as "Delivery" ,''
+||'Payment Terms '||': '|| (select max(U."PymntGroup")from OCTG U where U."GroupNum"=a."GroupNum")||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+from POR1 b 
+inner join OPOR a on a."DocEntry"=b."DocEntry" 
+inner join OITM e on e."ItemCode"=b."ItemCode"
+inner join OCRD C on c."CardCode"=a."CardCode"
+inner join OCTG d on d."GroupNum"=a."GroupNum"
+
+where a."DocEntry"=:DocEntry and b."LineNum"<>0 and b."DocEntry"=:list_of_cols_val_tab_del
+and (b."LineNum")=(Select max("LineNum") from POR1 X where X."DocEntry"=b."DocEntry"))X
+group by x."Content",X."Wishes")Y
+inner join "OCPR" B1 on B1."CardCode"=Y."CardCode"
+where B1."U_Type" in ('Purchase','Sales & Purchase','PurchasePayment','All');
+--inner join "CUSTOMERMOBILENUM" B1 on B1."CardCode"=Y."CardCode";
+END IF;
+END IF;
+--------------------------------------------------------------------------
+
+
+
+
+-----------------------------------Sales Order UDF-------------------------------------------
+If (:object_type='17' and (:transaction_type='A' or :transaction_type='U'))
+THEN
+ 
+(Select A."DocEntry" into DocEntry from "ORDR" A where A."DocEntry"=:list_of_cols_val_tab_del); 
+(select 91||B."Cellular" into SenderID from "ORDR" A inner join "OCRD" B on A."CardCode"=B."CardCode"
+
+where A."DocEntry"=:list_of_cols_val_tab_del);
+
+(Select count(A."DocEntry") into CountDoc from "ORDR" A 
+inner join "OCRD" B on A."CardCode"=B."CardCode"
+inner join "OCPR" Y1 on Y1."CardCode"= b."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del 
+and IFNULL(y1."Cellolar",'')<>'');
+if(:CountDoc>0)
+then
+insert into "WHATS"("SenderID","DocEntry","Message","SMS","Status","IsGroup","Retry","PDF",
+"ReportType","ReportName","ObjectType",
+"CreatedDate")
+select 91||B1."Cellolar",:DocEntry,
+Y."Content"||' ' ||Y."ItemDetails"||''||Y."DocTotal"||''||Y."Payment"||''||Y."Wishes",'Y','0',IFNULL(0,0),'0','Y',
+'Crystal','SalesOrder','17',CURRENT_TIMESTAMP 
+from 
+
+(Select max(X."CardCode") as "CardCode",X."Content",max(X."DocTotal") as "DocTotal",X."Wishes",
+max(X."Payment") as "Payment",
+STRING_AGG("SO",' ') as "ItemDetails" from (
+select C."CardCode",
+'Dear Customer, we are glad to acknowledge your valuable order with thanks' ||CHAR(13)||CHAR(10) as "Content" ,'
+'||'Item Description '||': '||b."Dscription"||CHAR(13)||CHAR(10)||''||''
+||'Qty '||': '|| CAST(CAST(b."Quantity" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||''
+||'Rate '||': '||CAST(CAST(b."Price" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "SO",''
+||'DocTotal '||': '||CAST(CAST(a."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal" ,''
+||'Payment Terms '||': '|| (select max(U."PymntGroup")from OCTG U where U."GroupNum"=a."GroupNum")||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+from RDR1 b inner join ORDR a on a."DocEntry"=b."DocEntry"
+inner join OCRD c on C."CardCode"=a."CardCode"
+ where  b."TreeType" <>'I' and a."DocEntry"=:DocEntry and b."DocEntry"=:list_of_cols_val_tab_del
+and (b."LineNum")=(Select min("LineNum") from RDR1 X where X."DocEntry"=b."DocEntry")
+
+UNION ALL
+
+select C."CardCode",
+'Dear Customer, we are glad to acknowledge your valuable order with thanks'||CHAR(13)||CHAR(10) as "Content" ,'
+'||'Item Description'||':'||b."Dscription" ||CHAR(13)||CHAR(10)||''
+||'Qty '||': '||CAST(CAST(b."Quantity" as DECIMAL(18,2)) as NVARCHAR) ||CHAR(13)||CHAR(10)||''
+
+||'Rate '||': '||CAST(CAST(b."Price" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "SO",''
+||'DocTotal '||': '||CAST(CAST(a."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal" ,''
+||'Payment Terms '||': '|| (select max(U."PymntGroup")from OCTG U where U."GroupNum"=a."GroupNum")||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+from RDR1 b inner join ORDR a on a."DocEntry"=b."DocEntry"
+inner join OCRD c on C."CardCode"=a."CardCode"
+ where  b."TreeType" <>'I' and a."DocEntry"=:DocEntry and b."DocEntry"=:list_of_cols_val_tab_del
+and (b."LineNum")>(Select min("LineNum") from RDR1 X where X."DocEntry"=b."DocEntry")
+and (b."LineNum")<(Select max("LineNum") from RDR1 X where X."DocEntry"=b."DocEntry")
+
+UNION ALL
+
+
+select C."CardCode",
+'Dear Customer, we are glad to acknowledge your valuable order with thanks'||CHAR(13)||CHAR(10) as "Content" ,'
+'||'Item Description '||': '||b."Dscription"||CHAR(13)||CHAR(10)||''
+||'Qty '||': '||CAST(CAST(b."Quantity" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||''
+||'Rate '||': '||CAST(CAST(b."Price" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "SO",''
+||'DocTotal '||': '||CAST(CAST(a."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal" ,''
+||'Payment Terms '||': '|| (select max(U."PymntGroup")from OCTG U where U."GroupNum"=a."GroupNum")||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+from RDR1 b inner join ORDR a on a."DocEntry"=b."DocEntry"
+inner join OCRD c on C."CardCode"=a."CardCode"
+where  b."TreeType" <>'I' and a."DocEntry"=:DocEntry and
+ b."LineNum"<>0 and b."DocEntry"=:list_of_cols_val_tab_del
+and (b."LineNum")=(Select max("LineNum") from RDR1 X where X."DocEntry"=b."DocEntry"))X
+group by x."Content",X."Wishes")Y
+inner join "OCPR" B1 on B1."CardCode"=Y."CardCode"
+where B1."U_Type" in ('Sales','Sales & Purchase','Sales & Payment','All');
+--inner join "CUSTOMERMOBILENUM" B1 on B1."CardCode"=Y."CardCode";
+
+END IF;
+END IF;
+
+
+
+-----------------------------------------------------------------------------------------------
+
+
+
+---------------------------------Eway Bill UDF TEST---------------------------
+
+If (:object_type='13' and (:transaction_type='U'))
+THEN
+ 
+(Select A."DocEntry" into DocEntry from "OINV" A where A."DocEntry"=:list_of_cols_val_tab_del); 
+(select "U_AV_EDocNo" into EwayBillNo from "OINV" where "DocEntry"= :list_of_cols_val_tab_del);
+(select 91||B."Cellular" into SenderID from "OINV" A inner join "OCRD" B on A."CardCode"=B."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del);
+(Select count(A."DocEntry") into CountDoc from "OINV" A 
+inner join "OCRD" B on A."CardCode"=B."CardCode"
+inner join "OCPR" Y1 on Y1."CardCode"= b."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del and A."U_AV_EStatus"='S'
+and IFNULL(A."U_AV_EDocNo",'')<>'');
+if(:CountDoc>0)
+then
+insert into "WHATS"("SenderID","DocEntry","Message",
+"Path",
+"SMS","Status","IsGroup",
+"Retry","PDF","ReportType","ReportName","ObjectType",
+"CreatedDate")
+
+select 91||B."Cellolar",:DocEntry,'*E-Way Bill*'||CHAR(13)||CHAR(10)||'Dear Customer, we are pleased to confirm dispatch of the goods vide our order acknowledgement no.'||'                                           '
+||(SELECT 
+STRING_AGG(x."BaseRef", ',')  AS 
+"BaseRef"
+from (
+    select distinct "BaseRef" as "BaseRef"
+    FROM INV1  
+    where "DocEntry"=:DocEntry
+) x) ||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||''
+||'*Invoice & E-Way Bill Details*'||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||''
+||'Eway Bill No '||': '||(select max( A."U_AV_EDocNo") from OINV A where A."DocEntry"=:DocEntry) ||CHAR(13)||CHAR(10)||''
+||'DocNum '||': '||(select max( A."DocNum") from OINV A where A."DocEntry"=:DocEntry) ||CHAR(13)||CHAR(10)||''
+||'DocDate '||': '||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||''
+||'DocTotal '||': '||(select TO_DECIMAL( A."DocTotal",10,2) from OINV A where A."DocEntry"=:DocEntry) ||CHAR(13)||CHAR(10) ||''
+||'Reference '||': '||(select ifnull( A."NumAtCard",'') from OINV A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10) ||''
+||'Mobile '||': '||(select ifnull( A."U_Driver_No",'') from OINV A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10) ||''
+||'Despatch '||': '||(select ifnull( A."U_Despatched",'') from OINV A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'', 
+'C:\Program Files (x86)\Avaniko Technologies\EWayBillService Setup\MyeWaybillDoc\'||A."U_AV_EDocNo"||'.pdf',
+'Y','0',IFNULL(0,0),'0','Y',
+'EWAYBILL','Ewaybill','13',CURRENT_TIMESTAMP from "OINV" A 
+inner join "OCPR" b on B."CardCode"=a."CardCode"
+--inner join "CUSTOMERMOBILENUM" B1 on B1."CardCode"=A."CardCode"
+Where b."U_Type" in ('Sales','Sales & Purchase','Sales & Payment','All') and A."DocEntry"=:list_of_cols_val_tab_del;
+END IF;
+END IF;
+
+
+
+--------------------------------------------------------------------------------------
+---------------------------------------Debit Note UDF-------------------------
+If (:object_type='19' and (:transaction_type='A' or :transaction_type='U' ))
+THEN
+ 
+(Select A."DocEntry" into DocEntry from "ORPC" A where A."DocEntry"=:list_of_cols_val_tab_del); 
+(select 91||B."Cellular" into SenderID from "ORPC" A inner join "OCRD" B on A."CardCode"=B."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del);
+
+(Select count(A."DocEntry") into CountDoc from "ORPC" A 
+inner join "OCRD" B on A."CardCode"=B."CardCode"
+inner join "OCPR" Y1 on Y1."CardCode"= b."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del 
+and IFNULL(Y1."Cellolar",'')<>'');
+if(:CountDoc>0)
+then
+insert into "WHATS"("SenderID","DocEntry","Message",
+"SMS","Status","IsGroup",
+"Retry","PDF","ReportType","ReportName","ObjectType",
+"CreatedDate")
+
+select 91||B."Cellolar",:DocEntry,'Dear Vendor, we wish to bring to your notice that a debit note has been issued as per below details.'||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||
+'DocNum '||': '||(select max("DocNum") from ORPC A where "DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||''
+||'DocTotal : '||(select TO_DECIMAL("DocTotal",10,2) from ORPC A where "DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||''
+||'DocDate : '||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||''
+||'Towards : '||a."RevRefNo"||' '||'/'||a."Comments"||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||''
+,'Y','0',IFNULL(0,0),'0','N',
+'Crystal','DebitNote','19',CURRENT_TIMESTAMP from "ORPC" A 
+inner join "OCPR" B on B."CardCode"=a."CardCode"
+--inner join "CUSTOMERMOBILENUM" B1 on B1."CardCode"=A."CardCode"
+Where B."U_Type" in ('Purchase','Sales & Purchase','PurchasePayment','All') and A."DocEntry"=:list_of_cols_val_tab_del;
+END IF;
+END IF;
+----------------------------------------------------------------
+
+
+
+-------------------------------------------------Credit Note UDF--------------------------
+
+If (:object_type='14' and (:transaction_type='A' or :transaction_type='U'))
+THEN
+ 
+(Select A."DocEntry" into DocEntry from "ORIN" A where A."DocEntry"=:list_of_cols_val_tab_del); 
+(select 91||B."Cellular" into SenderID from "ORIN" A
+ inner join "OCRD" B on A."CardCode"=B."CardCode"
+ 
+where A."DocEntry"=:list_of_cols_val_tab_del);
+
+(Select count(A."DocEntry") into CountDoc from "ORIN" A
+ inner join "OCRD" B on A."CardCode"=B."CardCode"
+ inner join "OCPR" Y1 on Y1."CardCode"= b."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del 
+and IFNULL(Y1."Cellolar",'')<>'');
+if(:CountDoc>0)
+then
+insert into "WHATS"("SenderID","DocEntry","Message",
+"SMS","Status","IsGroup",
+"Retry","ReportType","ReportName","ObjectType",
+"CreatedDate")
+
+select 91||B."Cellolar",:DocEntry,'Dear Customer, we wish to bring to your notice that a credit note has been issued as per below details.'
+||CHAR(13)||CHAR(10)||''
+||'DocNum '||': '||(select max("DocNum") from ORIN A where "DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||''
+||'DocTotal : '||(select TO_DECIMAL("DocTotal",10,2) from ORIN A where "DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||''
+||'DocDate : '||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||''
+||'Towards : '||a."RevRefNo"||' '||'/'||a."Comments"||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'',
+'Y','0',IFNULL(0,0),'0',
+'Crystal','CreditNote','14',CURRENT_TIMESTAMP from "ORIN" A 
+inner join "OCPR" b on b."CardCode"=a."CardCode"
+--inner join "CUSTOMERMOBILENUM" B1 on B1."CardCode"=A."CardCode"
+Where  b."U_Type" in ('Sales','Sales & Purchase','Sales & Payment','All') and A."DocEntry"=:list_of_cols_val_tab_del;
+END IF;
+END IF;
+
+
+------------------------------------------------Incoming Payment UDF---------------------
+If (:object_type='24' and (:transaction_type='A' or :transaction_type='U'))
+THEN
+ 
+(Select A."DocEntry" into DocEntry from "ORCT" A where A."DocEntry"=:list_of_cols_val_tab_del); 
+(select 91||B."Cellular" into SenderID from "ORCT" A inner join "OCRD" B on A."CardCode"=B."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del);
+
+(Select count(A."DocEntry") into CountDoc from "ORCT" A 
+inner join "OCRD" B on A."CardCode"=B."CardCode"
+inner join "OCPR" Y1 on Y1."CardCode"= b."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del 
+and IFNULL(y1."Cellolar",'')<>'');
+if(:CountDoc>0)
+then
+insert into "WHATS"("SenderID","DocEntry","Message",
+"SMS","Status","IsGroup",
+"Retry","PDF","ReportType","ReportName","ObjectType",
+"CreatedDate")
+select 91||B1."Cellolar",:DocEntry,
+Y."Content"||''||Y."DocTotal"||''||Y."DocDate"||''||Y."ItemDetails"||''||Y."On Account"||''||Y."Wishes",'Y','0',IFNULL(0,0),'0','N',
+'Crystal','IncomingPayment','24',CURRENT_TIMESTAMP 
+from (Select max(X."CardCode") as "CardCode",X."Content",max(X."DocTotal") as "DocTotal",X."Wishes",
+max(X."DocDate") as "DocDate", 
+STRING_AGG("SO",' ') as "ItemDetails", max(X."On Account") as "On Account" from
+ (select e."CardCode",
+'Dear Customer, we are glad to acknowledge the receipt of you payment. 
+Thank you, please find below the details of the same:'||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Content",''
+||'Amount Received '||': '||CAST(CAST(A."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal",''
+||'Docdate '||': '||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||'' as "DocDate",''
+||'DocNum '||': '||(select Case when c."InvType"=13 then cast(d."DocNum" as int)
+ when c."InvType"=203 then i."DocNum"
+ when c."InvType"=14 then e."DocNum"
+ when c."InvType"=30 then f."TransId"
+ end as "Inv Number" 
+ from ORCT a
+left join RCT1 b on a."DocEntry"=b."DocNum"
+left outer join RCT2 c on a."DocEntry"=c."DocNum"
+left outer join OINV d on d."DocEntry"=c."DocEntry"
+left outer join ORIN e on e."DocEntry"=c."DocEntry"
+left outer join OJDT f on f."TransId"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry 
+  
+and C."InvoiceId"=(Select min(X."InvoiceId") from RCT2 X where X."DocNum"=a."DocEntry"))||CHAR(13)||CHAR(10)||''
+||'Amount Adjusted '||': '|| CAST(CAST(C."SumApplied" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||''as "SO",'' 
+||'On Account '||': '||(select TO_DECIMAL( A."NoDocSum",10,2) from ORCT A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "On Account",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+from ORCT a
+inner join OCRD e on e."CardCode"=a."CardCode"
+left join RCT1 b on a."DocEntry"=b."DocNum"
+left outer join RCT2 c on a."DocEntry"=c."DocNum"
+left outer join OINV d on d."DocEntry"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry 
+and (C."InvoiceId")=(Select min(X."InvoiceId") from RCT2 X where X."DocNum"=a."DocEntry")
+
+UNION ALL
+select e."CardCode",
+'Dear Customer, we are glad to acknowledge the receipt of you payment. 
+Thank you, please find below the details of the same:'||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Content",''
+||'Amount Received '||': '|| CAST(CAST(A."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(10)||'' as "DocTotal",''
+||'Docdate '||': '||(select max(TO_VARCHAR (TO_DATE(A."DocDate"),'DD/MM/YYYY')) from ORCT A)||CHAR(13)||CHAR(10)||'' as "DocDate",''
+||'DocNum '||': '|| (select Case when c."InvType"=13 then cast(d."DocNum" as int)
+ when c."InvType"=203 then i."DocNum" 
+ when c."InvType"=14 then e."DocNum"
+ when c."InvType"=30 then f."TransId"
+ end as "Inv Number" 
+ from ORCT a
+left join RCT1 b on a."DocEntry"=b."DocNum"
+left outer join RCT2 c on a."DocEntry"=c."DocNum"
+left outer join OINV d on d."DocEntry"=c."DocEntry"
+left outer join ORIN e on e."DocEntry"=c."DocEntry"
+left outer join OJDT f on f."TransId"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry
+   --(select X."DocNum" from RCT2 Z 
+--left join OINV X on Z."DocEntry"=X."DocEntry" where Z."DocNum"=:DocEntry 
+
+and (C."InvoiceId")>(Select min(X."InvoiceId") from RCT2 X where X."DocNum"=a."DocEntry")
+and (C."InvoiceId")<(Select max(X."InvoiceId") from RCT2 X where X."DocNum"=a."DocEntry")
+)||CHAR(13)||CHAR(10)||''
+||'Amount Adjusted'||'='|| CAST(CAST(C."SumApplied" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||''as "SO",''
+||'On Account '||': '||(select TO_DECIMAL( A."NoDocSum",10,2) from ORCT A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "On Account",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes" 
+from ORCT a
+inner join OCRD e on e."CardCode"=a."CardCode"
+left join RCT1 b on a."DocEntry"=b."DocNum"
+left outer join RCT2 c on a."DocEntry"=c."DocNum"
+left outer join OINV d on d."DocEntry"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry 
+
+and (c."InvoiceId")>(Select min(X."InvoiceId") from RCT2 X where X."DocNum"=a."DocEntry")
+and (c."InvoiceId")<(Select max(X."InvoiceId") from RCT2 X where X."DocNum"=a."DocEntry")
+
+UNION ALL
+select e."CardCode",
+'Dear Customer, we are glad to acknowledge the receipt of you payment. 
+Thank you, please find below the details of the same:' ||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Content",''
+||'Amount Received '||': '||CAST(CAST(A."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal",''
+||'Docdate '||': '||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||'' as "DocDate",''
+||'DocNum '||': '||(select Case when c."InvType"=13 then cast(d."DocNum" as int)
+when c."InvType"=203 then i."DocNum" 
+when c."InvType"=14 then e."DocNum"
+ when c."InvType"=30 then f."TransId"
+end as "Inv Number" 
+ from ORCT a
+left join RCT1 b on a."DocEntry"=b."DocNum"
+left outer join RCT2 c on a."DocEntry"=c."DocNum"
+left outer join OINV d on d."DocEntry"=c."DocEntry"
+left outer join ORIN e on e."DocEntry"=c."DocEntry"
+left outer join OJDT f on f."TransId"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry
+  
+and C."InvoiceId"=(Select max(X."InvoiceId") from RCT2 X where X."DocNum"=a."DocEntry"))||CHAR(13)||CHAR(10)||''
+||'Amount Adjusted '||': '|| CAST(CAST(C."SumApplied" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||''as "SO",''
+||'On Account '||': '||(select TO_DECIMAL( A."NoDocSum",10,2) from ORCT A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "On Account",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes" 
+from ORCT a
+inner join OCRD e on e."CardCode"=a."CardCode"
+left join RCT1 b on a."DocEntry"=b."DocNum"
+left outer join RCT2 c on a."DocEntry"=c."DocNum"
+left outer join OINV d on d."DocEntry"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry and (c."InvoiceId"<>0
+and (c."InvoiceId")=(Select max(X."InvoiceId") from RCT2 X where X."DocNum"=a."DocEntry"))
+
+)X
+group by x."Content",X."Wishes")Y
+inner join "OCPR" B1 on B1."CardCode"=Y."CardCode"
+where B1."U_Type" in ('Sales & Payment','All','Payment');
+---inner join "CUSTOMERMOBILENUM" B1 on B1."CardCode"=Y."CardCode"
+--;
+END IF;
+END IF;
+
+
+
+-------------------------------------------------------------------------------
+
+
+---------------------------------OUTGOING PAYMENT-------------------------------------------------------
+
+------------------------------------------Outgoing PAyment UDF---------------------------
+If (:object_type='46' and (:transaction_type='A' or  :transaction_type='U'))
+THEN
+ 
+(Select A."DocEntry" into DocEntry from "OVPM" A where A."DocEntry"=:list_of_cols_val_tab_del); 
+(select 91||B."Cellular" into SenderID from "OVPM" A inner join "OCRD" B on A."CardCode"=B."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del);
+
+(Select count(A."DocEntry") into CountDoc from "OVPM" A 
+inner join "OCRD" B on A."CardCode"=B."CardCode"
+inner join "OCPR" Y1 on Y1."CardCode"= b."CardCode"
+where A."DocEntry"=:list_of_cols_val_tab_del 
+and IFNULL(y1."Cellolar",'')<>'');
+if(:CountDoc>0)
+then
+insert into "WHATS"("SenderID","DocEntry","Message",
+"Path",
+"SMS","Status","IsGroup",
+"Retry","PDF","ReportType","ReportName","ObjectType",
+"CreatedDate")
+select 91||B1."Cellolar",:DocEntry,
+Y."Content"||''||Y."DocTotal"||''||Y."DocDate"||'' 
+||Y."ItemDetails"||''||Y."On Account"||'' 
+||Y."Payment Mode"||''||Y."Wishes",--||' '
+-- ||Y."TDS",--||' ' 
+--||Y."Venbro PO",
+'','Y','0',IFNULL(0,0),'0','Y',
+'Crystal','OutgoingPayment','46',CURRENT_TIMESTAMP 
+from (Select max(X."CardCode") as "CardCode",X."Content",X."Wishes",
+max(X."DocTotal") as "DocTotal",
+max(X."DocDate") as "DocDate", 
+STRING_AGG("SO",CHAR(13)||CHAR(10)) as "ItemDetails",
+ max(X."On Account") as "On Account",
+ max(X."Payment Mode") as "Payment Mode"
+ --X."TDS" as "TDS" 
+ --X."Venbro PO"
+ from
+ (select e."CardCode",
+'Dear Vendor, we wish to bring to your notice that your payment has been processed as per below details. 
+'||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Content" ,''
+||'Amount Paid'||'='||CAST(CAST(A."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal",''
+||'Docdate'||'='||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||'' as "DocDate",''
+||'DocNum'||'='|| (select Case when c."InvType"=18 then cast(d."DocNum" as int)
+ when c."InvType"=204 then i."DocNum" 
+ when c."InvType"=19 then e."DocNum"
+ when c."InvType"=30 then f."TransId"
+ end as "Inv Number" 
+ from OVPM a
+  
+left join VPM1 b on a."DocEntry"=b."DocNum"
+left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+left outer join ORPC e on e."DocEntry"=c."DocEntry"
+left outer join OJDT f on f."TransId"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry
+ and C."InvoiceId"=(Select min(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry"))||CHAR(13)||CHAR(10)||''
+||'Amount Adjusted'||'='|| CAST(CAST(C."SumApplied" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||''
+||'Venbro PO Ref='||
+ (SELECT ifnull(
+STRING_AGG(x."BaseRef", ','),'')  AS 
+"BaseRef"
+from (
+    select distinct g."BaseRef" as "BaseRef"
+    from OVPM a
+ left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+inner join PCH1 f on f."DocEntry"=d."DocEntry" 
+inner join PDN1 g on g."DocEntry"=f."BaseEntry"and g."BaseType"='22'
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry
+ and C."InvoiceId"=(Select min(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry"))x)||CHAR(13)||CHAR(10)||''
+ ||'TDS='||(select ifnull(CAST(CAST(C."WtInvCatS" as DECIMAL(18,2)) as NVARCHAR),'') from "VPM2" c 
+where c."DocNum"=:DocEntry
+ and C."InvoiceId"=(Select min(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry"))||CHAR(13)||CHAR(10)||'' 
+as "SO",''
+||'On Account'||'='||(select ifnull(TO_DECIMAL( A."NoDocSum",10,2),0) from OVPM A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||'' as "On Account" ,''
+||'Payment Mode='||(select Case when a."CashSum">0 then 'Cash'
+when a."CheckSum">0 then 'Check'
+when a."TrsfrSum">0 then 'Bank Transfer'
+ end as "Payment Mode" from 
+ OVPM a
+where a."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment Mode",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+--||'TDS='||ifnull(CAST(CAST(C."WtInvCatS" as DECIMAL(18,2)) as NVARCHAR),'')||CHAR(13)||CHAR(10) as "TDS",''
+
+
+from OVPM a
+ inner join OCRD e on e."CardCode"=a."CardCode"
+left join VPM1 b on a."DocEntry"=b."DocNum"
+left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry 
+and (C."InvoiceId")=(Select min(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry")
+
+UNION ALL
+select e."CardCode",
+'Dear Vendor, we wish to bring to your notice that your payment has been processed as per below details. 
+'||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Content" ,'
+'||'Amount Paid'||'='||CAST(CAST(A."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal",''
+||'Docdate'||'='||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||'' as "DocDate",''
+||'DocNum'||'='|| (select Case when c."InvType"=18 then cast(d."DocNum" as int)
+ when c."InvType"=204 then i."DocNum" 
+ when c."InvType"=19 then e."DocNum"
+ when c."InvType"=30 then f."TransId"
+ end as "Inv Number" 
+ from OVPM a
+
+left join VPM1 b on a."DocEntry"=b."DocNum"
+left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+left outer join ORPC e on e."DocEntry"=c."DocEntry"
+left outer join OJDT f on f."TransId"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry
+
+
+and (C."InvoiceId")>(Select min(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry")
+and (C."InvoiceId")<(Select max(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry")
+)||CHAR(13)||CHAR(10)||''
+||'Amount Adjusted'||'='||CAST(CAST(C."SumApplied" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||''
+ ||'Venbro PO Ref='||
+ (SELECT ifnull(
+STRING_AGG(x."BaseRef", ','),'')  AS 
+"BaseRef"
+from (
+    select distinct ifnull( g."BaseRef",'') as "BaseRef"
+    from OVPM a
+ left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+inner join PCH1 f on f."DocEntry"=d."DocEntry" 
+inner join PDN1 g on g."DocEntry"=f."BaseEntry"and g."BaseType"='22'
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry
+ and (C."InvoiceId")>(Select min(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry")
+and (C."InvoiceId")<(Select max(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry")
+)x)||CHAR(13)||CHAR(10)||''
+
+||'TDS='||(select ifnull(CAST(CAST(C."WtInvCatS" as DECIMAL(18,2)) as NVARCHAR),'') from "VPM2" c 
+where "DocNum"=:DocEntry and 
+(C."InvoiceId")>(Select min(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry")
+and (C."InvoiceId")<(Select max(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry"))||''
+
+ as "SO",''
+||'On Account'||'='||(select ifnull(TO_DECIMAL( A."NoDocSum",10,2),0) from OVPM A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||' ' as "On Account" ,''
+||'Payment Mode='||(select Case when a."CashSum">0 then 'Cash'
+when a."CheckSum">0 then 'Check'
+when a."TrsfrSum">0 then 'Bank Transfer'
+ end as "Payment Mode" from 
+ OVPM a
+where a."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment Mode",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+--||'TDS='||ifnull(CAST(CAST(C."WtInvCatS" as DECIMAL(18,2)) as NVARCHAR),'')||CHAR(13)||CHAR(10) 
+--as "TDS",''
+
+from OVPM a
+ inner join OCRD e on e."CardCode"=a."CardCode"
+left join VPM1 b on a."DocEntry"=b."DocNum"
+left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry 
+
+and (c."InvoiceId")>(Select min(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry")
+and (c."InvoiceId")<(Select max(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry")
+
+UNION ALL
+select e."CardCode",
+'Dear Vendor, we wish to bring to your notice that your payment has been processed as per below details. 
+'||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Content" ,'
+'||'Amount Paid'||'='||CAST(CAST(A."DocTotal" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||'' as "DocTotal",''
+||'Docdate'||'='||TO_NVARCHAR((A."DocDate"),'DD/MM/YYYY')||CHAR(13)||CHAR(10)||'' as "DocDate",''
+||'DocNum'||'='|| (select Case when c."InvType"=18 then cast(d."DocNum" as int)
+ when c."InvType"=204 then i."DocNum"
+when c."InvType"=19 then e."DocNum"
+ when c."InvType"=30 then f."TransId"
+  end as "Inv Number" 
+ from OVPM a
+
+left join VPM1 b on a."DocEntry"=b."DocNum"
+left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+left outer join ORPC e on e."DocEntry"=c."DocEntry"
+left outer join OJDT f on f."TransId"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry
+  
+and C."InvoiceId"=(Select max(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry"))||CHAR(13)||CHAR(10)||''
+||'Amount Adjusted'||'='|| CAST(CAST(C."SumApplied" as DECIMAL(18,2)) as NVARCHAR)||CHAR(13)||CHAR(10)||''
+ ||'Venbro PO Ref='||
+(SELECT ifnull(
+STRING_AGG(x."BaseRef", ','),'')  AS 
+"BaseRef"
+from (
+    select distinct ifnull( g."BaseRef",'') as "BaseRef"
+    from OVPM a
+ left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+inner join PCH1 f on f."DocEntry"=d."DocEntry" 
+inner join PDN1 g on g."DocEntry"=f."BaseEntry"and g."BaseType"='22'
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry
+ and C."InvoiceId"=(Select max(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry"))x)||CHAR(13)||CHAR(10)||''
+ ||'TDS='||(select ifnull(CAST(CAST(C."WtInvCatS" as DECIMAL(18,2)) as NVARCHAR),'') from "VPM2" c 
+where "DocNum"=:DocEntry and 
+ C."InvoiceId"=(Select max(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry"))||''
+ as "SO",''
+ ||'On Account'||'='||(select ifnull(TO_DECIMAL( A."NoDocSum",10,2),0) from OVPM A where A."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||'' as "On Account" ,''
+ ||'Payment Mode='||(select Case when a."CashSum">0 then 'Cash'
+when a."CheckSum">0 then 'Check'
+when a."TrsfrSum">0 then 'Bank Transfer'
+ end as "Payment Mode" from 
+ OVPM a
+where a."DocEntry"=:DocEntry)||CHAR(13)||CHAR(10)||CHAR(13)||CHAR(10)||'' as "Payment Mode",''
+||'With Best Wishes'||CHAR(13)||CHAR(10)||''||''
+||'CD Technotex LLP'||CHAR(13)||CHAR(10)||'' as "Wishes"
+--||'TDS='|| ifnull(CAST(CAST(C."WtInvCatS" as DECIMAL(18,2)) as NVARCHAR),'')||CHAR(13)||CHAR(10)
+ --as "TDS",''
+ 
+from OVPM a
+ inner join OCRD e on e."CardCode"=a."CardCode"
+left join VPM1 b on a."DocEntry"=b."DocNum"
+left outer join VPM2 c on a."DocEntry"=c."DocNum"
+left outer join OPCH d on d."DocEntry"=c."DocEntry"
+left outer join ODPO i on i."DocEntry"=c."DocEntry"
+ where a."DocEntry"=:DocEntry and ((c."InvoiceId")<>0
+and (c."InvoiceId")=(Select max(X."InvoiceId") from VPM2 X where X."DocNum"=a."DocEntry"))
+
+)X
+group by x."Content",X."Wishes")Y
+inner join "OCPR" B1 on B1."CardCode"=Y."CardCode"
+where B1."U_Type" in ('Purchase & Payment','Payment','All');
+--inner join "CUSTOMERMOBILENUM" B1 on B1."CardCode"=Y."CardCode";
+
+END IF;
+END IF;
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--	ADD	YOUR	CODE	HERE
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+-- Select the return values
+select :error, :error_message FROM dummy;
+
+end;
+

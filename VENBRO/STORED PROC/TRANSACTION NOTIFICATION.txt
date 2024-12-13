@@ -1,0 +1,1358 @@
+CREATE PROCEDURE SBO_SP_TransactionNotification
+(
+	in object_type nvarchar(30), 				-- SBO Object Type
+	in transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+	in num_of_cols_in_key int,
+	in list_of_key_cols_tab_del nvarchar(255),
+	in list_of_cols_val_tab_del nvarchar(255)
+)
+LANGUAGE SQLSCRIPT
+AS
+-- Return values
+error  int;				-- Result (0 for no error)
+error_message nvarchar (200); 		-- Error string to be displayed
+site_value integer;
+
+value1 integer;
+cnt int;
+PODE int;
+ItemCode varchar(150);
+BATCHCount integer;
+GRNBATCH varchar(36);
+ITBATCH varchar(36);
+GRNDOCENTRY integer;
+LCDOCENTRY integer;
+loop1 integer;
+begin
+
+error := 0;
+error_message := N'Ok';
+------------------------------------------CREATED BY PAVITH-----------------------------------------------------------------------------------
+-----------------AD------------------------------
+/*IF :object_type = '202' and (:transaction_type='A' or :transaction_type='U') THEN
+
+select (Select count(*)  from owor A where    ifnull(A."OriginNum",0)=0 AND A."CardCode" is  null AND A."DocEntry"=:list_of_cols_val_tab_del )  into cnt FROM DUMMY; 
+IF :cnt > 0 Then
+                error := -2000;
+                error_message := 'Please Enter Sales Order Number or Customer Code';
+          End If;
+          cnt := 0;
+          
+End IF;*/
+-------------------------------------------------
+
+-----------------AD------------------------------
+IF :object_type = '202' and (:transaction_type='A' or :transaction_type='U') THEN
+
+select (Select count(*)  from owor A where    A."CardCode" not in ('C101284') and ifnull(A."OriginNum",0)=0 AND A."DocEntry"=:list_of_cols_val_tab_del )  into cnt FROM DUMMY; 
+IF :cnt > 0 Then
+                error := -2001;
+                error_message := 'You have to select CD Technotex CardCode only if you do not have SO NO';
+          End If;
+          cnt := 0;
+          
+End IF;
+-------------------------------------------------
+
+-----------------AD------------------------------
+IF :object_type = '202' and (:transaction_type='U') THEN
+
+select (Select count(*)  from owor A where    ifnull(A."U_Machine",'')='' and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt FROM DUMMY; 
+IF :cnt > 0 Then
+                error := -2002;
+                error_message := 'Select the Machine';
+          End If;
+          cnt := 0;
+          
+End IF;
+-------------------------------------------------
+
+-----------------AD------------------------------
+IF :object_type = '59' and (:transaction_type='A' or :transaction_type='U') THEN
+
+select (SELECT a."DocEntry" FROM OIGN A LEFT JOIN IGN1 B ON A."DocEntry"=b."DocEntry" where "WhsCode"='SCP' and ifnull("U_ReasWstg",'')='-- Select one --'
+and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt FROM DUMMY; 
+IF :cnt > 0 Then
+                error := -2003;
+                error_message := 'Enter Reason for Wastage';
+          End If;
+          cnt := 0;
+          
+End IF;
+-------------------------------------------------
+
+-----------------AD------------------------------
+IF :object_type = '59' and (:transaction_type='A' or :transaction_type='U') THEN
+
+select (SELECT a."DocEntry" FROM OIGN A LEFT JOIN IGN1 B ON A."DocEntry"=b."DocEntry" where "WhsCode"='REJ' and ifnull("U_ReasRej",'')='-- Select one --'
+and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt FROM DUMMY; 
+IF :cnt > 0 Then
+                error := -2004;
+                error_message := 'Enter Reason for Rejection';
+          End If;
+          cnt := 0;
+          
+End IF;
+-------------------------------------------------
+----------------------------------------------------END BY PAVITH-------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------------------------------------------------
+------------------------Receipt From Production -------------------Created By Ajayram R-------------------------Created Date 11-10-2021------------------------
+IF :Object_type = '59' AND (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+		DECLARE COUNTER INTEGER;
+
+		SELECT COUNT(T0."DocEntry") INTO COUNTER
+		FROM "OIGN" T0
+		INNER JOIN "IGN1" T1 ON T0."DocEntry" = T1."DocEntry"
+		INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" AND T1."BaseType" = '202'
+		INNER JOIN "WOR1" T3 ON T2."DocEntry" = T3."DocEntry" --AND T1."BaseLine" = T3."LineNum" 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+		AND 
+		 T3."IssuedQty" ='0'and T3."ItemType"='4' and  T3."ItemCode" not  LIKE 'SC%';----and T3."ItemType"='4';----- and  T3."ItemCode" LIKE 'SC%';
+
+		IF :COUNTER > 0  THEN
+			error := 60002;
+			error_message := 'Please Issue Components First.';
+		END IF;				   
+	
+	END IF; 
+	
+	IF :object_type = '59' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+
+
+
+		Select (select count(*)  From IGN1 T0
+		Inner Join OWOR T1 On T1."DocEntry"=T0."BaseEntry"
+		WhERE T1."Type" = 'D' and ifnull(t0."Price",0)=0 AND T0."DocEntry"=:list_of_cols_val_tab_del 
+		)
+		into cnt
+		FROM DUMMY;
+		   
+		 IF :cnt > 0 Then
+		                error := 6;
+		                error_message := 'Item Cost is mandatory';
+		          End If;
+		          cnt := 0;
+		         
+		End IF;   
+	
+	
+	
+	----------------Production Order Start and End Time Validation------------------------
+
+IF :object_type = '202' and (:transaction_type='U') THEN
+
+select (Select A."DocEntry"  from owor A
+
+where  (ifnull(a."U_PSTime",'')>'2400' or ifnull(a."U_PETime",'')>'2400') and a."Type"='S' and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -131;
+                error_message := 'Please Enter Valid Start time (or) Valid End Time';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+
+IF :object_type = '202' and (:transaction_type='U') THEN
+
+select (Select A."DocEntry"  from owor A
+
+where  (length(ifnull("U_PSTime",''))<4 or length(ifnull("U_PETime",''))<4) and a."Type"='S' and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -132;
+                error_message := 'Please Enter Start and EndTime as 4 Digit';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+
+IF :object_type = '202' and (:transaction_type='A' or :transaction_type='U') THEN
+
+select (Select A."DocEntry"  from owor A
+
+where   ifnull(a."CardCode",'')='' and a."OriginType"='M' and "Status"  in ('P','R') and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -132;
+                error_message := 'Please Enter CustomerCode';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+IF :object_type = '202' and (:transaction_type='A' or :transaction_type='U') THEN
+
+ select (select count(*) from owor a 
+inner join wor1 b on a."DocEntry"=b."DocEntry" and b."ItemType"=290
+left join nnm1 c on a."Series"=c."Series"
+left join orsc d on b."ItemCode"=d."ResCode"
+where c."SeriesName" like 'OUT%'  and d."U_PCate"='IN'
+  and A."DocEntry"=:list_of_cols_val_tab_del	 )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -133;
+                error_message := 'Please select Oursource Resource Only';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+-----------------------------------------------------------------------------------------------------------------
+
+---------------------Goods Receipt PO Block without Purchase order--------------------------------------------------------------------------------------------------------------------
+
+IF :object_type = '20' and (:transaction_type='A') THEN
+
+select (SELECT T0."DocEntry" FROM OPDN T0  INNER JOIN PDN1 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."BaseEntry"  IS  NULL AND T0."DocEntry"=:list_of_cols_val_tab_del
+Group By T0."DocEntry"
+Having Sum(T1."LineTotal") > '5000' )  into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := -1241;
+                error_message := 'Posting not allowed without Base Document-Purchase Order';
+          End If;
+          cnt := 0;
+          
+End IF;
+--------Delivery Block without sales order---------
+IF :object_type = '15' and (:transaction_type='A') THEN
+
+select (SELECT T0."DocEntry" FROM ODLN T0  INNER JOIN DLN1 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."BaseEntry"  IS  NULL AND T0."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -1242;
+                error_message := 'Posting not allowed without Base Document-Sales Order';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+--------Delivery Block without Weight --------
+IF :object_type = '13' and (:transaction_type='A' OR :transaction_type='U') THEN
+
+select (SELECT Count(*) FROM OINV T0  INNER JOIN INV1 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."Weight1" <=0 AND T1."Price" >0 AND T0."Series" <> 307 AND T0."DocType"<>'S' AND T0."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -1242;
+                error_message := 'Please enter weight';
+          End If;
+          cnt := 0;
+         
+End IF;
+--------------------------------------------------------------
+if :object_type='13' and (:transaction_type='A' or :transaction_type='U') then
+select Count(*) into cnt  from OINV T0
+
+ WHERE T0."DocEntry" =:list_of_cols_val_tab_del and ( T0."U_InvType" ='--Select--');
+if :cnt>0 then
+            error := -222;
+            error_message := 'Please Select the  Invoice Type  Sales Or JobWork';
+end if;
+
+END IF;
+
+
+-------------- Main Item and Child Item Qty Mismatch Validation ------------------------
+
+IF :object_type = '13' and (:transaction_type='A' OR :transaction_type='U') THEN          
+select ( select Count(*)   from oinv a 
+inner join inv1 b on a."DocEntry"=b."DocEntry"
+left join (select "DocEntry",b."Father" "Father",sum(a."Quantity") "Qty" 
+			from inv1 a 
+			left join itt1 b on a."ItemCode"=b."Code" 
+			where "TreeType"='I'
+			group by "DocEntry",b."Father"
+			)c on a."DocEntry"=c."DocEntry" and b."ItemCode"=c."Father"
+where a."DocEntry"=:list_of_cols_val_tab_del and
+b."TreeType"<>'I'
+group by b."ItemCode",b."Quantity",a."DocNum"
+having b."Quantity"<>sum(c."Qty")  ) into cnt FROM DUMMY;     
+   IF :cnt > 0 Then
+                error := -1242;
+                error_message := 'Please Verify Child Item Total Quantity';
+          End If;
+          cnt := 0;       
+         
+End IF;
+
+
+
+-----------------------------------------------------------------------------------------
+------------  GSTN No. Validation before adding SO ---------------
+/*
+IF :object_type = '17' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+Select (SELECT T0."DocEntry" FROM ORDR T0 
+		inner join CRD1 T1 on T0."CardCode" = T1."CardCode" and T0."ShipToCode" = T1."Address" 
+		and T1."AdresType" ='S'
+		left join OCRD T2 on T2."CardCode" = T0."CardCode"
+		WHERE (T1."GSTRegnNo" IS NULL and  T2."GroupCode" <>'105' and T1."AdresType" ='S' 
+		and T1."Country" = 'IN') 
+		AND T0."DocEntry" = :list_of_cols_val_tab_del
+		)
+into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -1243;
+                error_message := 'Please enter the GSTN Number for Customer in BP Master window';
+END If;
+cnt := 0;
+END If;
+
+*/
+------------------------For Service GR and GRPO------
+IF :object_type = '21' and (:transaction_type='A') THEN
+
+select (Select A."DocEntry"  from ORPD A
+LEFT JOIN RPD1  B ON A."DocEntry"=B."DocEntry" 
+left join OITM C on B."ItemCode" = C."ItemCode" 
+where  C."ItmsGrpCod" = '110' and  B."PriceBefDi" <> 0.00  and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -124;
+                error_message := 'Do Not Enter the Unit Price';
+          End If;
+          cnt := 0;
+          
+End IF;
+--
+IF :object_type = '21' and (:transaction_type='A') THEN
+
+select (Select A."DocEntry"  from ORPD A
+LEFT JOIN RPD1  B ON A."DocEntry"=B."DocEntry" 
+left join OITM C on B."ItemCode" = C."ItemCode" 
+where  C."ItmsGrpCod" = '110' and  B."U_UnitPrice" = 0.00 or B."U_UnitPrice" IS NULL and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -124;
+                error_message := 'Enter the unit price in GR_Price field';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+
+----
+IF :object_type = '20' and (:transaction_type='A') THEN
+
+select (Select A."DocEntry"  from OPDN A
+LEFT JOIN PDN1  B ON A."DocEntry"=B."DocEntry" 
+where  B."BaseType"= '21' and  B."PriceBefDi" <> 0.00  and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -130;
+                error_message := 'Do Not Enter the Unit Price';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+------------------------------------------
+
+
+---------------------------------------------------------------------------
+
+---
+--IF :object_type = '20' and (:transaction_type='A') THEN
+
+--select (Select A."DocEntry"  from OPDN A
+--LEFT JOIN PDN1  B ON A."DocEntry"=B."DocEntry" 
+--where  B."BaseType"= '21' and   B."U_UnitPrice" = 0.00 or B."U_UnitPrice" IS NULL and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+--FROM DUMMY; 
+   
+ --IF :cnt > 0 Then
+               -- error := -130;
+               -- error_message := 'Do Not Enter the Unit Price';
+         -- End If;
+          --cnt := 0;
+          
+--End IF;
+
+-------------------------------------------------------------------Production Type,Date and Order Number should not empt-Command -Ajay----
+
+
+
+-------------------------------------------------------------------------------------
+-----UOM Start
+--------------------------------------------------------------------------------------------------------------------------------
+/*
+IF :object_type = '13' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE KgsBatch DECIMAL(19, 6);
+DECLARE QtyInKgs DECIMAL(19, 6);
+DECLARE LineNumber INTEGER;
+
+DECLARE SalesUOM NVARCHAR(100);
+DECLARE QtyInInvUOM DECIMAL(10, 6);
+DECLARE SumOfQtyInAltUOM DECIMAL(19, 6);
+
+DECLARE SalesUOMQtyDiff DECIMAL(19, 6);
+DECLARE LastConversionRation DECIMAL(19, 6);
+
+DECLARE InvUOMQtyDiff DECIMAL(19, 6);
+DECLARE RecomInvUOMQty DECIMAL(19, 6);
+DECLARE RecomItemPerUnit DECIMAL(19, 6);
+
+Cnt := 0;
+KgsBatch := 0;
+QtyInKgs := 0;
+LineNumber := 0;
+
+SalesUOM := '';
+QtyInInvUOM := 0;
+SumOfQtyInAltUOM := 0;
+
+SalesUOMQtyDiff := 0;
+LastConversionRation := 0;
+
+InvUOMQtyDiff := 0;
+RecomInvUOMQty := 0;
+RecomItemPerUnit := 0;
+
+SELECT TOP 1 T1."LineNum", 
+ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1),
+--CAST(T5."U_QtyAltUo" AS DECIMAL(19, 6))
+T1."Quantity", T1."InvQty", T1."unitMsr", 
+SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST((-1) * T3."Quantity" AS DECIMAL(19, 6))), 
+(SELECT Q0."U_AltConRatio" FROM OBTN Q0
+       INNER JOIN ITL1 Q1 ON Q1."MdAbsEntry" = Q0."AbsEntry"
+       WHERE Q1."LogEntry" = MAX(T3."LogEntry") AND Q1."SysNumber" = MAX(T3."SysNumber"))
+INTO LineNumber, 
+       KgsBatch, QtyInKgs, QtyInInvUOM, SalesUOM, 
+       SumOfQtyInAltUOM, 
+       LastConversionRation
+FROM OINV T0
+INNER JOIN INV1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN RDR1 T5 ON T5."DocEntry" = T1."BaseEntry" AND T5."LineNum" = T1."BaseLine"
+AND T5."ObjType" = T1."BaseType" AND T5."ItemCode" = T1."ItemCode"
+INNER JOIN OITM T6 ON T5."ItemCode"=T6."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+GROUP BY T0."DocEntry", T1."LineNum", T1."Quantity", T1."InvQty", T1."unitMsr"
+HAVING T1."Quantity" <> ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1);
+--HAVING CAST(T5."U_QtyAltUo" AS DECIMAL(19, 6)) <> ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1);
+
+If :KgsBatch <> :QtyInKgs Then
+
+LineNumber := LineNumber + 1;
+
+SalesUOMQtyDiff := QtyInKgs - SumOfQtyInAltUOM;
+
+InvUOMQtyDiff := (1 / LastConversionRation) * SalesUOMQtyDiff;
+
+RecomInvUOMQty := QtyInInvUOM + InvUOMQtyDiff;
+
+RecomItemPerUnit := RecomInvUOMQty / QtyInKgs;
+
+
+error := -3001;
+--error_message := 'Quantity in Kgs are not matching for Line No.:'|| CAST(:LineNumber AS Varchar) || '; Kgs at Sales Order:' || CAST(:QtyInKgs AS Varchar) || '; Kgs for Batch Qty.:' || CAST(:KgsBatch AS Varchar);
+error_message := 'The Quantity in Sales UoM (' || SalesUOM || ') is not matching. The Quantity for selected batches is ' || SumOfQtyInAltUOM || ' ' || SalesUOM || '. It should be ' || QtyInKgs || ' ' || SalesUOM || '.  Change Items Per Unit to ' || RecomItemPerUnit || '.';
+End If;
+
+END IF;
+
+IF :object_type = '15' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE KgsBatch DECIMAL(19, 6);
+DECLARE QtyInKgs DECIMAL(19, 6);
+DECLARE LineNumber INTEGER;
+Cnt := 0;
+KgsBatch := 0;
+QtyInKgs := 0;
+LineNumber := 0;
+
+SELECT TOP 1 T1."LineNum", 
+ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) 
+* CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1),
+--CAST(T5."U_QtyAltUo" AS DECIMAL(19, 6))
+T1."Quantity"
+INTO LineNumber, KgsBatch, QtyInKgs
+FROM ODLN T0
+INNER JOIN DLN1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN RDR1 T5 ON T5."DocEntry" = T1."BaseEntry" AND T5."LineNum" = T1."BaseLine"
+AND T5."ObjType" = T1."BaseType" AND T5."ItemCode" = T1."ItemCode"
+INNER JOIN OITM T6 ON T5."ItemCode"=T6."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+GROUP BY T0."DocEntry", T1."LineNum", T1."Quantity"
+HAVING T1."Quantity" <> ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1);
+--HAVING CAST(T5."U_QtyAltUo" AS DECIMAL(19, 6)) <> ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1);
+
+If :KgsBatch <> :QtyInKgs Then
+LineNumber := LineNumber + 1;
+error := -3002;
+error_message := 'Quantity in Kgs are not matching for Line No.:'|| CAST(:LineNumber AS Varchar) || '; Kgs at Sales Order:' || CAST(:QtyInKgs AS Varchar) || '; Kgs for Batch Qty.:' || CAST(:KgsBatch AS Varchar);
+End If;
+END IF;
+
+
+/*
+IF :object_type = '20' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE LineNumber INTEGER;
+SELECT TOP 1 T1."LineNum"
+INTO LineNumber
+FROM OPDN T0
+INNER JOIN PDN1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN OITM T6 ON T1."ItemCode"=T1."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del And (IFNULL(T4."U_QtyAltU", '') = '' OR IFNULL(T4."U_AltConRatio", '') = '');
+If :LineNumber <> 0 Then
+error := -3003;
+error_message := 'UOM of Alternate Item and Ratio should not be blank for batch managed item';
+End If;
+END IF;
+
+*/
+/*
+IF :object_type ='18' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE LineNumber INTEGER;
+SELECT TOP 1 T1."LineNum"
+INTO LineNumber
+FROM OPCH T0
+INNER JOIN PCH1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN OITM T6 ON T1."ItemCode"=T1."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del And (IFNULL(T4."U_QtyAltU", '') = '' OR IFNULL(T4."U_AltConRatio", '') = '');
+If :LineNumber <> 0 Then
+error := -3004;
+error_message := 'UOM of Alternate Item and Ratio should not be blank for batch managed item';
+End If;
+END IF;
+*/
+/*
+IF :object_type ='59' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE LineNumber INTEGER;
+SELECT TOP 1 T1."LineNum"
+INTO LineNumber
+FROM OIGN T0
+INNER JOIN IGN1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN OITM T6 ON T1."ItemCode"=T1."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del And (IFNULL(T4."U_QtyAltU", '') = '' OR IFNULL(T4."U_AltConRatio", '') = '');
+If :LineNumber <> 0 Then
+error := -3005;
+error_message := 'UOM of Alternate Item and Ratio should not be blank for batch managed item';
+End If;
+END IF;
+
+*/
+
+-------------------------------------------------------------------------------------
+-----UOM End
+--------------------------------------------------------------------------------------------------------------------------------
+------------  Start Sales Empoyee Mandtory on Add/Update Sales Order ---------------
+
+IF :object_type = '17' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+Select (SELECT T0."DocEntry" FROM ORDR T0
+WHERE T0."SlpCode" = '-1'
+AND T0."DocEntry" = :list_of_cols_val_tab_del)
+into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -1005;
+                error_message := 'Sales Employee is Missing';
+END If;
+cnt := 0;
+END If;
+------------  End Sales Empoyee Mandtory on Add/Update Sales Order ---------------
+
+
+------------------ Batch Alternate UOM and Ratio Validation on GRPO
+IF :object_type = '20' AND (:transaction_type = 'A') THEN
+DECLARE LineNumber INTEGER;
+SELECT COUNT(T0."DocEntry")
+INTO LineNumber
+FROM OPDN T0
+INNER JOIN PDN1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry" AND T3."ItemCode" = T4."ItemCode"
+INNER JOIN OITM T6 ON T1."ItemCode"=T6."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+ And (IFNULL(T4."U_QtyAltU", 0.00) = 0.00 OR IFNULL(T4."U_AltConRatio", 0.00) = 0.00);
+ 
+If :LineNumber <> 0 Then
+error := -3003;
+error_message := 'UOM of Alternate Item and Ratio should not be blank for batch managed item';
+End If;
+END IF;
+------------------ End Batch Alternate UOM and Ratio Validation on GRPO
+-- Begin Validating issue quantity cannot be more than planned quantity
+--=========================================================================================================
+	IF :Object_type = '60' AND :transaction_type = 'A' THEN
+
+		DECLARE COUNTER INTEGER;
+
+		SELECT COUNT(T0."DocEntry") INTO COUNTER
+		FROM "OIGE" T0
+		INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+		INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" AND T1."BaseType" = '202'
+		INNER JOIN "WOR1" T3 ON T2."DocEntry" = T3."DocEntry" AND T1."BaseLine" = T3."LineNum" 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+		AND IFNULL(T3."IssuedQty", 0.00) > IFNULL(T3."PlannedQty", 0.00) + CAST((IFNULL(T3."PlannedQty", 0.00) * (7.5 / 100.00)) AS DECIMAL(19, 2));
+
+		IF :COUNTER > 0  THEN
+			error := 60001;
+			error_message := 'Issue quantity cannot be more than planned quantity.';
+		END IF;				   
+	end if;
+	
+	/*IF :Object_type = '60' AND :transaction_type = 'A' THEN
+
+		DECLARE COUNTER INTEGER;
+	
+	
+		SELECT COUNT(T0."DocEntry") INTO COUNTER
+		FROM "OIGE" T0	
+		where t0."Series" = '187' and t0."UserSign2"<>'134' and t0."DocEntry"=:list_of_cols_val_tab_del;
+		
+	IF :COUNTER > 0  THEN
+			error := 60003;
+			error_message := 'Please Select Production Series.';
+		END IF;				   
+	
+	
+	
+	END IF;*/
+	
+	--IF :object_type = '60' and (:transaction_type='A' /*OR :transaction_type='U'*/ ) THEN
+
+
+
+	/*	Select (select count(*)  From oige T0
+				where t0."Series" = '187' and t0."UserSign2"<>'134' and t0."DocEntry"=:list_of_cols_val_tab_del 
+		)
+		into cnt
+		FROM DUMMY;
+		   
+		 IF :cnt > 0 Then
+		                error := 60;
+		                error_message := 'Please Select Production Series.';
+		          End If;
+		          cnt := 0;
+		         
+		End IF;   */
+--=========================================================================================================
+	-- End Validating issue quantity cannot be more than planned quantity
+--=========================================================================================================
+
+
+
+	IF :error = 0 AND (:object_type = '59' OR :object_type = '60') AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+		CALL CIS_PROC_ProdConsumption_Calc_Validation (list_of_cols_val_tab_del, object_type, transaction_type, :error, :error_message);
+	END IF;
+	
+--====================================================================================================================
+--Sales Order cannot be created without Sales Quotation
+--====================================================================================================================
+IF :object_type = n'17' AND (:transaction_type = n'A') THEN
+Declare temp_var_14 integer;
+SELECT 
+    (SELECT T0."DocEntry" FROM RDR1 T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."BaseType"='-1') INTO temp_var_14 FROM DUMMY;
+
+	IF :temp_var_14 > 0 THEN 
+		SELECT 22,'Sales Order cannot be created without Sales Quotation' INTO Error, error_message FROM DUMMY;
+END IF;
+END IF;
+--====================================================================================================================
+IF :object_type = n'4' AND (:transaction_type = n'A' AND :transaction_type = n'U') THEN
+	Declare temp_var_15 integer;
+	SELECT 
+	    (SELECT Count(*) FROM OITM T0 
+			WHERE T0."ItemCode" = :list_of_cols_val_tab_del AND T0."UserSign" NOT IN ('1','7','15','16') 
+				AND IFNULL(T0."U_MasApp",'') = 'Approved' ) INTO temp_var_15 FROM DUMMY;
+	
+		IF :temp_var_15 > 0 THEN 
+			SELECT 22,'You can not Approved the item' INTO Error, error_message FROM DUMMY;
+	END IF;
+	
+	IF :temp_var_15 = 0 THEN 
+		
+		SELECT COUNT (*) INTO temp_var_15  FROM OITM T0
+			WHERE T0."ItemCode" = :list_of_cols_val_tab_del 
+				AND IFNULL(T0."U_MasApp",'Not Approved') = 'Not Approved'  AND T0."validFor" = 'Y';	
+			
+			IF temp_var_15 > 0 THEN
+				error := '1122';
+				error_message := 'You can not modify NOT APPROVED item';
+		END IF;
+	END IF;
+END IF;
+---------------------Eway Bill---------------------
+IF :object_type = '13' and (:transaction_type='A') THEN
+
+select (SELECT T0."DocEntry" FROM OINV T0  INNER JOIN INV12 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."StateS"<>'TN' and
+((ifnull(T0."U_AV_TransID",'')='')
+and (ifnull(T0."U_AV_VehNo",'')='')) 
+
+AND T0."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := '1301';
+                error_message := 'Please Enter Vehicle No or Transporter ID in Eway Bill';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+
+
+
+
+-------------------------------------------
+
+------------------------------Resource master Validation--------------------------
+IF :object_type = n'290' and (:transaction_type=n'U') THEN
+
+select (select count(*) from orsc where "ResCode" =:list_of_cols_val_tab_del and "UserSign2" not in ('1') and "U_PCate"='IN')  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -100;
+                error_message := 'Cannot Update the Internal Resource';
+          End If;
+          cnt := 0;
+          
+End IF;
+----------------------------------------------------
+
+
+IF :object_type = n'2' AND (:transaction_type = n'U') THEN
+	
+	DECLARE APP_STATUS VARCHAR(100);
+	DECLARE P_APP_STATUS VARCHAR(100);
+	DECLARE  USER_S VARCHAR(10);
+	
+	SELECT IFNULL(T0."U_U_MasApp1",''), IFNULL(T1."U_BPA",'N') INTO APP_STATUS, USER_S 
+	FROM OCRD T0 INNER JOIN OUSR T1 ON T0."UserSign2" = T1."USERID"
+	 WHERE T0."CardCode" = :list_of_cols_val_tab_del;
+	
+	SELECT TOP 1 IFNULL(T0."U_U_MasApp1",'') INTO P_APP_STATUS FROM ACRD T0 
+		WHERE T0."CardCode" = :list_of_cols_val_tab_del ORDER BY T0."LogInstanc" DESC ;
+		
+	IF USER_S = 'N' THEN
+		IF P_APP_STATUS = 'Not Approved'  THEN
+			IF APP_STATUS = 'Approved'  THEN
+				SELECT Count(*) INTO cnt FROM OCRD T0 
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del ;		
+				IF cnt > 0 THEN
+						error := '1122';
+						error_message := 'You are not allowed to approve';
+				END IF;
+			END IF;
+		END IF;
+	END IF;
+END IF;
+
+--------------------------Bussiness Partner Approved------------------------
+
+
+
+IF :object_type = '20' and (:transaction_type='A') THEN
+
+select (SELECT T0."DocEntry" FROM OPDN T0  INNER JOIN PDN1 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."BaseEntry"  IS  NULL AND T0."DocEntry"=:list_of_cols_val_tab_del
+Group By T0."DocEntry"
+Having Sum(T1."LineTotal") > '5000' )  into cnt
+FROM DUMMY;
+   
+ IF :cnt > 0 Then
+                error := -1241;
+                error_message := 'Posting not allowed without Base Document-Purchase Order';
+          End If;
+          cnt := 0;
+          
+End IF;
+--------Delivery Block without sales order-CBS Nagarjun--------
+IF :object_type = '15' and (:transaction_type='A') THEN
+
+select (SELECT T0."DocEntry" FROM ODLN T0  INNER JOIN DLN1 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."BaseEntry"  IS  NULL AND T0."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -1242;
+                error_message := 'Posting not allowed without Base Document-Sales Order';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+--------Delivery Block without Weight --------
+IF :object_type = '13' and (:transaction_type='A' OR :transaction_type='U') THEN
+
+select (SELECT Count(*) FROM OINV T0  INNER JOIN INV1 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."Weight1" <=0 AND T1."Price" >0 AND T0."Series" <> 307 AND T0."DocType"<>'S' AND T0."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -1242;
+                error_message := 'Please enter weight';
+          End If;
+          cnt := 0;
+         
+End IF;
+
+------------  GSTN No. Validation before adding SO ---------------
+/*
+IF :object_type = '17' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+Select (SELECT T0."DocEntry" FROM ORDR T0 
+		inner join CRD1 T1 on T0."CardCode" = T1."CardCode" and T0."ShipToCode" = T1."Address" 
+		and T1."AdresType" ='S'
+		left join OCRD T2 on T2."CardCode" = T0."CardCode"
+		WHERE (T1."GSTRegnNo" IS NULL and  T2."GroupCode" <>'105' and T1."AdresType" ='S' 
+		and T1."Country" = 'IN') 
+		AND T0."DocEntry" = :list_of_cols_val_tab_del
+		)
+into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -1243;
+                error_message := 'Please enter the GSTN Number for Customer in BP Master window';
+END If;
+cnt := 0;
+END If;
+
+*/
+------------------------For Service GR and GRPO------
+IF :object_type = '21' and (:transaction_type='A') THEN
+
+select (Select A."DocEntry"  from ORPD A
+LEFT JOIN RPD1  B ON A."DocEntry"=B."DocEntry" 
+left join OITM C on B."ItemCode" = C."ItemCode" 
+where  C."ItmsGrpCod" = '110' and  B."PriceBefDi" <> 0.00  and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -124;
+                error_message := 'Do Not Enter the Unit Price';
+          End If;
+          cnt := 0;
+          
+End IF;
+--
+IF :object_type = '21' and (:transaction_type='A') THEN
+
+select (Select A."DocEntry"  from ORPD A
+LEFT JOIN RPD1  B ON A."DocEntry"=B."DocEntry" 
+left join OITM C on B."ItemCode" = C."ItemCode" 
+where  C."ItmsGrpCod" = '110' and  B."U_UnitPrice" = 0.00 or B."U_UnitPrice" IS NULL and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -124;
+                error_message := 'Enter the unit price in GR_Price field';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+
+----
+IF :object_type = '20' and (:transaction_type='A') THEN
+
+select (Select A."DocEntry"  from OPDN A
+LEFT JOIN PDN1  B ON A."DocEntry"=B."DocEntry" 
+where  B."BaseType"= '21' and  B."PriceBefDi" <> 0.00  and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -130;
+                error_message := 'Do Not Enter the Unit Price';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+------------------------------------------
+-----------------------PUCHASE ORDER BLOCK WITHOUT QUOTATION---------------------------------------
+/*IF :object_type = '112' and (:transaction_type='A') THEN
+
+select (SELECT T0."DocEntry" FROM ODRF T0  INNER JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."ObjType"='22' and T1."BaseEntry"  IS  NULL AND T0."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -0905;
+                error_message := 'Without Quotation Cannot Process PO';
+          End If;
+          cnt := 0;
+          
+End IF;
+*/
+----------------------------------------------------------------------------------------------------
+-----------------------PUCHASE QUOTATION BLOCK WITHOUT QUOTATION---------------------------------------
+IF :object_type = '112' and (:transaction_type='A') THEN
+
+select (SELECT T0."DocEntry" FROM ODRF T0  INNER JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry" 
+WHERE T1."ObjType"='540000006' and T1."BaseEntry"  IS  NULL AND T0."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -0905;
+                error_message := 'Without Request Cannot Process Quotation';
+          End If;
+          cnt := 0;
+          
+End IF;
+
+----------------------------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------
+
+---
+--IF :object_type = '20' and (:transaction_type='A') THEN
+
+--select (Select A."DocEntry"  from OPDN A
+--LEFT JOIN PDN1  B ON A."DocEntry"=B."DocEntry" 
+--where  B."BaseType"= '21' and   B."U_UnitPrice" = 0.00 or B."U_UnitPrice" IS NULL and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+--FROM DUMMY; 
+   
+ --IF :cnt > 0 Then
+               -- error := -130;
+               -- error_message := 'Do Not Enter the Unit Price';
+         -- End If;
+          --cnt := 0;
+          
+--End IF;
+
+-------------------------------------------------------------------
+
+
+
+/*
+IF :object_type = 'OMTV' and (:transaction_type='U') THEN
+
+select (Select count("U_Code") as DDD from "@CBS_ITM1" where "U_SName"=:list_of_cols_val_tab_del 
+and "U_Code" not in (Select "U_CodeValue" as DDD from "@CBS_MTV1" 
+where "@CBS_MTV1"."Code"=:list_of_cols_val_tab_del)) into cnt
+FROM DUMMY;    
+
+          
+End IF;
+
+IF :object_type='4' and (:transaction_type='A' or :transaction_type='U') then          
+                                           
+      INSERT INTO  "@CBS_RAND" ("Code","Name","U_ItemCode","U_Status","U_WhsCode","U_IGroup")
+select case when length(T0."ItemCode")>=4 then 
+ LEFT(T0."ItemCode",4) || '-' || "WhsCode" || '-' || CAST(T1."DocEntry" AS varchar (20))  
+ else T0."ItemCode" || '-' || "WhsCode" || '-' || CAST(T1."DocEntry" AS varchar (20)) end as "Code",
+case when  length(T0."ItemCode")>=4 then 
+ LEFT(T0."ItemCode",4) || '-' || "WhsCode" || '-' || CAST(T1."DocEntry" AS varchar (20)) 
+ else T0."ItemCode" || '-' || "WhsCode" || CAST(T1."DocEntry" AS varchar (20)) end as "Name",
+    T1."ItemCode",'0' AS "Status",T0."WhsCode",T1."ItmsGrpCod" from OITW T0 
+    inner join OITM T1 on T0."ItemCode"=T1."ItemCode" where T0."ItemCode" || '-' || T0."WhsCode" 
+                not in (select "U_ItemCode" || '-'|| "U_WhsCode" from  "@CBS_RAND");                                    
+END IF;
+
+if :object_type='4' and :transaction_type='D' then
+
+delete from "@CBS_OITM" where "Code"=:list_of_cols_val_tab_del;
+delete from "@CBS_ITM1" where "Code"=:list_of_cols_val_tab_del;
+
+--delete from "@CBS_ITM1" where "Code"='1';
+   
+end if;
+
+IF :object_type = 'CBSWOR' and (:transaction_type='A') THEN
+
+select (Select A."U_PType" as DDD from "@CBS_OWOR" A
+LEFT OUTER JOIN "@CBS_WOR1" B ON A."DocEntry"=B."DocEntry"  
+where  A."U_PType"='-' and ifnull(A."U_DocDate",'20170101')='20170101' and 
+ifnull(B."U_POrderNo",'N')='N' and A."DocEntry"=:list_of_cols_val_tab_del )  into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -124;
+                error_message := 'Production Type,Date and Order Number should not empty';
+          End If;
+          cnt := 0;
+          
+End IF;
+*/
+-------------------------------------------------------------------------------------
+-----UOM Start
+--------------------------------------------------------------------------------------------------------------------------------
+/*
+IF :object_type = '13' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE KgsBatch DECIMAL(19, 6);
+DECLARE QtyInKgs DECIMAL(19, 6);
+DECLARE LineNumber INTEGER;
+
+DECLARE SalesUOM NVARCHAR(100);
+DECLARE QtyInInvUOM DECIMAL(10, 6);
+DECLARE SumOfQtyInAltUOM DECIMAL(19, 6);
+
+DECLARE SalesUOMQtyDiff DECIMAL(19, 6);
+DECLARE LastConversionRation DECIMAL(19, 6);
+
+DECLARE InvUOMQtyDiff DECIMAL(19, 6);
+DECLARE RecomInvUOMQty DECIMAL(19, 6);
+DECLARE RecomItemPerUnit DECIMAL(19, 6);
+
+Cnt := 0;
+KgsBatch := 0;
+QtyInKgs := 0;
+LineNumber := 0;
+
+SalesUOM := '';
+QtyInInvUOM := 0;
+SumOfQtyInAltUOM := 0;
+
+SalesUOMQtyDiff := 0;
+LastConversionRation := 0;
+
+InvUOMQtyDiff := 0;
+RecomInvUOMQty := 0;
+RecomItemPerUnit := 0;
+
+SELECT TOP 1 T1."LineNum", 
+ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1),
+--CAST(T5."U_QtyAltUo" AS DECIMAL(19, 6))
+T1."Quantity", T1."InvQty", T1."unitMsr", 
+SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST((-1) * T3."Quantity" AS DECIMAL(19, 6))), 
+(SELECT Q0."U_AltConRatio" FROM OBTN Q0
+       INNER JOIN ITL1 Q1 ON Q1."MdAbsEntry" = Q0."AbsEntry"
+       WHERE Q1."LogEntry" = MAX(T3."LogEntry") AND Q1."SysNumber" = MAX(T3."SysNumber"))
+INTO LineNumber, 
+       KgsBatch, QtyInKgs, QtyInInvUOM, SalesUOM, 
+       SumOfQtyInAltUOM, 
+       LastConversionRation
+FROM OINV T0
+INNER JOIN INV1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN RDR1 T5 ON T5."DocEntry" = T1."BaseEntry" AND T5."LineNum" = T1."BaseLine"
+AND T5."ObjType" = T1."BaseType" AND T5."ItemCode" = T1."ItemCode"
+INNER JOIN OITM T6 ON T5."ItemCode"=T6."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+GROUP BY T0."DocEntry", T1."LineNum", T1."Quantity", T1."InvQty", T1."unitMsr"
+HAVING T1."Quantity" <> ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1);
+--HAVING CAST(T5."U_QtyAltUo" AS DECIMAL(19, 6)) <> ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1);
+
+If :KgsBatch <> :QtyInKgs Then
+
+LineNumber := LineNumber + 1;
+
+SalesUOMQtyDiff := QtyInKgs - SumOfQtyInAltUOM;
+
+InvUOMQtyDiff := (1 / LastConversionRation) * SalesUOMQtyDiff;
+
+RecomInvUOMQty := QtyInInvUOM + InvUOMQtyDiff;
+
+RecomItemPerUnit := RecomInvUOMQty / QtyInKgs;
+
+
+error := -3001;
+--error_message := 'Quantity in Kgs are not matching for Line No.:'|| CAST(:LineNumber AS Varchar) || '; Kgs at Sales Order:' || CAST(:QtyInKgs AS Varchar) || '; Kgs for Batch Qty.:' || CAST(:KgsBatch AS Varchar);
+error_message := 'The Quantity in Sales UoM (' || SalesUOM || ') is not matching. The Quantity for selected batches is ' || SumOfQtyInAltUOM || ' ' || SalesUOM || '. It should be ' || QtyInKgs || ' ' || SalesUOM || '.  Change Items Per Unit to ' || RecomItemPerUnit || '.';
+End If;
+
+END IF;
+
+IF :object_type = '15' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE KgsBatch DECIMAL(19, 6);
+DECLARE QtyInKgs DECIMAL(19, 6);
+DECLARE LineNumber INTEGER;
+Cnt := 0;
+KgsBatch := 0;
+QtyInKgs := 0;
+LineNumber := 0;
+
+SELECT TOP 1 T1."LineNum", 
+ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) 
+* CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1),
+--CAST(T5."U_QtyAltUo" AS DECIMAL(19, 6))
+T1."Quantity"
+INTO LineNumber, KgsBatch, QtyInKgs
+FROM ODLN T0
+INNER JOIN DLN1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN RDR1 T5 ON T5."DocEntry" = T1."BaseEntry" AND T5."LineNum" = T1."BaseLine"
+AND T5."ObjType" = T1."BaseType" AND T5."ItemCode" = T1."ItemCode"
+INNER JOIN OITM T6 ON T5."ItemCode"=T6."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+GROUP BY T0."DocEntry", T1."LineNum", T1."Quantity"
+HAVING T1."Quantity" <> ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1);
+--HAVING CAST(T5."U_QtyAltUo" AS DECIMAL(19, 6)) <> ROUND(((SUM(CAST(T4."U_AltConRatio" AS DECIMAL(19,6)) * CAST(T3."Quantity" AS DECIMAL(19, 6)))) * (-1)), 1);
+
+If :KgsBatch <> :QtyInKgs Then
+LineNumber := LineNumber + 1;
+error := -3002;
+error_message := 'Quantity in Kgs are not matching for Line No.:'|| CAST(:LineNumber AS Varchar) || '; Kgs at Sales Order:' || CAST(:QtyInKgs AS Varchar) || '; Kgs for Batch Qty.:' || CAST(:KgsBatch AS Varchar);
+End If;
+END IF;
+
+
+/*
+IF :object_type = '20' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE LineNumber INTEGER;
+SELECT TOP 1 T1."LineNum"
+INTO LineNumber
+FROM OPDN T0
+INNER JOIN PDN1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN OITM T6 ON T1."ItemCode"=T1."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del And (IFNULL(T4."U_QtyAltU", '') = '' OR IFNULL(T4."U_AltConRatio", '') = '');
+If :LineNumber <> 0 Then
+error := -3003;
+error_message := 'UOM of Alternate Item and Ratio should not be blank for batch managed item';
+End If;
+END IF;
+
+*/
+/*
+IF :object_type ='18' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE LineNumber INTEGER;
+SELECT TOP 1 T1."LineNum"
+INTO LineNumber
+FROM OPCH T0
+INNER JOIN PCH1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN OITM T6 ON T1."ItemCode"=T1."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del And (IFNULL(T4."U_QtyAltU", '') = '' OR IFNULL(T4."U_AltConRatio", '') = '');
+If :LineNumber <> 0 Then
+error := -3004;
+error_message := 'UOM of Alternate Item and Ratio should not be blank for batch managed item';
+End If;
+END IF;
+*/
+/*
+IF :object_type ='59' AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+DECLARE LineNumber INTEGER;
+SELECT TOP 1 T1."LineNum"
+INTO LineNumber
+FROM OIGN T0
+INNER JOIN IGN1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry"
+INNER JOIN OITM T6 ON T1."ItemCode"=T1."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del And (IFNULL(T4."U_QtyAltU", '') = '' OR IFNULL(T4."U_AltConRatio", '') = '');
+If :LineNumber <> 0 Then
+error := -3005;
+error_message := 'UOM of Alternate Item and Ratio should not be blank for batch managed item';
+End If;
+END IF;
+
+*/
+
+-------------------------------------------------------------------------------------
+-----UOM End
+--------------------------------------------------------------------------------------------------------------------------------
+------------  Start Sales Empoyee Mandtory on Add/Update Sales Order ---------------
+
+IF :object_type = '17' and (:transaction_type='A' OR :transaction_type='U' ) THEN
+Select (SELECT T0."DocEntry" FROM ORDR T0
+WHERE T0."SlpCode" = '-1'
+AND T0."DocEntry" = :list_of_cols_val_tab_del)
+into cnt
+FROM DUMMY; 
+   
+ IF :cnt > 0 Then
+                error := -1005;
+                error_message := 'Sales Employee is Missing';
+END If;
+cnt := 0;
+END If;
+------------  End Sales Empoyee Mandtory on Add/Update Sales Order ---------------
+
+
+------------------ Batch Alternate UOM and Ratio Validation on GRPO
+IF :object_type = '20' AND (:transaction_type = 'A') THEN
+DECLARE LineNumber INTEGER;
+SELECT COUNT(T0."DocEntry")
+INTO LineNumber
+FROM OPDN T0
+INNER JOIN PDN1 T1 ON T1."DocEntry" = T0."DocEntry"
+INNER JOIN OITL T2 ON T2."DocEntry" = T1."DocEntry" AND T2."DocLine" = T1."LineNum" 
+AND T2."DocType" = T1."ObjType" AND T2."ItemCode" = T1."ItemCode"
+INNER JOIN ITL1 T3 ON T3."LogEntry" = T2."LogEntry" AND T3."ItemCode" = T2."ItemCode"
+INNER JOIN OBTN T4 ON T4."AbsEntry" = T3."MdAbsEntry" AND T3."ItemCode" = T4."ItemCode"
+INNER JOIN OITM T6 ON T1."ItemCode"=T6."ItemCode" And "ManBtchNum"='Y'
+WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+ And (IFNULL(T4."U_QtyAltU", 0.00) = 0.00 OR IFNULL(T4."U_AltConRatio", 0.00) = 0.00);
+ 
+If :LineNumber <> 0 Then
+error := -3003;
+error_message := 'UOM of Alternate Item and Ratio should not be blank for batch managed item';
+End If;
+END IF;
+------------------ End Batch Alternate UOM and Ratio Validation on GRPO
+
+--=========================================================================================================
+	-- Begin Validating issue quantity cannot be more than planned quantity
+--=========================================================================================================
+	IF :Object_type = '60' AND :transaction_type = 'A' THEN
+
+		DECLARE COUNTER INTEGER;
+
+		SELECT COUNT(T0."DocEntry") INTO COUNTER
+		FROM "OIGE" T0
+		INNER JOIN "IGE1" T1 ON T0."DocEntry" = T1."DocEntry"
+		INNER JOIN "OWOR" T2 ON T1."BaseEntry" = T2."DocEntry" AND T1."BaseType" = '202'
+		INNER JOIN "WOR1" T3 ON T2."DocEntry" = T3."DocEntry" AND T1."BaseLine" = T3."LineNum" 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del
+		AND IFNULL(T3."IssuedQty", 0.00) > IFNULL(T3."PlannedQty", 0.00) + CAST((IFNULL(T3."PlannedQty", 0.00) * (7.5 / 100.00)) AS DECIMAL(19, 2));
+
+		IF :COUNTER > 0  THEN
+			error := 60001;
+			error_message := 'Issue quantity cannot be more than planned quantity.';
+		END IF;				   
+	
+	END IF;
+--=========================================================================================================
+	-- End Validating issue quantity cannot be more than planned quantity
+--=========================================================================================================
+
+
+
+	IF :error = 0 AND (:object_type = '59' OR :object_type = '60') AND (:transaction_type = 'A' OR :transaction_type = 'U') THEN
+		CALL CIS_PROC_ProdConsumption_Calc_Validation (list_of_cols_val_tab_del, object_type, transaction_type, :error, :error_message);
+	END IF;
+	
+--====================================================================================================================
+--Sales Order cannot be created without Sales Quotation
+--====================================================================================================================
+IF :object_type = n'17' AND (:transaction_type = n'A') THEN
+Declare temp_var_14 integer;
+SELECT 
+    (SELECT T0."DocEntry" FROM RDR1 T0 
+		WHERE T0."DocEntry" = :list_of_cols_val_tab_del AND T0."BaseType"='-1') INTO temp_var_14 FROM DUMMY;
+
+	IF :temp_var_14 > 0 THEN 
+		SELECT 22,'Sales Order cannot be created without Sales Quotation' INTO Error, error_message FROM DUMMY;
+END IF;
+END IF;
+--====================================================================================================================
+IF :object_type = n'4' AND (:transaction_type = n'A' AND :transaction_type = n'U') THEN
+	Declare temp_var_15 integer;
+	SELECT 
+	    (SELECT Count(*) FROM OITM T0 
+			WHERE T0."ItemCode" = :list_of_cols_val_tab_del AND T0."UserSign" NOT IN ('1','7','15','16') 
+				AND IFNULL(T0."U_MasApp",'') = 'Approved' ) INTO temp_var_15 FROM DUMMY;
+	
+		IF :temp_var_15 > 0 THEN 
+			SELECT 22,'You can not Approved the item' INTO Error, error_message FROM DUMMY;
+	END IF;
+	
+	IF :temp_var_15 = 0 THEN 
+		
+		SELECT COUNT (*) INTO temp_var_15  FROM OITM T0
+			WHERE T0."ItemCode" = :list_of_cols_val_tab_del 
+				AND IFNULL(T0."U_MasApp",'Not Approved') = 'Not Approved'  AND T0."validFor" = 'Y';	
+			
+			IF temp_var_15 > 0 THEN
+				error := '1122';
+				error_message := 'You can not modify NOT APPROVED item';
+		END IF;
+	END IF;
+END IF;
+---------------------
+
+IF :object_type = n'2' AND (:transaction_type = n'U') THEN
+	
+	DECLARE APP_STATUS VARCHAR(100);
+	DECLARE P_APP_STATUS VARCHAR(100);
+	DECLARE  USER_S VARCHAR(10);
+	
+	SELECT IFNULL(T0."U_U_MasApp1",''), IFNULL(T1."U_BPA",'N') INTO APP_STATUS, USER_S 
+	FROM OCRD T0 INNER JOIN OUSR T1 ON T0."UserSign2" = T1."USERID"
+	 WHERE T0."CardCode" = :list_of_cols_val_tab_del;
+	
+	SELECT TOP 1 IFNULL(T0."U_U_MasApp1",'') INTO P_APP_STATUS FROM ACRD T0 
+		WHERE T0."CardCode" = :list_of_cols_val_tab_del ORDER BY T0."LogInstanc" DESC ;
+		
+	IF USER_S = 'N' THEN
+		IF P_APP_STATUS = 'Not Approved'  THEN
+			IF APP_STATUS = 'Approved'  THEN
+				SELECT Count(*) INTO cnt FROM OCRD T0 
+					WHERE T0."CardCode" = :list_of_cols_val_tab_del and t0."CardType" not In ('L') ;		
+				IF cnt > 0 THEN
+						error := '1122';
+						error_message := 'You are not allowed to approve';
+				END IF;
+			END IF;
+		END IF;
+	END IF;
+END IF;
+
+--------------------------Bussiness Partner Approved------------------------
+
+
+IF :object_type = n'2' AND (:transaction_type = n'A' OR :transaction_type = n'U') THEN
+
+DECLARE APP_STATUS VARCHAR(100);
+	DECLARE P_APP_STATUS VARCHAR(100);
+	DECLARE  USER_S INT;
+	
+	SELECT IFNULL(T0."U_U_MasApp1",''), T0."UserSign2" INTO APP_STATUS, USER_S FROM OCRD T0 WHERE T0."CardCode" = :list_of_cols_val_tab_del;
+	
+
+IF APP_STATUS = 'Not Approved' THEN
+	SELECT Count(*) INTO cnt FROM OCRD T0 
+		WHERE T0."CardCode" = :list_of_cols_val_tab_del AND T0."validFor" = 'Y' and t0."CardType" not In ('L');	
+
+	IF cnt > 0 THEN
+			error := '1122';
+			error_message := 'You can not modify NOT APPROVED Business Partner';
+	END IF;
+END IF;	
+END IF;
+--------------------------------------------------------------------------------------------------------------------------------
+
+-- Select the return values
+select :error, :error_message FROM dummy;
+
+end;

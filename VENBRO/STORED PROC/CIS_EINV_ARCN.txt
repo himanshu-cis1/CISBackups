@@ -1,0 +1,326 @@
+CREATE Procedure "CIS_EINV_ARCN"
+(
+	in DocEntry INTEGER
+)
+
+-- Last Updated 30Dec2020 1746
+
+LANGUAGE SQLSCRIPT
+AS
+BEGIN
+
+	SELECT  T12."GSTRegnNo" "GSTIN", '1.01' "Version", '' "Irn", 'GST' "Tran_TaxSch",		
+			CASE 
+				WHEN T2."ImpORExp" = 'Y' THEN 
+											CASE 
+												WHEN IFNULL(T2."ExportType",'') = 'S' THEN 'SEZWOP'
+												WHEN IFNULL(T2."ExportType",'') = 'U' THEN 'SEZWOP'
+												WHEN IFNULL(T2."ExportType",'') = 'E' THEN 'EXPWOP' 											
+												ELSE ''
+											END 
+				WHEN T2."ImpORExp" = 'N' THEN 'B2B' 
+											
+				ELSE ''
+			END "Tran_SupTyp",'N' "Tran_RegRev", 
+			
+			CASE
+				WHEN T0."PayToCode" = T0."ShipToCode" THEN 'REG' 
+				WHEN T0."PayToCode"<>T0."ShipToCode" THEN 'SHP' 
+				ELSE ''
+			END "Tran_Typ", '' "Tran_EcmGstin", 'N' "Tran_IgstOnIntra", 
+			
+			CASE 
+				WHEN T0."ObjType"= 13 AND T0."GSTTranTyp" = 'GA' THEN 'INV'
+				WHEN T0."ObjType"= 13 AND T0."GSTTranTyp" = 'GD' THEN 'DBN'
+				WHEN T0."ObjType"= 14 THEN 'CRN'
+				ELSE ''
+			END "Doc_Typ", T0."DocNum" "Doc_No", T0."DocDate" "Doc_Dt", T12."GSTRegnNo" "BillFrom_Gstin", 'CD TECHNOTEX LLP' "BillFrom_LglNm", 
+			'CD TECHNOTEX LLP' "BillFrom_TrdNm", T12."Street" "BillFrom_Addr1", IFNULL(T12."Block",'')||','||IFNULL(T12."Building",'') "BillFrom_Addr2",
+			IFNULL(T12."City",'') ||', '||IFNULL((SELECT "Name" FROM OCST WHERE T12."State" = "Code" AND T12."Country" = "Country"),'') "BillFrom_Loc",
+			T12."ZipCode" "BillFrom_Pin", LEFT(T12."GSTRegnNo",2) "BillFrom_Stcd", T15."E_Mail" "BillFrom_Em", T15."PortNum" "BillFrom_Ph", 
+			CASE WHEN T2."ImpORExp" = 'Y' AND IFNULL(T2."ExportType",'') = 'E' THEN 'URP' ELSE T5."GSTRegnNo" END "BillTo_Gstin", T3."CardFName" "BillTo_LglNm",
+			T3."CardName" "BillTo_TrdNm", 
+			(SELECT "GSTCode" FROM OCST WHERE OCST."Code" = T2."BpStateCod" AND "Country" = T2."BpCountry") "BillTo_Pos",
+			T5."Block" "BillTo_Addr1",  T5."Street" "BillTo_Addr2", IFNULL(T5."City",'')||' '||IFNULL(T7."Name",'') "BillTo_Loc", T5."ZipCode" "BillTo_Pin", 
+			LEFT(T5."GSTRegnNo",2) "BillTo_Stcd", '' "BillTo_Ph", '' "BillTo_Em",
+			'' "ShipFrom_Nm", '' "ShipFrom_Addr1",	'' "ShipFrom_Addr2",	'' "ShipFrom_Loc", '' "ShipFrom_Pin", '' "ShipFrom_Stcd",
+			
+			/*CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T9."GSTRegnNo" ELSE '' END "ShipTo_Gstin",
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T3."CardFName" ELSE '' END "ShipTo_LglNm",
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T3."CardName" ELSE '' END  "ShipTo_TrdNm",
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T9."Block" ELSE '' END  "ShipTo_Addr1", 
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T9."Street" ELSE '' END "ShipTo_Addr2", 
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) 
+				 THEN IFNULL(T9."City",'') ||IFNULL((SELECT "Name" FROM OCST WHERE OCST."Code" = T9."State" AND "Country" = T9."Country"),'') 
+			ELSE '' END "ShipTo_Loc", 
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T9."ZipCode" ELSE '' END "ShipTo_Pin",
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN LEFT(T9."GSTRegnNo",2)  ELSE '' END "ShipTo_Stcd",*/
+			
+			T6."GSTRegnNo"  "ShipTo_Gstin",
+			 T3."CardFName" "ShipTo_LglNm",
+			 T3."CardName"  "ShipTo_TrdNm",
+			 T6."Block"  "ShipTo_Addr1", 
+			 T6."Street"  "ShipTo_Addr2", 
+			IFNULL(T6."City",'') ||IFNULL((SELECT "Name" FROM OCST WHERE OCST."Code" = T6."State" AND "Country" = T6."Country"),'') "ShipTo_Loc", 
+			T6."ZipCode" "ShipTo_Pin",
+			 LEFT(T6."GSTRegnNo",2)   "ShipTo_Stcd",
+			
+			
+			T1."VisOrder"+1 "Item_SlNo",IFNULL(T1."ItemCode",'')||' '||IFNULL(T1."Dscription",'')||' '||IFNULL(T1."LegalText",'') "Item_PrdDesc",
+			CASE WHEN T11."ItemClass" = 1 THEN 'Y' ELSE 'N' END "Item_IsServc", 
+			CASE 
+				WHEN T11."ItemClass" = 1 THEN SUBSTRING((SELECT "ServCode" FROM OSAC WHERE T1."SacEntry" = "AbsEntry"),3,4) 
+				WHEN T11."ItemClass" = 2 THEN REPLACE((SELECT OCHP."ChapterID" FROM OCHP WHERE T1."HsnEntry" = OCHP."AbsEntry"),'.','')
+				ELSE ''
+			END "Item_HsnCd", '' "Item_Barcde", T1."Quantity" "Item_Qty", 0 "Item_FreeQty",
+			CASE 
+				WHEN UPPER(T1."unitMsr")  = 'NUMBERS' THEN 'NOS'
+				WHEN UPPER(T1."unitMsr")  = 'CASES' THEN 'BOX'
+				WHEN UPPER(T1."unitMsr")  = 'PCS' THEN 'PCS'
+				WHEN UPPER(T1."unitMsr")  = 'NOS' THEN 'NOS'
+				WHEN UPPER(T1."unitMsr")  = 'GM' THEN 'GMS'
+				WHEN UPPER(T1."unitMsr")  = 'ML' THEN 'MLT'
+				WHEN UPPER(T1."unitMsr")  = 'MTR' THEN 'MTR'
+				WHEN UPPER(T1."unitMsr")  = 'PACKET' THEN 'PAC'
+				WHEN UPPER(T1."unitMsr")  = 'KG' THEN 'KGS'
+				ELSE T1."unitMsr"
+			END	"Item_Unit", CAST(ROUND(TO_DECIMAL(CAST(IFNULL(T1."PriceBefDi", 0) AS NVARCHAR(100)), 10, 2), 2) AS NVARCHAR(100)) "Item_UnitPrice", 
+			CAST(ROUND(TO_DECIMAL(CAST(IFNULL(T1."Quantity" * T1."PriceBefDi", 0) AS NVARCHAR(100)), 10, 2), 2) AS NVARCHAR(100)) "Item_TotAmt",
+			ROUND((T1."Quantity"*T1."PriceBefDi")*T1."DiscPrcnt"/100,2) "Item_Discount"
+			
+			
+			, 0 "Item_PreTaxVal",
+			T1."LineTotal" "Item_AssAmt", T1."VatPrcnt"  "Item_GstRt", 
+			
+			IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0)"Item_IgstAmt",
+	   		IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0) "Item_CgstAmt",
+	   		IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0) "Item_SgstAmt",
+	   		0 "Item_CesRt", 0 "Item_CesAmt", 0 "Item_CesNonAdvlAmt", 0 "Item_StateCesRt", 0 "Item_StateCesAmt",	
+	   		0 "Item_StateCesNonAdvlAmt", 0 "Item_OthChrg",
+	   	
+	   	(T1."LineTotal"+
+	  	IFNULL((SELECT  SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0) + 
+	    IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0) +
+	    IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 1), 0) )"Item_TotItemVal",
+	    
+	    '' "Item_OrdLineRef",	'' "Item_OrgCntry",	'' "Item_PrdSlNo",	'' "Item_Attrib_Nm",	'' "Item_Attrib_Val",	'' "Item_Bch_Nm",	'' "Item_Bch_ExpDt",	
+	    '' "Item_Bch_WrDt",
+	    
+	    (SELECT SUM(B."LineTotal") FROM RIN1 B WHERE T1."DocEntry" = B."DocEntry")+T0."TotalExpns" "Val_AssVal",  
+	  	IFNULL((SELECT  SUM(x."TaxSum")  
+	  	FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 ), 0) AS "Val_CgstVal", 
+	
+	    IFNULL((SELECT SUM(x."TaxSum") 
+	    FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 ), 0) AS "Val_SgstVal",
+	 
+	    IFNULL((SELECT SUM(x."TaxSum") 
+	    FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 ), 0) AS "Val_IgstVal",
+	    
+	    0 "Val_CesVal",	0 "Val_StCesVal", T0."RoundDif" "Val_RndOffAmt",  T0."DocTotal" "Val_TotInvVal",
+	    0 "Val_TotInvValFc", 0 "Val_Discount",	
+	    (SELECT SUM(RIN3."LineTotal") FROM RIN3 WHERE RIN3."DocEntry" = T0."DocEntry" AND RIN3."ExpnsCode" = 5) "Val_OthChrg",
+	    '' "Pay_Nm",	'' "Pay_AccDet",	'' "Pay_Mode",	
+	    '' "Pay_FinInsBr",	'' "Pay_PayTerm",	'' "Pay_PayInstr",	'' "Pay_CrTrn",	'' "Pay_DirDr",	0 "Pay_CrDay",	
+	    0 "Pay_PaidAmt",	0 "Pay_PaymtDue",	'' "Ref_InvRm",	'' "Ref_InvStDt",	'' "Ref_InvEndDt",	'' "Ref_PrecDoc_InvNo",	
+	    '' "Ref_PrecDoc_InvDt",	'' "Ref_PrecDoc_OthRefNo",	'' "Ref_Contr_RecAdvRefr",	'' "Ref_Contr_RecAdvDt",	'' "Ref_Contr_TendRefr",	
+	    '' "Ref_Contr_ContrRefr",	'' "Ref_Contr_ExtRefr",	'' "Ref_Contr_ProjRefr", 
+	    IFNULL(SUBSTRING(T0."NumAtCard", 0, 16), '') "Ref_Contr_PORefr", -- RM
+	    '' "Ref_Contr_PORefDt", -- RM
+	    '' "AddlDoc_Url",	'' "AddlDoc_Docs",	'' "AddlDoc_Info",	'' "Exp_ShipBNo",	'' "Exp_ShipBDt",	'' "Exp_Port",	'' "Exp_RefClm",	
+	    '' "Exp_ForCur",	'' "Exp_CntCode",	0 "Exp_ExpDuty",
+	    IFNULL(T16."TransID", 'null') "Ewb_TransId", -- RM	
+		IFNULL(T16."TransName", 'null') "Ewb_TransName", -- RM
+	    --(SELECT "TrnspName" FROM OSHP WHERE T16."TransMode" = "TrnspCode")  "Ewb_TransMode",	
+	    CASE WHEN CAST(T16."TransMode" AS NVARCHAR(10)) = '-1' THEN 'null' ELSE IFNULL(CAST(T16."TransMode" AS NVARCHAR(10)), '') END "Ewb_TransMode", -- RM
+	    0 "Ewb_Distance", -- RM
+	    IFNULL(CAST(T16."TransDocNo" AS NVARCHAR(100)), 'null') "Ewb_TransDocNo", -- RM
+	    T16."TransDate" "Ewb_TransDocDt", -- RM
+		IFNULL(T16."VehicleNo", 'null') "Ewb_VehNo", -- RM
+	    IFNULL((SELECT CASE WHEN OEVT."TypeName" = 'Regular' THEN 'R' 
+	    		WHEN OEVT."TypeName" = 'ODC' THEN 'O'
+	    		END
+	    	FROM OEVT WHERE T16."VehicleTyp" = OEVT."TypeCode"), 'null') "Ewb_VehType",
+	    T27."U_CDKey" "CDKey",	T27."U_EInvUsNa" "EInvUserName", T27."U_EInvPwd" "EInvPassword", 
+	    T27."U_EFUserNa" "EFUserName", T27."U_EFUserPw" "EFPassword",
+	    0 "GetQRImg", 1 "GetSignedInvoice",	1 "ImgSize",	'' "RefNo"
+		
+	FROM ORIN T0  
+	INNER JOIN RIN1 T1 ON T0."DocEntry" = T1."DocEntry" 
+	INNER JOIN RIN12 T2 ON T0."DocEntry" = T2."DocEntry" 
+	INNER JOIN OCRD T3 ON T0."CardCode" = T3."CardCode"
+	LEFT OUTER JOIN CRD1 T5 ON T0."CardCode"  = T5."CardCode" AND T0."PayToCode" = T5."Address" AND T5."AdresType" = 'B'
+	LEFT OUTER JOIN CRD1 T6 ON T0."CardCode"  = T6."CardCode" AND T0."ShipToCode" = T6."Address" AND T6."AdresType" = 'S'
+	LEFT OUTER JOIN OCST T7 ON T5."State" = T7."Code" AND T5."Country" = T7."Country"
+	LEFT OUTER JOIN OCST T8 ON T6."State" = T8."Code" AND T6."Country" = T8."Country"
+	LEFT OUTER JOIN CRD1 T9 ON T0."ShipToCode" = T9."CardCode" AND T0."ShipToCode" = T9."Address" AND T9."AdresType" = 'S'
+	LEFT OUTER JOIN OCRD T10 ON T9."CardCode" = T10."CardCode"
+	LEFT OUTER JOIN OITM T11 ON T1."ItemCode" = T11."ItemCode"
+	INNER JOIN OLCT T12 ON T1."LocCode" = T12."Code"
+	LEFT OUTER JOIN RDR1 T13 ON T1."BaseEntry" = T13."DocEntry" AND T1."BaseLine" = T13."LineNum"
+	LEFT OUTER JOIN ORDR T14 ON T13."DocEntry" = T14."DocEntry"
+	LEFT OUTER JOIN OUSR T15 ON T14."UserSign" = T15."INTERNAL_K"
+	INNER JOIN RIN26 T16 ON T0."DocEntry" = T16."DocEntry"
+	INNER JOIN "@CIS_OEIC" T27 ON T1."LocCode" = T27."Code"
+	WHERE T0."Series" NOT IN (SELECT "Series" FROM NNM1 WHERE "Remark" = 'TCS')
+	AND T0."DocEntry" = :DocEntry
+	--AND T0."GSTTranTyp" <> '--'
+
+--WHERE T0."DocDate" = [%0] AND T0."Series" <> '420' AND T0."GSTTranTyp" <> '--'
+	
+	UNION ALL
+	
+	SELECT DISTINCT T12."GSTRegnNo" "GSTIN", '1.01' "Version", '' "Irn", 'GST' "Tran_TaxSch",		
+			CASE 
+				WHEN T2."ImpORExp" = 'Y' THEN 
+											CASE 
+												WHEN IFNULL(T2."ExportType",'') = 'S' THEN 'SEZWOP'
+												WHEN IFNULL(T2."ExportType",'') = 'U' THEN 'SEZWOP'
+												WHEN IFNULL(T2."ExportType",'') = 'E' THEN 'EXPWOP' 											
+												ELSE ''
+											END 
+				WHEN T2."ImpORExp" = 'N' THEN 
+											CASE 
+												WHEN IFNULL(T5."GSTRegnNo",'') <> '' AND IFNULL(T6."GSTRegnNo",'')<>'' THEN 'B2B'
+												ELSE ''
+											END
+				ELSE ''
+			END "Tran_SupTyp",'N' "Tran_RegRev", 
+			
+			CASE
+				WHEN T0."PayToCode" = T0."ShipToCode" THEN 'REG' 
+				WHEN T0."PayToCode"<>T0."ShipToCode" THEN 'SHP' 
+				ELSE ''
+			END "Tran_Typ", '' "Tran_EcmGstin", 'N' "Tran_IgstOnIntra", 
+			
+			CASE 
+				WHEN T0."ObjType"= 13 AND T0."GSTTranTyp" = 'GA' THEN 'INV'
+				WHEN T0."ObjType"= 13 AND T0."GSTTranTyp" = 'GD' THEN 'DBN'
+				WHEN T0."ObjType"= 14 THEN 'CRN'
+				ELSE ''
+			END "Document Type", T0."DocNum" "Doc_No", T0."DocDate" "Doc_Dt", T12."GSTRegnNo" "BillFrom_Gstin", 'CD TECHNOTEX LLP' "BillFrom_LglNm", 
+			'CD TECHNOTEX LLP' "BillFrom_TrdNm", T12."Street" "BillFrom_Addr1", IFNULL(T12."Block",'')||','||IFNULL(T12."Building",'') "BillFrom_Addr2",
+			IFNULL(T12."City",'') ||', '||IFNULL((SELECT "Name" FROM OCST WHERE T12."State" = "Code" AND T12."Country" = "Country"),'') "BillFrom_Loc",
+			T12."ZipCode" "BillFrom_Pin", LEFT(T12."GSTRegnNo",2) "BillFrom_Stcd", T15."E_Mail" "BillFrom_Em", T15."PortNum" "BillFrom_Ph", 
+			CASE WHEN T2."ImpORExp" = 'Y' AND IFNULL(T2."ExportType",'') = 'E' THEN 'URP' ELSE T5."GSTRegnNo" END "BillTo_Gstin", T3."CardFName" "BillTo_LglNm",
+			T3."CardName" "BillTo_TrdNm", 
+			(SELECT "GSTCode" FROM OCST WHERE OCST."Code" = T2."BpStateCod" AND "Country" = T2."BpCountry") "BillTo_Pos",
+			T5."Block" "BillTo_Addr1",  T5."Street" "BillTo_Addr2", IFNULL(T5."City",'')||' '||IFNULL(T7."Name",'') "BillTo_Loc", T5."ZipCode" "BillTo_Pin", 
+			LEFT(T5."GSTRegnNo",2) "BillTo_Stcd", '' "BillTo_Ph", '' "BillTo_Em",
+			'' "ShipFrom_Nm", '' "ShipFrom_Addr1",	'' "ShipFrom_Addr2",	'' "ShipFrom_Loc", '' "ShipFrom_Pin", '' "ShipFrom_Stcd",
+			
+			/*CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T9."GSTRegnNo" ELSE '' END "ShipTo_Gstin",
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T3."CardFName" ELSE '' END "ShipTo_LglNm",
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T3."CardName" ELSE '' END  "ShipTo_TrdNm",
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T9."Block" ELSE '' END  "ShipTo_Addr1", 
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T9."Street" ELSE '' END "ShipTo_Addr2", 
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) 
+				 THEN IFNULL(T9."City",'') ||IFNULL((SELECT "Name" FROM OCST WHERE OCST."Code" = T9."State" AND "Country" = T9."Country"),'') 
+			ELSE '' END "ShipTo_Loc", 
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN T9."ZipCode" ELSE '' END "ShipTo_Pin",
+			CASE WHEN CAST(T0."CardCode" AS CHAR) <> CAST(T0."ShipToCode" AS CHAR) THEN LEFT(T9."GSTRegnNo",2)  ELSE '' END "ShipTo_Stcd",*/
+			
+			T6."GSTRegnNo"  "ShipTo_Gstin",
+			 T3."CardFName" "ShipTo_LglNm",
+			 T3."CardName"  "ShipTo_TrdNm",
+			 T6."Block"  "ShipTo_Addr1", 
+			 T6."Street"  "ShipTo_Addr2", 
+			IFNULL(T6."City",'') ||IFNULL((SELECT "Name" FROM OCST WHERE OCST."Code" = T6."State" AND "Country" = T6."Country"),'') "ShipTo_Loc", 
+			T6."ZipCode" "ShipTo_Pin",
+			 LEFT(T6."GSTRegnNo",2)   "ShipTo_Stcd",
+			
+			
+		   (SELECT MAX(RIN1."VisOrder") FROM RIN1 WHERE RIN1."DocEntry" = T0."DocEntry" )+2 "Item_SlNo",
+			(SELECT CASE WHEN OEXD."ExpnsName" LIKE 'Pack%' THEN 
+				'Packing and Forwarding Charges'
+			ELSE
+				OEXD."ExpnsName"
+			END 
+			FROM RIN3  INNER JOIN OEXD ON RIN3."ExpnsCode" = OEXD."ExpnsCode" WHERE RIN3."DocEntry" = T0."DocEntry")  "Item_PrdDesc",
+			
+			'N' "Item_IsServc", '9619' "Item_HsnCd", '' "Item_Barcde", 1 "Item_Qty", 0 "Item_FreeQty",
+			'NOS'	"Item_Unit", CAST(ROUND(TO_DECIMAL(CAST(IFNULL(T1."LineTotal", 0) AS NVARCHAR(100)), 10, 2), 2) AS NVARCHAR(100)) "Item_UnitPrice", 
+			CAST(ROUND(TO_DECIMAL(CAST(IFNULL(T1."LineTotal", 0) AS NVARCHAR(100)), 10, 2), 2) AS NVARCHAR(100)) "Item_TotAmt",
+			0 "Item_Discount", 0 "Item_PreTaxVal",
+			T1."LineTotal" "Item_AssAmt", T1."VatPrcnt"  "Item_GstRt", 
+			
+			IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 3), 0)"Item_IgstAmt",
+	   		IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 3), 0) "Item_CgstAmt",
+	   		IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 3), 0) "Item_SgstAmt",
+	   		0 "Item_CesRt", 0 "Item_CesAmt", 0 "Item_CesNonAdvlAmt", 0 "Item_StateCesRt", 0 "Item_StateCesAmt",	
+	   		0 "Item_StateCesNonAdvlAmt", 0 "Item_OthChrg",
+	   	
+	   	(T1."LineTotal"+
+	  	IFNULL((SELECT  SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 3), 0) + 
+	    IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 3), 0) +
+	    IFNULL((SELECT SUM(x."TaxSum")FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 AND x."LineNum" = T1."LineNum" AND x."RelateType" = 3), 0) )"Item_TotItemVal",
+	    
+	    '' "Item_OrdLineRef",	'' "Item_OrgCntry",	'' "Item_PrdSlNo",	'' "Item_Attrib_Nm",	'' "Item_Attrib_Val",	'' "Item_Bch_Nm",	'' "Item_Bch_ExpDt",	
+	    '' "Item_Bch_WrDt",
+	    
+	    (SELECT SUM(B."LineTotal") FROM RIN1 B WHERE T1."DocEntry" = B."DocEntry")+T0."TotalExpns" "Val_AssVal",  
+	  	IFNULL((SELECT  SUM(x."TaxSum")  
+	  	FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -100 ), 0) AS "Val_CgstVal", 
+	
+	    IFNULL((SELECT SUM(x."TaxSum") 
+	    FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -110 ), 0) AS "Val_SgstVal",
+	 
+	    IFNULL((SELECT SUM(x."TaxSum") 
+	    FROM RIN4 x WHERE x."DocEntry" = T0."DocEntry" AND x."staType" = -120 ), 0) AS "Val_IgstVal",
+	    
+	    0 "Val_CesVal",	0 "Val_StCesVal", T0."RoundDif" "Val_RndOffAmt",  T0."DocTotal" "Val_TotInvVal",
+	    0 "Val_TotInvValFc", 0 "Val_Discount",	
+	    0 "Val_OthChrg",	'' "Pay_Nm",	'' "Pay_AccDet",	'' "Pay_Mode",	
+	    '' "Pay_FinInsBr",	'' "Pay_PayTerm",	'' "Pay_PayInstr",	'' "Pay_CrTrn",	'' "Pay_DirDr",	0 "Pay_CrDay",	
+	    0 "Pay_PaidAmt",	0 "Pay_PaymtDue",	'' "Ref_InvRm",	'' "Ref_InvStDt",	'' "Ref_InvEndDt",	'' "Ref_PrecDoc_InvNo",	
+	    '' "Ref_PrecDoc_InvDt",	'' "Ref_PrecDoc_OthRefNo",	'' "Ref_Contr_RecAdvRefr",	'' "Ref_Contr_RecAdvDt",	'' "Ref_Contr_TendRefr",	
+	    '' "Ref_Contr_ContrRefr",	'' "Ref_Contr_ExtRefr",	'' "Ref_Contr_ProjRefr", 
+	    IFNULL(SUBSTRING(T0."NumAtCard", 0, 16), '') "Ref_Contr_PORefr", -- RM
+	    '' "Ref_Contr_PORefDt", -- RM
+	    '' "AddlDoc_Url",	'' "AddlDoc_Docs",	'' "AddlDoc_Info",	'' "Exp_ShipBNo",	'' "Exp_ShipBDt",	'' "Exp_Port",	'' "Exp_RefClm",	
+	    '' "Exp_ForCur",	'' "Exp_CntCode",	0 "Exp_ExpDuty",
+	    IFNULL(T16."TransID", 'null') "Ewb_TransId", -- RM	
+		IFNULL(T16."TransName", 'null') "Ewb_TransName", -- RM
+	    --(SELECT "TrnspName" FROM OSHP WHERE T16."TransMode" = "TrnspCode")  "Ewb_TransMode",	
+	    CASE WHEN CAST(T16."TransMode" AS NVARCHAR(10)) = '-1' THEN 'null' ELSE IFNULL(CAST(T16."TransMode" AS NVARCHAR(10)), '') END "Ewb_TransMode", -- RM
+	    0 "Ewb_Distance", -- RM
+	    IFNULL(CAST(T16."TransDocNo" AS NVARCHAR(100)), 'null') "Ewb_TransDocNo", -- RM
+	    T16."TransDate" "Ewb_TransDocDt", -- RM
+		IFNULL(T16."VehicleNo", 'null') "Ewb_VehNo", -- RM
+	    IFNULL((SELECT CASE WHEN OEVT."TypeName" = 'Regular' THEN 'R' 
+	    		WHEN OEVT."TypeName" = 'ODC' THEN 'O'
+	    		END
+	    	FROM OEVT WHERE T16."VehicleTyp" = OEVT."TypeCode"), 'null') "Ewb_VehType",
+	    T27."U_CDKey" "CDKey",	T27."U_EInvUsNa" "EInvUserName", T27."U_EInvPwd" "EInvPassword", 
+	    T27."U_EFUserNa" "EFUserName", T27."U_EFUserPw" "EFPassword",
+	    0 "GetQRImg",    1 "GetSignedInvoice",	1 "ImgSize",	'' "RefNo"
+    
+	  	
+		
+	FROM ORIN T0  
+	INNER JOIN RIN3 T1 ON T0."DocEntry" = T1."DocEntry"
+	INNER JOIN RIN1 T17 ON T0."DocEntry" = T17."DocEntry"
+	INNER JOIN RIN12 T2 ON T0."DocEntry" = T2."DocEntry" 
+	INNER JOIN OCRD T3 ON T0."CardCode" = T3."CardCode"
+	LEFT OUTER JOIN CRD1 T5 ON T0."CardCode"  = T5."CardCode" AND T0."PayToCode" = T5."Address" AND T5."AdresType" = 'B'
+	LEFT OUTER JOIN CRD1 T6 ON T0."CardCode"  = T6."CardCode" AND T0."ShipToCode" = T6."Address" AND T6."AdresType" = 'S'
+	LEFT OUTER JOIN OCST T7 ON T5."State" = T7."Code" AND T5."Country" = T7."Country"
+	LEFT OUTER JOIN OCST T8 ON T6."State" = T8."Code" AND T6."Country" = T8."Country"
+	LEFT OUTER JOIN CRD1 T9 ON T0."ShipToCode" = T9."CardCode" AND T0."ShipToCode" = T9."Address" AND T9."AdresType" = 'S'
+	LEFT OUTER JOIN OCRD T10 ON T9."CardCode" = T10."CardCode"
+	LEFT OUTER JOIN OITM T11 ON T17."ItemCode" = T11."ItemCode"
+	INNER JOIN OLCT T12 ON T17."LocCode" = T12."Code"
+	LEFT OUTER JOIN RDR1 T13 ON T17."BaseEntry" = T13."DocEntry" AND T17."BaseLine" = T13."LineNum"
+	LEFT OUTER JOIN ORDR T14 ON T13."DocEntry" = T14."DocEntry"
+	LEFT OUTER JOIN OUSR T15 ON T14."UserSign" = T15."INTERNAL_K"
+	INNER JOIN RIN26 T16 ON T0."DocEntry" = T16."DocEntry"
+	INNER JOIN "@CIS_OEIC" T27 ON T17."LocCode" = T27."Code"
+	WHERE T0."Series" NOT IN (SELECT "Series" FROM NNM1 WHERE "Remark" = 'TCS')
+	AND T0."DocEntry" =:DocEntry
+	--AND T0."GSTTranTyp" <> '--'
+
+--WHERE T0."DocDate" = [%0] AND T0."Series" <> '420' AND T0."GSTTranTyp" <> '--'
+ORDER BY "Doc_No","Item_SlNo";
+
+
+END
+

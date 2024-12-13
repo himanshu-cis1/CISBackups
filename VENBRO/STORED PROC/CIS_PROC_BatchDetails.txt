@@ -1,0 +1,48 @@
+CREATE PROCEDURE CIS_PROC_BatchDetails
+ LANGUAGE SQLSCRIPT
+ AS
+ BEGIN
+
+	CREATE LOCAL TEMPORARY TABLE #Temp_BatchDetails ("ItemCode" VARCHAR(50), "WhsCode" VARCHAR(50), "BatchNum" VARCHAR(1000));
+	
+	INSERT INTO #Temp_BatchDetails ("ItemCode", "WhsCode", "BatchNum")
+	SELECT  T0."ItemCode", T0."WhsCode"
+	, T0."BatchNum"
+	  	||' : Qty - '||
+	  	Cast(SUM(CASE T0."Direction" when '0' then '1' else -1 end * ROUND(T0."Quantity",2)) as VARCHAR)
+	  	||' / Alt Qty - '
+		||  (Case When IfNull(T2."U_AltConRatio",0) <> 0 Then 
+	  	TO_VARCHAR(ROUND(SUM((CASE T0."Direction" when 0 then 1 else -1 end * ROUND(T0."Quantity",2)))/(T2."U_AltConRatio"),2))
+	  	Else 'N.A.' End)
+	
+	as "BatchNum" 
+	
+	FROM "IBT1" T0 
+	INNER JOIN "OWHS" T1 ON T0."WhsCode" = T1."WhsCode"
+	INNER JOIN "OBTN" T2 ON T0."BatchNum" = T2."DistNumber" AND T2."ItemCode" = T0."ItemCode" 
+	
+	--Where T0."ItemCode" = 'FGBLST00186'
+	 
+	GROUP BY T0."BatchNum", T1."WhsName",T0."ItemCode",T2."InDate", T0."WhsCode",T2."U_AltConRatio"
+	HAVING SUM(CASE T0."Direction" when 0 then 1 else -1 end * T0."Quantity")>0
+	ORDER BY T2."InDate";
+	
+--	SELECT * FROM #Temp_BatchDetails;
+	
+	-- Output
+		SELECT W1."DocEntry",W1."ItemCode",W1."FromWhsCod",
+	
+	(SELECT STRING_AGG(A."BatchNum",'<br>')
+	From (Select "BatchNum"
+		  FROM #Temp_BatchDetails T0  
+		  Where T0."ItemCode" =W1."ItemCode" and T0."WhsCode" = W1."FromWhsCod"		
+		  ) A
+	) as "Batch&Qty"
+	FROM "WTQ1" W1;
+	
+	---- Drop table
+	DROP TABLE #Temp_BatchDetails;
+	
+END;
+
+

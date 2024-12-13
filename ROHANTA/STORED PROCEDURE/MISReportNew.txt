@@ -1,0 +1,243 @@
+USE [Rohanta_Infra_Solution]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_MISReportNew]    Script Date: 12/13/2024 5:00:06 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+--Exec CIS_MISReportNew
+ALTER PROCEDURE [dbo].[CIS_MISReportNew]
+-- Add the parameters for the stored procedure here
+--@Project VarChar(100)
+
+AS
+BEGIN
+
+
+create table #TempCIS_MISNew
+(
+Project_Code nvarchar(250) COLLATE SQL_Latin1_General_CP850_CI_AS,
+Project_Name nvarchar(250) COLLATE SQL_Latin1_General_CP850_CI_AS,
+PO_Received_On datetime, --COLLATE SQL_Latin1_General_CP850_CI_AS,
+Vertical nvarchar(250) COLLATE SQL_Latin1_General_CP850_CI_AS,
+Group_Number nvarchar(250) COLLATE SQL_Latin1_General_CP850_CI_AS
+--Purchase_Request numeric(19,6),
+--Purchase_Order numeric(19,6),
+--Vendor_Invoices numeric(19,6),
+--Employee_Onsite_Expense numeric(19,6),
+--Inventory_Used_From_Stores numeric(19,6),
+--Inventory_Returend_From_Site numeric(19,6),
+
+)
+
+
+insert into #TempCIS_MISnew
+(Project_Code,Project_Name,PO_Received_On,Vertical,Group_Number)
+
+select a.PrjCode,a.PrjName,a.ValidFrom,a.U_DistRule,a.U_Group from OPRJ a where a.Active='Y' AND   a.U_ProjectType='NEW'
+
+
+
+Select *,
+
+(
+isnull((SELECT sum(ISNULL(n2.LineTotal,00))from ORDR N1 INNER JOIN RDR1 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'),0.00) +
+
+isnull((SELECT sum(ISNULL(n2.LineTotal,00)) from ORDR N1 INNER JOIN RDR3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'),0.00) +
+isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from ORDR N1 INNER JOIN RDR1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join RDR4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum WHERE  N2.Project=tt.Project_Code  AND N1.CANCELED='N' and n3. RelateType=1),0.00) +
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from ORDR N1 inner join RDR3 n3 on n1.DocEntry=n3.DocEntry WHERE  n1.Project=tt.Project_Code  AND N1.CANCELED='N' ),0.00)
+)'Project Value',
+
+'' 'Current Project Status',
+---------------------------------------------
+((isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from OINV N1 INNER JOIN INV1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259','CDDL00431')),0.00) +
+
+isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from OINV N1  INNER JOIN INV3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'  and n1.cardcode not in ('CDDL00147','CDHR00259','CDDL00431')),0.00)+
+isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from OINV N1 INNER JOIN INV1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join inv4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum
+ WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n3. RelateType=1 and  n1.cardcode not in ('CDDL00147','CDHR00259','CDDL00431')),0.00)
+ +
+ 
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from OINV N1 inner join inv3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259','CDDL00431') ),0.00)
+
+
+ )-
+ (isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from ORIN N1 INNER JOIN RIN1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259','CDDL00431')),0.00) +
+
+isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from ORIN N1  INNER JOIN RIN3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'  and n1.cardcode not in ('CDDL00147','CDHR00259','CDDL00431')),0.00)+
+isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from ORIN N1 INNER JOIN RIN1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join rin4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum
+ WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n3. RelateType=1 and  n1.cardcode not in ('CDDL00147','CDHR00259','CDDL00431')),0.00)
+ +
+ 
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from ORIN N1 inner join RIN3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259','CDDL00431') ),0.00)
+
+ ))'Project Billing',
+
+ ---------------------------------------------
+
+((isnull((SELECT SUM(isnull(n1.DocTotal,0.00)) from orct N1 WHERE  N1.PrjCode=Project_Code AND N1.CANCELED='N' and n1.doctype='C' and n1.canceled='N' and n1.CardCode not  in('HO00021','HO00022')
+),0.00) ))-
+
+((isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' ) and n1.ShortName not in('HO00022') ),0.00) )) +
+
+((isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C'  )  ),0.00) )) 'Project Receipt',
+ -----------------------------------------
+  isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00)-
+ isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00)'TDS',
+
+ 
+ isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Withheld'  ),0.00) 'Withheld',
+
+ isnull((select sum(isnull(n1.debit,0.00)) 
+ from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode  Inner Join OJDT n3 On n3.TransId=N1.transID
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Retention'  ),0.00)-
+ isnull((select sum(isnull(n1.credit,0.00))
+ --sum(isnull(n1.debit,0.00)) 
+ from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode  Inner Join OJDT n3 On n3.TransId=N1.transID
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Retention' --and n3.StornoToTr<>'' 
+ ),0.00) 'Retention',
+ ------TDS----
+ --(
+ --  (isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ --where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00) )+
+
+ --((isnull((SELECT SUM(isnull(n1.DocTotal,0.00)) from orct N1 WHERE  N1.PrjCode=Project_Code AND N1.CANCELED='N' and n1.doctype='C' and n1.canceled='N' and n1.CardCode not in ('HO00021')),0.00) )-
+
+/*(isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' ) ),0.00) ) +
+
+(isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' ) ),0.00) ) */
+/* isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00)-
+ isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00)
+ +*/
+ ((isnull((SELECT SUM(isnull(n1.DocTotal,0.00)) from orct N1 WHERE  N1.PrjCode=Project_Code AND N1.CANCELED='N' and n1.doctype='C' and n1.canceled='N' and n1.CardCode not  in('HO00021','HO00022')
+),0.00) ))-
+
+((isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' ) and n1.ShortName not in('HO00022') ),0.00) )) +
+
+((isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C'  )  ),0.00) ))'TOTAL RECEIPTS',
+ --------------
+ (
+ (
+isnull((SELECT sum(ISNULL(n2.LineTotal,00))from ORDR N1 INNER JOIN RDR1 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'),0.00) +
+
+isnull((SELECT sum(ISNULL(n2.LineTotal,00)) from ORDR N1 INNER JOIN RDR3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'),0.00) +
+isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from ORDR N1 INNER JOIN RDR1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join RDR4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum WHERE  N2.Project=tt.Project_Code  AND N1.CANCELED='N' and n3. RelateType=1),0.00) +
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from ORDR N1 inner join RDR3 n3 on n1.DocEntry=n3.DocEntry WHERE  n1.Project=tt.Project_Code  AND N1.CANCELED='N' ),0.00)
+)-
+
+( (isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from OINV N1 INNER JOIN INV1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00) +
+
+isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from OINV N1  INNER JOIN INV3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'  and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)+
+isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from OINV N1 INNER JOIN INV1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join inv4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum
+ WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n3. RelateType=1 and  n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)
+ +
+ 
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from OINV N1 inner join inv3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259') ),0.00)-(isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from ORIN N1 INNER JOIN RIN1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00) +
+
+isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from ORIN N1  INNER JOIN RIN3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'  and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)+
+isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from ORIN N1 INNER JOIN RIN1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join rin4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum
+ WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n3. RelateType=1 and  n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)
+ +
+ 
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from ORIN N1 inner join RIN3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259') ),0.00)
+
+ )))
+ ) 'Pending Billing',
+------------------------------------------------------------------------------------
+ (
+ ((isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from OINV N1 INNER JOIN INV1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00) +
+
+isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from OINV N1  INNER JOIN INV3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'  and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)+
+isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from OINV N1 INNER JOIN INV1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join inv4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum
+ WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n3. RelateType=1 and  n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)
+ +
+ 
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from OINV N1 inner join inv3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259') ),0.00))-(isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from ORIN N1 INNER JOIN RIN1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00) +
+
+isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from ORIN N1  INNER JOIN RIN3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N'  and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)+
+isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from ORIN N1 INNER JOIN RIN1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join rin4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum
+ WHERE  N2.Project=tt.Project_Code AND N1.CANCELED='N' and n3. RelateType=1 and  n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)
+ +
+ 
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from ORIN N1 inner join RIN3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=tt.Project_Code AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259') ),0.00)
+
+ ))
+ -
+
+ (
+    isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00)-
+ isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00)
+ +
+ ((isnull((SELECT SUM(isnull(n1.DocTotal,0.00)) from orct N1 WHERE  N1.PrjCode=Project_Code AND N1.CANCELED='N' and n1.doctype='C' and n1.canceled='N' and n1.CardCode not  in('HO00021','HO00022')
+),0.00) ))-
+
+((isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' ) and n1.ShortName not in('HO00022') ),0.00) )) +
+
+((isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C'  )  ),0.00) ))
+ /*+
+
+ ((isnull((SELECT SUM(isnull(n1.DocTotal,0.00)) from orct N1 WHERE  N1.PrjCode=Project_Code AND N1.CANCELED='N' and n1.doctype='C' and n1.canceled='N' and n1.CardCode not in ('HO00021','HO00022')),0.00)) )-
+
+((isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' ) ),0.00) ) +
+
+(isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 where N1.Project=Project_Code and n1.TransType=30
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' )and n1.ShortName not in('HO00022') ),0.00) )))*/)
+
+
+ ) 'Pending Receipt',
+
+ --isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ --where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Retention'  ),0.00) 'Retention',
+
+ --isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ --where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00) 'Deductions made by Customer',
+
+ 
+ --isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ --where N1.Project=Project_Code and n1.TransType=30  and n2.U_GLType='Withheld'  ),0.00) 'Withheld',
+ '' 'PDF/Bori',
+ '' 'Dispatch'
+
+ 
+
+
+from #TempCIS_MISNew TT
+--where tt.Project_Code IN ('P-1131')
+order by tt.Project_Code
+----------------
+drop table  #TempCIS_MISNew
+--------------
+End
+

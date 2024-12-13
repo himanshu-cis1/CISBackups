@@ -1,0 +1,302 @@
+USE [Rohanta_Infra_Solution]
+GO
+/****** Object:  StoredProcedure [dbo].[CIS_FinanceBudgetShett_New]    Script Date: 12/13/2024 4:59:15 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+
+--Exec CIS_FinanceBudgetShett_new 'P-1108'
+ALTER PROCEDURE [dbo].[CIS_FinanceBudgetShett_New] 
+	-- Add the parameters for the stored procedure here
+	@Project VarChar(100)
+
+	AS
+BEGIN
+
+
+create table #TempCIS
+(
+Project_Name nvarchar(250) COLLATE SQL_Latin1_General_CP850_CI_AS,
+ItemGroup_OrderCatgory nvarchar(250) COLLATE SQL_Latin1_General_CP850_CI_AS,
+Marketing_Sales_Order numeric(19,6),
+Marketing_Proposed_pricing numeric(19,6),
+Unit_List_Engineering_Budget numeric(19,6),
+Purchase_Request numeric(19,6),
+Purchase_Order numeric(19,6),
+Vendor_Invoices numeric(19,6),
+Employee_Onsite_Expense numeric(19,6),
+Inventory_Used_From_Stores numeric(19,6),
+Inventory_Returend_From_Site numeric(19,6),
+
+)
+
+
+insert into #TempCIS
+(ItemGroup_OrderCatgory)
+
+select distinct b.U_OrderCategory 
+		from OQUT a 
+		inner join QUT1 b  on a.DocEntry=b.DocEntry 
+		where b.Project=@Project and a.CANCELED='N' 
+
+
+----Marketing_Sales_Order-------------
+
+update #TempCIS set Marketing_Sales_Order= (SELECT sum(ISNULL(n2.LineTotal,00))
+	from ORDR N1 
+	INNER JOIN RDR1 n2 ON n1.DocEntry=n2.DocEntry
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	--AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory
+	)
+---------------------------------------------------
+----Marketing_Proposed_pricing-------------
+
+update #TempCIS set Marketing_Proposed_pricing= (SELECT sum(ISNULL(n2.U_CostPrice,00))
+	from ORDR N1 
+	INNER JOIN RDR1 n2 ON n1.DocEntry=n2.DocEntry
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory)
+
+
+--------Unit_List_Engineering_Budget-------------
+
+update #TempCIS set Unit_List_Engineering_Budget= (SELECT sum(ISNULL(n2.LineTotal,00))
+	from OQUT N1 
+	INNER JOIN QUT1 n2 ON n1.DocEntry=n2.DocEntry
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory)
+
+
+--------PurchaseRequest-------------
+
+update #TempCIS set Purchase_Request= (SELECT sum(ISNULL(n2.LineTotal,00))
+	from OPRQ N1 
+	INNER JOIN PRQ1 n2 ON n1.DocEntry=n2.DocEntry
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory)
+
+--------PurchaseOrder-------------
+
+update #TempCIS set Purchase_Order= (SELECT sum(ISNULL(n2.LineTotal,00))
+	from OPOR N1 
+	INNER JOIN POR1 n2 ON n1.DocEntry=n2.DocEntry
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory
+	and n1.cardcode not in ('V01337'))
+
+
+--------VendorInvoice-------------
+
+update #TempCIS set Vendor_Invoices= ((SELECT sum(ISNULL(n2.LineTotal,00))
+	from OPCH N1 
+	INNER JOIN PCH1 n2 ON n1.DocEntry=n2.DocEntry
+	inner join OCRD n3 on n1.cardcode=n3.CardCode
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory
+	and n1.cardcode not in ('V01337')
+	and n3.GroupCode not in (103)
+	and n2.U_OrderCategory not in ('FREIGHT & CARTAGE EXPENSE')
+	)-
+	(SELECT isnull(sum(ISNULL(n2.LineTotal,00)),0.00)
+	from ORPC N1 
+	INNER JOIN RPC1 n2 ON n1.DocEntry=n2.DocEntry
+	inner join OCRD n3 on n1.cardcode=n3.CardCode
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory
+	and n1.cardcode not in ('V01337')
+	and n3.GroupCode not in (103)
+		and n2.BaseType in (-1,18)
+	and n2.U_OrderCategory not in ('FREIGHT & CARTAGE EXPENSE')
+	))
+
+
+
+--------Employeeonsiteexp-------------
+
+
+update #TempCIS set Employee_Onsite_Expense= ((SELECT sum(ISNULL(n2.LineTotal,00))
+	from OPCH N1 
+	INNER JOIN PCH1 n2 ON n1.DocEntry=n2.DocEntry
+	inner join OCRD n3 on n1.cardcode=n3.CardCode
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory
+	and n1.cardcode not in ('V01337')
+	and n3.GroupCode  in (103)
+	)-
+	(SELECT isnull(sum(ISNULL(n2.LineTotal,00)),0.00)
+	from ORPC N1 
+	INNER JOIN RPC1 n2 ON n1.DocEntry=n2.DocEntry
+	inner join OCRD n3 on n1.cardcode=n3.CardCode
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory
+	and n1.cardcode not in ('V01337')
+		and n2.BaseType in (-1,18)
+	and n3.GroupCode  in (103)
+	))
+
+--------Inventory_Used_From_Stores-------------
+
+update #TempCIS set Inventory_Used_From_Stores= (SELECT sum(ISNULL(n2.LineTotal,00))
+	from OPOR N1 
+	INNER JOIN POR1 n2 ON n1.DocEntry=n2.DocEntry
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory
+	and n1.cardcode  in ('V01337'))
+
+
+--------Inventory_Returend_From_Site-------------
+
+update #TempCIS set Inventory_Returend_From_Site= (SELECT sum(ISNULL(n2.LineTotal,00))
+	from ordn N1 
+	INNER JOIN rdn1 n2 ON n1.DocEntry=n2.DocEntry
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	AND N2.U_OrderCategory=#TempCIS.ItemGroup_OrderCatgory
+	--and n1.cardcode  in ('V01337')
+	)
+
+
+--------Inventory_Returend_From_Site-------------
+
+update #TempCIS set Project_Name= (SELECT N1.PrjName
+	from OPRJ N1 
+	
+	WHERE  N1.PrjCode=@Project 
+	
+	--and n1.cardcode  in ('V01337')
+	)
+---------------------
+Select @Project 'Project Code',
+(select ValidFrom from oprj where PrjCode= @Project) 'ValidFrom',
+(select ValidTo from oprj where PrjCode= @Project) 'ValidFrom',
+Project_Name,
+ItemGroup_OrderCatgory,
+isnull(Marketing_Sales_Order,0.00) 'Marketing_Sales_Order',
+isnull(Marketing_Proposed_pricing,0.00) 'Marketing_Proposed_pricing',
+isnull(Unit_List_Engineering_Budget,0.00) 'Unit_List_Engineering_Budget',
+isnull(Purchase_Request,0.00) 'Purchase_Request',
+isnull(Purchase_Order,0.00) 'Purchase_Order',
+isnull(Vendor_Invoices,0.00) 'Vendor_Invoices',
+isnull(Employee_Onsite_Expense,0.00) 'Employee_Onsite_Expense',
+isnull(Inventory_Used_From_Stores,0.00) 'Inventory_Used_From_Stores',
+
+isnull(Inventory_Returend_From_Site,0.00) 'Inventory_Returend_From_Site',
+
+isnull((SELECT sum(ISNULL(n2.LineTotal,00)) from ORDR N1 INNER JOIN RDR3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=@Project AND N1.CANCELED='N'),0.00) 'Markting Sales Order_TFright',
+
+isnull((SELECT sum(isnull(n1.U_TranFreight,0.00)) from ORDR N1  WHERE  N1.Project=@Project AND N1.CANCELED='N'),0.00) 'Marketing_Proposed_pricing_TFright',
+
+isnull((SELECT SUM(isnull(n1.U_UL_Transport,0.00)) from OQUT N1 WHERE  N1.Project=@Project AND N1.CANCELED='N'),0.00) 'Unit_List_Engineering_Budget_TFright',
+isnull((SELECT SUM(isnull(n1.U_PR_Transport,0.00)) from OQUT N1 WHERE  N1.Project=@Project AND N1.CANCELED='N'),0.00) 'Purchase_Request_TFright',
+isnull((SELECT SUM(isnull(n1.U_PO_Transport,0.00)) from OPOR N1 WHERE  N1.Project=@Project AND N1.CANCELED='N'),0.00) 'Purchase_Order_TFright',
+(isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from OPCH N1  INNER JOIN PCH3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=@Project AND N1.CANCELED='N'),0.00) -
+isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from ORPC N1  INNER JOIN RPC3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=@Project AND N1.CANCELED='N'),0.00) )
+
+
+'Vendor_Invoices_TFright',
+
+(isnull((SELECT sum(ISNULL(n2.LineTotal,00))
+	from OPCH N1 
+	INNER JOIN PCH1 n2 ON n1.DocEntry=n2.DocEntry
+	inner join OCRD n3 on n1.cardcode=n3.CardCode
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	
+	and n1.cardcode not in ('V01337')
+	and n3.GroupCode not in (103)
+	and n2.U_OrderCategory  in ('FREIGHT & CARTAGE EXPENSE')),0.00)-
+	
+	isnull((SELECT sum(ISNULL(n2.LineTotal,00))
+	from ORPC N1 
+	INNER JOIN RPC1 n2 ON n1.DocEntry=n2.DocEntry
+	inner join OCRD n3 on n1.cardcode=n3.CardCode
+	WHERE  N2.Project=@Project AND N1.CANCELED='N'
+	
+	and n1.cardcode not in ('V01337')
+	and n3.GroupCode not in (103)
+	and n2.U_OrderCategory  in ('FREIGHT & CARTAGE EXPENSE')),0.00))'Vendor_Invoices_TFright2',
+
+isnull((SELECT sum(ISNULL(n1.U_OverHeads,00)) from ORDR N1 WHERE  N1.Project=@Project AND N1.CANCELED='N'),0.00) 'Overheads',
+isnull((SELECT sum(ISNULL(n1.U_ProfitMargin,00)) from ORDR N1 WHERE  N1.Project=@Project AND N1.CANCELED='N'),0.00) 'ProfitMargin',
+isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from ORDR N1 INNER JOIN RDR1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=@Project AND N1.CANCELED='N'),0.00) 'OrderAmount',
+
+(isnull((SELECT SUM(isnull(n1.DocTotal,0.00)) from oinv N1 WHERE  N1.Project=@Project AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00) -
+isnull((SELECT SUM(isnull(n1.DocTotal,0.00)) from ORIN N1 WHERE  N1.Project=@Project AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00))
+
+'invoiceamount',
+
+((isnull((SELECT SUM(isnull(n1.DocTotal,0.00)) from orct N1 WHERE  N1.PrjCode=@Project AND N1.CANCELED='N' and n1.doctype='C' and n1.canceled='N' and n1.CardCode not in ('HO00021')),0.00) )-
+
+(isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 where N1.Project=@Project and n1.TransType=30 
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' ) ),0.00) ) +
+
+(isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 where N1.Project=@Project and n1.TransType=30 
+and n1.ContraAct='V01523'
+and n1.ShortName in (select CardCode from ocrd where cardtype='C' ) ),0.00) )
+
+
+
+
+
+)
+ 'Payment',
+isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 where N1.Project=@Project and n1.TransType=30  ),0.00) 'JE Debit',
+isnull((select sum(isnull(n1.Credit,0.00)) from jdt1 n1 where N1.Project=@Project and n1.TransType=30  ),0.00) 'JE Credit',
+isnull(((select sum(isnull(n1.debit,0.00)) from jdt1 n1 where N1.Project=@Project and n1.TransType=30 )-(select sum(isnull(n1.Credit,0.00)) from jdt1 n1 where N1.Project=@Project and n1.TransType=30  )),0.00) 'JE Balance',
+
+(isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from OINV N1 INNER JOIN INV1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=@Project AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)-
+isnull((SELECT SUM(isnull(n2.LINETOTAL,0.00)) from orin N1 INNER JOIN rin1 N2 ON N1.DOCENTRY=N2.DOCENTRY WHERE  N2.Project=@Project  and n2.BaseType in (-1,13) AND N1.CANCELED='N' and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)) 'invoiceamoun_Basic Total',
+
+((isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from OINV N1 INNER JOIN INV1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join inv4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum
+ WHERE  N2.Project=@Project AND N1.CANCELED='N' and n3. RelateType=1 and  n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)
+ +
+ 
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from OINV N1 inner join inv3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=@Project AND N1.CANCELED='N' --and n1.cardcode not in ('CDDL00147','CDHR00259') 
+ ),0.00)
+ )-
+ 
+ (isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from ORIN N1 INNER JOIN RIN1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join RIN4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum
+ WHERE  N2.Project=@Project   and n2.BaseType in (-1,13) AND N1.CANCELED='N' and n3. RelateType=1 --and  n1.cardcode not in ('CDDL00147','CDHR00259')
+ ),0.00)
+ +
+ 
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from ORIN N1 inner join RIN3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=@Project AND N1.CANCELED='N' --and n1.cardcode not in ('CDDL00147','CDHR00259') 
+ ),0.00)
+ ))
+ 
+ 'Invoice Tax Amount',
+
+(isnull((SELECT SUM(isnull(n3.TaxSum,0.00)) from ORDR N1 INNER JOIN RDR1 N2 ON N1.DOCENTRY=N2.DOCENTRY inner join RDR4 n3 on n2.DocEntry=n3.DocEntry and n2.linenum=n3.linenum WHERE  N2.Project=@Project AND N1.CANCELED='N' and n3. RelateType=1),0.00) 
+
++
+
+isnull((SELECT SUM(isnull(n3.VatSum,0.00)) from ORDR N1 inner join RDR3 n3 on n1.DocEntry=n3.DocEntry
+ WHERE  n1.Project=@Project AND N1.CANCELED='N' ),0.00))
+
+'Sales Order Tax Amount',
+
+isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=@Project and n1.TransType=30  and n2.U_GLType='Retention'  ),0.00) 'Retention',
+
+ isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=@Project and n1.TransType=30  and n2.U_GLType='Deductions mode by Customer'  ),0.00) 'Deductions mode by Customer',
+
+ 
+ isnull((select sum(isnull(n1.debit,0.00)) from jdt1 n1 inner join oact n2 on n1.Account=n2.AcctCode
+ where N1.Project=@Project and n1.TransType=30  and n2.U_GLType='Withheld'  ),0.00) 'Withheld',
+
+ (isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from OINV N1  INNER JOIN INV3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=@Project AND N1.CANCELED='N'  and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)-
+ 
+  isnull((SELECT SUM(isnull(n2.LineTotal,0.00)) from ORIN N1  INNER JOIN RIN3 n2 ON n1.DocEntry=n2.DocEntry WHERE  N2.Project=@Project AND N1.CANCELED='N'  and n1.cardcode not in ('CDDL00147','CDHR00259')),0.00)) 'Sales Invoice_Freight',
+ isnull((SELECT sum(ISNULL(n1.U_TranFreight,00)) from OQUT N1 WHERE  N1.Project=@Project AND N1.CANCELED='N'),0.00) 'MPP_TranFreight'
+
+from #TempCIS
+
+----------------
+drop table  #TempCIS
+--------------
+End

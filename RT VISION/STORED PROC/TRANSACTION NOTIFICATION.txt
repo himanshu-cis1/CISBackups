@@ -1,0 +1,2479 @@
+USE [RT_VISION_Live_1]
+GO
+/****** Object:  StoredProcedure [dbo].[SBO_SP_TransactionNotification]    Script Date: 18-12-2024 12:29:21 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER proc [dbo].[SBO_SP_TransactionNotification] 
+
+@object_type nvarchar(30), 				-- SBO Object Type
+@transaction_type nchar(1),			-- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+@num_of_cols_in_key int,
+@list_of_key_cols_tab_del nvarchar(255),
+@list_of_cols_val_tab_del nvarchar(255)
+
+AS
+
+begin
+
+-- Return values
+declare @error  int				-- Result (0 for no error)
+declare @error_message nvarchar (200) 		-- Error string to be displayed
+select @error = 0
+select @error_message = N'Ok'
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+--------------------------------------------QUALITY UPDATE------------------------------------------------------------------------------------
+IF @object_type = 'LED' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@LEDH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'BAREPCB' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@BAREPCBH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'BATTERY' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@BATTERYH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'BRIDGERECTIFIER' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@BRIDGERECH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'BUZZER' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@BUZZERH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'CAPACITOR' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@CAPACITORH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'CONSUMABLE' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@CONSUMH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'DIFFUSER' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@DIFFUSERH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'DIODE' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@DIODEH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'GPS' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@GPSH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'IC' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@ICH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'METALITEM' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@METALH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'MOSFET' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@MOSFETH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'MOV' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@MOVH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'REGISTOR' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@REGISTORH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'RELAY' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@RELAYH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'RTVSILICONE' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@RTVSILICONEH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'SLEEVE' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@SLEEVEH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'TAPE' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@TAPEH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+
+		IF @object_type = 'TRANSISTOR' AND @transaction_type IN ('A')
+	BEGIN
+		UPDATE PDN1
+		SET U_QcNo = T1.DocEntry
+		FROM PDN1 T0
+		INNER JOIN "@TRANSISTORH" T1 ON T1.U_DocEntry = T0.DocEntry AND T1.U_ItemCode = T0.ItemCode
+		WHERE T1.DocEntry = @list_of_cols_val_tab_del
+	END
+-----------------------------------------------------------------------------
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------
+----ITEM master----------------------------------------------------------------------------------------------------------------------------
+--IF @object_type = '4' AND @transaction_type IN ('A','U')
+--	BEGIN 
+--		IF (EXISTS(SELECT T0.ItemCode FROM OITM T0 
+--					WHERE T0.ItemCode = @list_of_cols_val_tab_del AND T0.FirmCode = '-1' ))
+--					BEGIN
+--						SET @error = 1
+--						SET @error_message = 'Manufacturer should not be blank' 
+--					END
+--		ELSE IF (EXISTS(SELECT T0.ItemCode FROM OITM T0 
+--					WHERE T0.ItemCode = @list_of_cols_val_tab_del AND T0.ManBtchNum = 'N' ))
+--					BEGIN
+--						SET @error = 2
+--						SET @error_message = 'Item must be Manage by Serial or Batch' 
+--					END
+--		ELSE IF (EXISTS(SELECT T0.ItemCode FROM OITM T0 
+--					WHERE T0.ItemCode = @list_of_cols_val_tab_del AND T0.EvalSystem <> 'F' ))
+--					BEGIN
+--						SET @error = 3
+--						SET @error_message = 'Item Valuation method must be FIFO' 
+--					END
+--		ELSE IF (EXISTS(SELECT T0.ItemCode FROM OITM T0 
+--					WHERE T0.ItemCode = @list_of_cols_val_tab_del AND T0.ItmsGrpCod IN ('103','104','105','106','107','109') 
+--						AND T0.PrchseItem = 'Y' ))
+--					BEGIN
+--						SET @error = 4
+--						SET @error_message = 'FG and SFG Items should not be purchased item' 
+--					END
+--	END
+
+------Purchase Order ----------------------------------------------------
+--IF @object_type ='22' AND @transaction_type IN ('A','U')
+--	BEGIN
+--		IF(EXISTS(SELECT T0.DocEntry FROM POR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.BaseType=-1 ))
+--			BEGIN
+--				SET @error =1004
+--				SET @error_message = 'Base Document Must be Purchase Request or Purchase Quatation'
+--			END
+		
+--	END
+
+	--------------------------------N'Please enter value in Purchase Placed Reason, field cannot be blank'----------------------------
+if @transaction_type IN ('A','U') and @object_type = '22'
+begin
+
+	if exists(select T.docentry from OPOR T 
+					where T.docentry = @list_of_cols_val_tab_del and(T.U_PPR is null or T.U_PPR=''))
+
+				begin
+					SET @error = 17
+					SET @error_message = N'Please enter value in Purchase Placed Reason, field cannot be blank'
+				end
+	ELSE IF (EXISTS(SELECT T0.DocEntry FROM POR1 T0
+						INNER JOIN OITM T1 ON T0.ItemCode = T1.ItemCode
+						 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T1.ItmsGrpCod = '108' AND (T0.pricebefdi) > 5000))
+						BEGIN
+							SET @error = 22
+							SET @error_message = 'Tools items value is greater than Rs. 5000, So it will be consider in Fixed Assets' 
+						END 
+
+
+end
+
+-----------------------PO----Llanded cost udf mandatory-----------------------------------------------------
+
+if @transaction_type IN ('A','U') and @object_type = '22'
+
+begin
+
+if exists(select T.docentry from OPOR T where T.docentry = @list_of_cols_val_tab_del and
+
+(T.U_LandedCost is null or T.U_LandedCost=''))
+
+begin
+
+SET @error = 17
+
+SET @error_message = N'Please enter value in Landed cost Book, field cannot be blank'
+
+end
+
+end
+----------------------PO-----Please select Tax Code, field cannot be blank----------------------------------------------------------
+
+if @transaction_type IN ('A','U') and @object_type = '22'
+
+begin
+
+if exists(select T.docentry from POR1 T where T.docentry = @list_of_cols_val_tab_del and
+
+(T.TaxCode is null or T.TaxCode=''))
+
+begin
+
+SET @error = 17
+
+SET @error_message = N'Please select Tax Code, field cannot be blank'
+
+end
+
+end
+
+---------------------------------------------------------------------------------------------------
+----------------------------Delivery-----SELECT FG,PSF  WAREHOUSE-------------------------------------------------------
+--	IF (@object_type = '15' AND @transaction_type IN ( 'A','U'))
+--BEGIN
+--If   exists
+--(select t1.WhsCode from  ODLN t0 
+--INNER JOIN DLN1 T1 ON T0.DocEntry=t1.DocEntry
+--where 
+--t1.WhsCode NOT IN ('PSF','FG','STORE')
+--and t0.DocEntry=@list_of_cols_val_tab_del)
+   
+--Begin
+--set @error =1
+--set @error_message = 'SELECT PSF or FG  WAREHOUSE'  
+--End
+--END
+------------------GRN-----------------Base Document Must be Purchase Order------------------------------------------------------------
+
+IF @object_type ='20' AND @transaction_type IN ('A')
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM PDN1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.BaseType=-1 ))
+			BEGIN
+				SET @error =1004
+				SET @error_message = 'Base Document Must be Purchase Order'
+			END
+		
+	END
+--------------------------------Base document on purchase Request----------------------------------
+
+IF @object_type ='22' AND @transaction_type IN ('A')
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM POR1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.BaseType=-1 ))
+			BEGIN
+				SET @error =1004
+				SET @error_message = 'Should be enter Purchase Request'
+			END
+		
+	END
+--------------------------GRN---QC-RM warehouse-----------------------------------------------------
+--		IF (@object_type = '20' AND @transaction_type IN ( 'A','U'))
+--BEGIN
+--If   exists
+--(select t1.WhsCode from  ODLN t0 
+--INNER JOIN DLN1 T1 ON T0.DocEntry=t1.DocEntry
+--where 
+--t1.WhsCode  IN ('QC')
+--and t0.DocEntry=@list_of_cols_val_tab_del)
+   
+--Begin
+--set @error =20
+--set @error_message = 'SELECT QC-RM  WAREHOUSE'  
+--End
+--END
+
+--------------------GRPO quantity is greater than PO quantity------------------------------------------------------
+	IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'20')
+
+begin
+
+if exists (SELECT T0.BaseEntry, SUM(T0.Quantity)
+
+FROM [dbo].[PDN1] T0
+
+INNER JOIN [dbo].[POR1] T1 ON T1.DOCENTRY = T0.BASEENTRY
+
+WHERE T0.BaseType = '22' AND T0.ItemCode = T1.ItemCode AND T0.BaseLine = T1.LineNum
+
+and T0.DOCENTRY = @list_of_cols_val_tab_del
+
+GROUP BY T0.BaseEntry,T0.BaseLine
+
+HAVING (sum(t0.quantity) > (sum(t0.BaseOpnQty)+ sum(t1.Quantity)*10/100)))
+
+begin
+
+select @Error = 10, @error_message = 'GRPO quantity is greater than PO quantity, Only 10% addtional qty is permitted'
+
+end
+
+end
+
+--Inventory Transfer----------------------------------------------------------------------------------------------------------------------------
+IF @object_type = '67' AND @transaction_type IN ('A')
+	BEGIN
+		IF(EXISTS(SELECT WTR1.DocEntry FROM WTR1 
+					WHERE WTR1.DocEntry= @list_of_cols_val_tab_del  AND WTR1.BaseType = -1 ))
+			BEGIN
+				SET @error = 1010
+				SET @error_message = 'Inventory Transfer must be based on Inventory Transfer Request or Goods Receipt PO'
+			END 
+		ELSE IF(EXISTS(SELECT WTR1.DocEntry FROM WTR1 
+					WHERE WTR1.DocEntry= @list_of_cols_val_tab_del 
+					 AND WTR1.Quantity > WTR1.BaseOpnQty))
+			BEGIN
+				SET @error = 1011
+				SET @error_message = 'Inventory Transfer Quantity is not greatr than Inventory Transfer Request Quantity'
+			END 
+	END
+-----------------------------AP Invoice--------Please Raise GRN First--------------------------------------------------------------------------------------------
+--If @object_type='18' and @transaction_type='A'
+--BEGIN 
+----If Exists (Select * from [dbo].[OPCH] T0 Inner Join PCH1 T1 On T0.DocEntry=T1.DocEntry
+----Where T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null and T0.DocType='I' )
+--If Exists (Select T0.DocEntry from [dbo].[OPCH] T0 
+--			Inner Join PCH1 T1 On T0.DocEntry=T1.DocEntry
+--			Inner Join OITM T2 On T2.ItemCode=T1.ItemCode
+--			Where T0.DocEntry = @list_of_cols_val_tab_del and T1.BaseEntry is null and T0.DocType='I' 
+--			AND ISNULL(T2.InvntItem, 'N') <> 'N')
+--BEGIN
+--Select @error = -1,
+--@error_message = 'Please Raise GRN First'
+--End
+--End	 
+---------------------------------Delivery----Base Document Must be Sale Order-------------------------------------------------------------------------------------------
+IF @object_type ='15' AND @transaction_type IN ('A')
+	BEGIN
+		IF(EXISTS(SELECT T0.DocEntry FROM DLN1 T0 WHERE T0.DocEntry = @list_of_cols_val_tab_del AND T0.BaseType=-1 ))
+			BEGIN
+				SET @error =1005
+				SET @error_message = 'Base Document Must be Sale Order'
+			END
+		
+	END
+
+	----------------------------GRN-----SELECT FG,PSF  WAREHOUSE-------------------------------------------------------
+--	IF (@object_type = '15' AND @transaction_type IN ( 'A','U'))
+--BEGIN
+--If   exists
+--(select t1.WhsCode from  ODLN t0 
+--INNER JOIN DLN1 T1 ON T0.DocEntry=t1.DocEntry
+--where 
+--t1.WhsCode NOT IN ('QC-RM')
+--and t0.DocEntry=@list_of_cols_val_tab_del)
+   
+--Begin
+--set @error =1
+--set @error_message = 'SELECT QC-RM  WAREHOUSE'  
+--End
+--END
+
+-----------------GNR--------------Vendor Ref No should not be blank !-------------------------------------------
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '20')
+BEGIN
+ if Exists (SELECT T0.DocNum FROM OPDN T0
+ WHERE (t0.NumAtCard ='' OR t0.NumAtCard is null) and
+ T0.DocEntry = @list_of_cols_val_tab_del )
+ BEGIN
+ SELECT @Error = 1, @error_message = 'Vendor Ref No should not be blank !'
+ END
+
+
+END
+/*
+----------------GRN----------Vendor Ref Already Exist--------------------------------------------------
+iF (@object_type = '20' AND @transaction_type IN ('A','U'))
+BEGIN
+DECLARE @VendorRefNo1 AS VarChar (20)
+DECLARE @BPCode AS VarChar (20)
+DECLARE @PIndicator AS nvarchar (20)
+SELECT @VendorRefNo1 = NumAtCard FROM dbo.OPDN
+ WHERE DocEntry = @list_of_cols_val_tab_del
+SELECT @BPCode = CardCode FROM dbo.opdn
+ WHERE DocEntry = @list_of_cols_val_tab_del
+
+ SELECT @PIndicator = PIndicator FROM dbo.opdn
+ WHERE DocEntry = @list_of_cols_val_tab_del
+IF 1 != (SELECT COUNT(DocEntry)
+FROM opdn WITH(NOLOCK) WHERE NumAtCard = @VendorRefNo1 and
+CardCode=@BPCode and PIndicator=@PIndicator
+ ) AND (@VendorRefNo1 IS NOT NULL OR @VendorRefNo1 <> '')
+BEGIN
+SELECT @ERROR = 1
+SELECT @ERROR_MESSAGE = 'Vendor Ref Already Exist'
+END
+end */
+--------------------SO-------------Please select Lot no., field cannot be blank-----------------------------------------------
+
+
+if @transaction_type IN ('A','U') and @object_type = '17'
+
+begin
+
+if exists(select T.docentry from Rdr1 T where T.docentry = @list_of_cols_val_tab_del and T.LineStatus = 'O' and 
+
+(T.U_LotNo is null or T.U_LotNo=''))
+
+begin
+
+SET @error = 17
+
+SET @error_message = N'Please select PO Sr. No., field cannot be blank'
+
+end
+
+end
+
+---------------------------Delivery qty check with sales order--------------------------------------------------------------------
+   IF (@object_type = '15' AND @transaction_type in ('A','U'))  
+BEGIN 
+If  (select COUNT(a.DocEntry)
+    from DLN1 a 
+    inner join RDR1 b on a.BaseEntry = b.DocEntry and a.BaseLine=b.LineNum
+    where a.DocEntry =  @list_of_cols_val_tab_del
+    AND (b.Quantity) <	 a.Quantity
+				
+	)>0
+Begin  
+SET @Error =31  
+SET @Error_message = 'Quantity is greater then Sales Order quantity'  
+END
+END
+
+-------------------------------Delivery customer ref no. mandatory-------------------------------------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '17')
+BEGIN 
+            if Exists (SELECT T0.DocNum FROM ORDR T0 
+             WHERE (t0.NumAtCard  ='' OR t0.NumAtCard  is null) and
+              T0.DocEntry = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Customer Ref No should not be blank !' 
+           END 
+                     
+   
+END 
+
+------------Goods Reciept from Production---------------------------------------------------------------------------
+
+	--IF (@object_type = '59' AND @transaction_type = 'A') 
+	--BEGIN  
+	--		IF EXISTS (Select top 1 T1.Status From OWOR T1 inner join WOR1 T2
+	--			 On T1.DocEntry=T2.DocEntry Where T1.DocEntry in (select  T3.BaseEntry from IGN1 T3 where T3.DocEntry =@list_of_cols_val_tab_del and T3.TranType is not null)
+	--			  and ISNULL(T2.PlannedQty,0.00) <> ISNULL(T2.IssuedQty,0.00))
+	--		Begin
+			
+	--		select @error =11, @error_message = 'Please check, Issue from production not yet done!'
+			
+	--		END  
+	--END  
+--------------------------------You Cannot Close the Production Order unless the planned qty is met!'-----------------------------------------------------------
+IF @object_type='202' AND (@transaction_type = 'A' OR @transaction_type = 'U')     
+	BEGIN  
+			IF EXISTS(SELECT T1.DocEntry AS 'DocEntry' 
+					  FROM [DBO].[OWOR] (NOLOCK) T1    
+				      WHERE T1.DocEntry NOT IN (SELECT BaseEntry FROM IGN1 (NOLOCK) WHERE BaseType='202') AND T1.DocEntry = @list_of_cols_val_tab_del AND STATUS = 'L')  
+			BEGIN  
+  
+				SELECT @Error = 1, @error_message = 'Reciepts from production not completed'  
+  
+			END 
+			
+			
+			 
+			IF EXISTS (Select top 1 T1.Status From OWOR T1 inner join WOR1 T2
+				 On T1.DocEntry=T2.DocEntry Where T1.DocEntry = @list_of_cols_val_tab_del and T1.Status = 'L'  and T2.PlannedQty <> T2.IssuedQty )
+			Begin
+			
+			select @error =11, @error_message = ' You Cannot Close the Production Order unless the planned qty is met!'
+			
+			END 
+	END 
+
+----------------------------------------Production Order Qty is more than Sales Order Qty or Selected item is not in sales order--------------------------------------------------------------
+if @object_type = '202' and (@transaction_type = 'A' or @transaction_type = 'U')    
+	BEGIN
+			IF(EXISTS(SELECT T0.DocEntry FROM OWOR T0 
+						--INNER JOIN RDR1 T1 ON T0.OriginAbs = T1.DocEntry AND T0.ItemCode  = T1.ItemCode 
+							WHERE T0.DocEntry = @list_of_cols_val_tab_del 
+							AND T0.PlannedQty > (SELECT SUM(T1.Quantity) FROM RDR1 T1 WHERE T0.OriginAbs = T1.DocEntry AND T0.ItemCode = T1.ItemCode) ))
+						BEGIN
+							SET @error = @object_type
+							SET @error_message = 'Production Order Qty is more than Sales Order Qty or Selected item is not in sales order !' 
+						END
+	END
+ 
+------------------------------Issue for production qty check with prod order---------------------------------------------------------------------------------------------------------  
+	IF (@object_type = '60' AND @transaction_type = 'A') AND (SELECT TOP 1 i.BaseType FROM IGE1 i  
+														      WHERE i.DocEntry = @list_of_cols_val_tab_del) = 202  
+	BEGIN  
+			IF EXISTS  (SELECT T0.DocEntry
+						FROM IGE1 (NOLOCK) T0
+						INNER JOIN WOR1 (NOLOCK) T1 ON T0.BaseEntry = T1.DocEntry AND T0.BaseType = '202' AND T0.BaseLine = T1.LineNum
+						WHERE T0.DocEntry = @list_of_cols_val_tab_del AND ISNULL(T1.IssuedQty, 0.00) > ISNULL(T1.PlannedQty, 0.00))  
+			BEGIN  
+				SET @error = 1  
+				SET @error_message = 'You can not issue more than planned qty !'  
+			END  
+	end
+-------------------------------------------receipt from qty check from issue qty on prod-------------------------------------------------------------------
+
+
+IF @transaction_type IN (N'A', N'U') AND (@Object_type = N'59')
+
+	BEGIN
+
+	Declare @entry int
+
+	declare @receveqty float
+
+	declare @receveqty1 float
+
+	set @entry= (select distinct BaseEntry from IGN1 where DocEntry=@list_of_cols_val_tab_del and BaseType=202)
+
+	set @receveqty =(select sum(Quantity) from IGN1 where BaseEntry= @entry and BaseType=202)
+
+	if Exists
+
+	(SELECT MIN(T1.[Actual]) ACTUAL, T1.DocEntry,T1.PlannedQty FROM
+
+	(SELECT T2.[DocEntry],T2.DocNum,T2.PlannedQty , T3.ItemCode , Sum(T3.IssuedQty) [Issued],SUM(T3.PlannedQty) [Planned],
+
+	SUM(T3.PlannedQty)/T2.PlannedQty [Issue Per 1], Sum(T3.IssuedQty)/(SUM(T3.PlannedQty)/T2.PlannedQty) [Actual]
+
+	FROM OWOR T2 INNER JOIN WOR1 T3 ON T3.DocEntry=T2.DocEntry
+
+	Group By T2.[DocEntry], T2.[DocNum], T2.PlannedQty, T3.ItemCode) T1
+
+	where
+
+	T1.DocEntry = @entry
+
+	Group by T1.DocEntry,T1.PlannedQty Having ( @receveqty > MIN(T1.[Actual]) ) )
+
+	BEGIN
+
+	SELECT @Error = 5, @error_message = 'Receiving quantity is greater than issued quantity or issue to production is not happend !'
+
+	END
+
+	END 
+	
+-----------------------------------Production sales order no. cannot be blank----------------------------------------------------------
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '13')
+BEGIN 
+            if Exists (SELECT T0.DocNum FROM OINV T0 
+             WHERE (t0.U_Location  ='NA' OR t0.U_Location  is null) and
+              T0.DocEntry = @list_of_cols_val_tab_del )
+ BEGIN 
+   SELECT @Error = 1, @error_message = 'Location. cannot be NA' 
+           END 
+                     
+   
+END
+
+
+------------------------------Project PO ------------------------------
+if @transaction_type IN ('A') and @object_type = '22'
+
+begin
+
+if exists(select T.docentry from POR1 T where T.docentry = @list_of_cols_val_tab_del and
+
+(T.Project is null or T.Project='' AND T.Project<>'NON PROJECT'))
+
+begin
+
+SET @error = 17
+
+SET @error_message = N'Project , field cannot be blank'
+
+end
+
+end
+-----------------------------Project GRPO------------
+--if @transaction_type IN ('A','U') and @object_type = '20'
+
+--begin
+
+--if exists(select T.docentry from PDN1 T where T.docentry = @list_of_cols_val_tab_del and
+
+--(T.Project is null or T.Project=''))
+
+--begin
+
+--SET @error = 17
+
+--SET @error_message = N'Project , field cannot be blank'
+
+--end
+
+--end
+
+
+IF @transaction_type IN ('A', 'U') AND (@Object_type = '18')
+BEGIN 
+            if  Exists (Select T1.docnum FROM PCH1 T0 INNER JOIN OPCH T1 ON T0.DocEntry =T1.DocEntry 
+            
+             
+             where t1.DocType='S'  and  (T0.OcrCode is  Null  or T0.OcrCode = '')
+             and t0.AcctCode  in ('5122010',
+'5122020',
+'5122011',
+'5122012',
+'5122013',
+'5122014',
+'5122015',
+'5122016',
+'5122017',
+'5122018'
+
+)
+             
+             and T0.DocEntry = @list_of_cols_val_tab_del) --and t3.Location !=t2.Remark)  
+begin
+SELECT @Error = 1, @error_message = 'Cost Center should not be Blank on Project expenses Transaction !' 
+            END     
+END
+
+--------------------------------------------------OITM--------------------------------
+
+--------------------------------------------
+IF @object_type = '4' AND @transaction_type IN ('A')
+	BEGIN 
+		 IF (EXISTS(SELECT T0.ItemCode FROM OITM T0 
+					WHERE T0.ItemCode = @list_of_cols_val_tab_del AND T0.EvalSystem <> 'F' ))
+					BEGIN
+		SET @error = 3
+					SET @error_message = 'Item Valuation method must be FIFO' 
+					
+ 
+				END
+	END
+
+
+-----------------------------------------------------------------------------------------
+IF (@object_type = '67' AND @transaction_type IN ( 'A','U'))
+	BEGIN
+		
+		
+		 IF EXISTS(SELECT WTR1.DocEntry FROM WTR1 INNER JOIN OWTR ON OWTR.DocEntry = WTR1.DocEntry 
+							WHERE WTR1.DocEntry = @list_of_cols_val_tab_del	AND WTR1.WhsCode = 'PSF' AND OWTR.Series <> '338')
+				BEGIN
+					SET @error = 114
+					SET @error_message = 'Please select the PRD2122 series '
+				END
+		ELSE IF EXISTS(SELECT OWTR.DocEntry FROM OWTR WHERE OWTR.DocEntry = @list_of_cols_val_tab_del
+					AND OWTR.ToWhsCode = 'PSF' AND Series <> '338' )
+				BEGIN
+					SET @error = 112
+					SET @error_message = 'Please select the PRD2122 series '
+				END
+
+
+	END
+
+----------------------------------------------------------------Itemcategory-------------------------------------------------------------------------
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists ( select t0.ItemCode from OITM t0
+
+           
+
+                where T0.ItemCode = @list_of_cols_val_tab_del and t0.U_ItemCat = '')
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select ItemCat'
+
+           END
+
+           end
+---------------------------------------------------------Itemcat-wise UDF----------------------------------------------------------------
+/*IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_SHAPE] ='' or T0.[U_RESTR_SHAPE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_SHAPE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_CC] ='' or T0.[U_RESTR_CC] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_CONTINOUS CURRENT '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_DS] ='' or T0.[U_RESTR_DS] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_DIELECTRIC STRENGTH'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+			select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_DIMENSIONMM] ='' or T0.[U_RESTR_DIMENSIONMM] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_DIMENSION(LXWXB)MM '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_IR] ='' or T0.[U_RESTR_IR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_INSULATION RESISTANCE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_LEADDIMENSION] ='' or T0.[U_RESTR_LEADDIMENSION] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_LEAD DIMENSION(LXD) '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_LEADPLATING] ='' or T0.[U_RESTR_LEADPLATING] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_LEAD PLATING '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_LOADLIFE] ='' or T0.[U_RESTR_LOADLIFE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_LOAD LIFE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_MP] ='' or T0.[U_RESTR_MP]is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_MANUFACTURER & PARTNO. '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_MR] ='' or T0.[U_RESTR_MR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_MOISTURE RESISTANCE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_MOUNTING] ='' or T0.[U_RESTR_MOUNTING] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_MOUNTING '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_OTR] ='' or T0.[U_RESTR_OTR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_OPERATING TEMP RANGE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_RC] ='' or T0.[U_RESTR_RC] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_REFERENCES/CATALOGUENO '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_REMARKS] ='' or T0.[U_RESTR_REMARKS] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_REMARKS(IF ANY) '
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_STLL] ='' or T0.[U_RESTR_STLL] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_SHORT TIME LOAD LIFE '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_SP] ='' or T0.[U_RESTR_SP] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_SPECIAL PROPERTY '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_TP] ='' or T0.[U_RESTR_TP] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_TEST PROCEDURE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and(  T0.[U_RESTR_TOLERANCE] ='' or  T0.[U_RESTR_TOLERANCE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_TOLERANCE (%) '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_TYPE] ='' or T0.[U_RESTR_TYPE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_TYPE '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_VALUE] ='' or T0.[U_RESTR_VALUE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_VALUE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'RESISTOR' and( T0.[U_RESTR_WATTAGE] ='' or T0.[U_RESTR_WATTAGE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select RESTR_WATTAGE '
+
+           END
+
+           end
+
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_AT] ='' or T0.[U_CAPST_AT] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_APPLICATION TYPE '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_CV] ='' or T0.[U_CAPST_CV] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_CAPACITOR VALUE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_DM] ='' or T0.[U_CAPST_DM] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_DIELECTRIC MATERIAL '
+
+           END
+
+           end
+
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_DIMENSIONS] ='' or T0.[U_CAPST_DIMENSIONS] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_DIMENSIONS '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_DF] ='' or T0.[U_CAPST_DF] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_DISSIPATION FACTOR '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_DDR] ='' or T0.[U_CAPST_DDR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_DV/DT RATING '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and(T0.[U_CAPST_EQSR] ='' or T0.[U_CAPST_EQSR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_EQ SERIES RESISTOR '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_EXECUTION] ='' or T0.[U_CAPST_EXECUTION] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_EXECUTION '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_LI] ='' or T0.[U_CAPST_LI] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_LEAKAGE INDUCTANCE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_LC] ='' or T0.[U_CAPST_LC] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_LEKAGE CURRENT '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_MPN] ='' or T0.[U_CAPST_MPN] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_MANUFACTURER & PARTNO '
+
+           END
+
+           end
+
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_OL] ='' or T0.[U_CAPST_OL] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_OPERATING LIFE '
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_RCN] ='' or T0.[U_CAPST_RCN] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_REFERENCES/CATALOGUE N '
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_REMARKS] ='' or T0.[U_CAPST_REMARKS] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_REMARKS(IF ANY) '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_RC] ='' or T0.[U_CAPST_RC] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_RIPPLE CURRENT '
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_SL] ='' or T0.[U_CAPST_SL] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_SHELF LIFE '
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_TP] ='' or T0.[U_CAPST_TP] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_TEST PROCEDURE '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_TR] ='' or T0.[U_CAPST_TR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_THERMAL RESISTANCE '
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_TOLERANCE] ='' or T0.[U_CAPST_TOLERANCE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_TOLERANCE '
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_TYPE] ='' or T0.[U_CAPST_TYPE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_TYPE'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_VR] ='' or T0.[U_CAPST_VR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_VOLTAGE RATING'
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_VT] ='' or T0.[U_CAPST_VT] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_VOLTAGE TYPE'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'CAPACITOR' and( T0.[U_CAPST_WT] ='' or T0.[U_CAPST_WT] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select CAPST_WORKING TEMPERATURE'
+
+           END
+
+           end
+
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_F] ='' or T0.[U_DIODE_F] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_FUNCTION'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_II] ='' or T0.[U_DIODE_II] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_IF/IZ'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_LC] ='' or T0.[U_DIODE_LC] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_LEAKAGE CURRENT'
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_MPN] ='' or T0.[U_DIODE_MPN] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_MANUFACTURER & PARTNO.'
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_MPD] ='' or T0.[U_DIODE_MPD] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_MAX POWER DISIPATION'
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_N] ='' or T0.[U_DIODE_N] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_NUMBER'
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_P] ='' or T0.[U_DIODE_P] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_PACKAGE'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_PPC] ='' or T0.[U_DIODE_PPC] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_PEAK PULSE CURRNET'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_PIV] ='' or T0.[U_DIODE_PIV] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_PIV'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_R] ='' or T0.[U_DIODE_R] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_REMARKS(IF ANY)'
+
+           END
+
+           end
+
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_TR] ='' or T0.[U_DIODE_TR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_TEMP RANGE'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_TP] ='' or T0.[U_DIODE_TP] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_TEST PROCEDURE'
+
+           END
+
+           end
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_T]='' or T0.[U_DIODE_T] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_TOLERANCE'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_TE]='' or T0.[U_DIODE_TE] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_TRANSIENT ENERGY'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_TRR]='' or T0.[U_DIODE_TRR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_TRR'
+
+           END
+
+           end
+		   
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_TYPC]='' or T0.[U_DIODE_TYPC] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_TYP CAPACITANCE'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_VVV]='' or T0.[U_DIODE_VVV] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_VBR/VZ/VC'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_VF]='' or T0.[U_DIODE_VF] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_VF'
+
+           END
+
+           end
+
+IF @transaction_type IN ( 'A','U') AND (@Object_type = '4')
+
+BEGIN
+
+            if  Exists (
+				
+				
+				select t0.ItemCode from OITM t0 where T0.ItemCode =@list_of_cols_val_tab_del and t0.U_ItemCat = 'DIODE' and( T0.[U_DIODE_VRR]='' or T0.[U_DIODE_VRR] is null) )
+				
+
+BEGIN
+
+   SELECT @Error = 1,
+
+@error_message = 'Please Select DIODE_VRR'
+
+           END
+
+           end
+
+
+*/
+IF @transaction_type IN ('A') and (@Object_type = '1250000001')
+
+BEGIN
+
+ if  Exists (Select T0.DocEntry From WTQ1 T0  
+ WHERE (t0.U_LOT is  null or T0.U_LOT = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'LoT NO should be Mandatory'
+end
+  end
+
+  IF @transaction_type IN ('A') and (@Object_type = '67')
+
+BEGIN
+
+ if  Exists (Select T0.DocEntry From WTR1 T0  
+ WHERE (t0.U_LotNo is  null or T0.U_LotNo = ' ') and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'LoT NO should be Mandatory'
+end
+  end
+  /*
+IF @transaction_type IN ('U' ,'A') and (@Object_type = '60')
+
+BEGIN
+
+ if  Exists (Select T0.DocEntry From IGE1 T0  
+ WHERE t0.U_LotNo is null and t0.basetype = '202' and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'LoT NO should be Mandatory'
+end
+  end
+
+  IF @transaction_type IN ('U' ,'A') and (@Object_type = '60')
+
+BEGIN
+
+ if  Exists (Select T0.DocEntry From IGE1 T0  
+ WHERE (t0.Project is null or T0.Project =' ') and t0.basetype = '202' and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'ENTER PROJECT No. In Rows'
+end
+  end*/
+  IF @transaction_type IN ('U' ,'A') and (@Object_type = '59')
+
+BEGIN
+
+ if  Exists (Select T0.DocEntry From IGN1 T0  
+ WHERE (t0.U_LotNo is  null and t0.basetype = '202' ) and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'LoT NO should be Mandatory'
+end
+  end
+
+   IF @transaction_type IN ('U' ,'A') and (@Object_type = '59')
+
+BEGIN
+
+ if  Exists (Select T0.DocEntry From IGN1 T0  
+ WHERE (t0.Project is  null or t0.project = ' ' and t0.basetype = '202' ) and T0.DocEntry = @list_of_cols_val_tab_del )
+
+BEGIN
+
+   SELECT @Error = 1, @error_message = 'Enter Project no. in Rows'
+end
+  end
+
+  -------------------LOT NO. AND PROJECT --------------
+
+----PURCHASE REQUEST
+IF @transaction_type in ('A','U') AND (@object_type = '1470000113')
+BEGIN 
+IF EXISTS(
+SELECT T1.DOCENTRY
+FROM  PRQ1 T1
+inner Join OPRQ T2 on T2.DocEntry = T1.DocEntry
+ 
+WHERE T2.CANCELED= 'N' and (T1.Project = ' ' OR T1.Project IS NULL) AND T1.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+SELECT @error  = 140000113,
+
+@error_message = 'PLEASE ENTER PROJECT'
+
+end
+end
+
+IF @transaction_type in ('A','U') AND (@object_type = '1470000113')
+BEGIN 
+IF EXISTS(
+SELECT T0.DOCENTRY
+FROM OPRQ T0 
+INNER JOIN PRQ1 T1 ON T0.DOCENTRY = T1.DOCENTRY 
+WHERE  T0.CANCELED = 'N' AND T1.U_LotNo IS NULL  AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+SELECT @error = 140000113,
+@error_message = 'PLEASE ENTER LOT NO.'
+
+end
+end
+
+
+------PURCHASE ORDER
+IF @transaction_type in ('A','U') AND (@object_type = '22')
+BEGIN 
+IF EXISTS(
+SELECT T1.DOCENTRY
+FROM  POR1 T1
+ 
+WHERE (T1.Project = ' ' OR T1.Project IS NULL) AND T1.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+SELECT @error = 22,
+@error_message = 'PLEASE ENTER PROJECT'
+
+end
+end
+
+IF @transaction_type in ('A') AND (@object_type = '22')
+BEGIN 
+IF EXISTS(
+SELECT T0.DOCENTRY
+FROM OPOR T0 
+INNER JOIN POR1 T1 ON T0.DOCENTRY = T1.DOCENTRY 
+WHERE T0.CANCELED = 'N' AND T1.U_LotNo IS NULL  AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+SELECT @error = 22,
+@error_message = 'PLEASE ENTER LOT NO.'
+
+end
+end
+
+
+------GRPO
+IF @transaction_type in ('A','U') AND (@object_type = '20')
+BEGIN 
+IF EXISTS(
+SELECT T1.DOCENTRY
+FROM  PDN1 T1
+inner join OPDN t2 on t2.DocEntry = T1.DocEntry
+inner join OITM t3 on T1.ItemCode = t3.ItemCode
+ 
+WHERE (t2.CANCELED = 'N' and (t3.ItmsGrpCod <> 117 or t3.ItmsGrpCod <> 110) and  T1.Project = ' ' OR T1.Project IS NULL) AND T1.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+SELECT @error = 20,
+@error_message = 'PLEASE ENTER PROJECT'
+
+end
+end
+
+IF @transaction_type in ('A','U') AND (@object_type = '20')
+BEGIN 
+IF EXISTS(
+SELECT T0.DOCENTRY
+FROM OPDN T0 
+INNER JOIN PDN1 T1 ON T0.DOCENTRY = T1.DOCENTRY 
+Inner Join OITM t2 on T1.ItemCode = t2.ItemCode
+WHERE T0.CANCELED = 'N' and (t2.ItmsGrpCod <> 117 or t2.ItmsGrpCod <> 110)  and  T1.U_LotNo IS NULL  AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+SELECT @error = 20,
+@error_message = 'PLEASE ENTER LOT NO.'
+
+end
+end
+---------------------
+--If @object_type='20' and @transaction_type in ('A','U')
+--Begin
+--IF Exists
+--(Select t0.docentry
+--from OPDN t0 
+--Inner Join PDN1 t1 on t0.DocEntry=t1.DocEntry
+--Inner join OBTN t2 on t1.ItemCode = t2.ItemCode
+--Inner join OITM m2 on t1.ItemCode = m2.ItemCode
+--where t0.DocEntry = @list_of_cols_val_tab_del and t0.CANCELED = 'N' and m2.ManBtchNum ='Y' and (m2.ItmsGrpCod <> 117 or m2.ItmsGrpCod <> 110) and t1.U_LotNo <> t2.MnfSerial)
+--BEGIN
+--SELECT 
+--@error = 20,
+--@error_message = 'Batch attribute 1 error'
+--END
+--END
+
+------AP INVOICE
+IF @transaction_type in ('A','U') AND (@object_type = '18')
+BEGIN 
+IF EXISTS(
+SELECT T1.DOCENTRY
+FROM  PCH1 T1
+ 
+WHERE (T1.Project = ' ' OR T1.Project IS NULL) AND T1.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+SELECT @error = 18,
+@error_message = 'PLEASE ENTER PROJECT'
+
+end
+end
+
+IF @transaction_type in ('A','U') AND (@object_type = '18')
+BEGIN 
+IF EXISTS(
+SELECT T0.DOCENTRY
+FROM OPCH T0 
+INNER JOIN PCH1 T1 ON T0.DOCENTRY = T1.DOCENTRY 
+WHERE T1.U_LotNo IS NULL  AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN 
+SELECT @error = 18,
+@error_message = 'PLEASE ENTER LOT NO.'
+
+end
+end
+
+---------------------------
+IF @transaction_type IN ('A','U') AND (@object_type = '202')
+BEGIN 
+IF EXISTS(
+SELECT T0.DOCENTRY
+FROM OWOR T0
+WHERE T0.Project IS NULL AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN
+SELECT @error = 202,
+@error_message = 'PLEASE ENTER PROJECT NO. IN TITLE '
+END
+END
+
+IF @transaction_type IN ('A','U') AND (@object_type = '202')
+BEGIN 
+IF EXISTS(
+SELECT T0.DOCENTRY
+FROM OWOR T0
+WHERE T0.U_LotNo = '' OR T0.U_LotNo IS NULL AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN
+SELECT @error = 202,
+@error_message = 'PLEASE ENTER LOT NO. IN TITLE '
+END
+END
+
+IF @transaction_type IN ('A') AND (@object_type = '1250000001')
+BEGIN 
+IF EXISTS(
+SELECT T0.DOCENTRY
+FROM WTQ1 T0
+WHERE T0.Project IS NULL AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN
+SELECT @error = 2092,
+@error_message = 'PLEASE ENTER PROJECT NO. IN ROWS'
+END
+END
+
+IF @transaction_type IN ('A') AND (@object_type = '67')
+BEGIN 
+IF EXISTS(
+SELECT T0.DOCENTRY
+FROM WTR1 T0
+WHERE T0.U_LOT IS NULL AND T0.DocEntry = @list_of_cols_val_tab_del)
+BEGIN
+SELECT @error = 2092,
+@error_message = 'PLEASE ENTER LOT NO. ROWS '
+END
+END
+-------------------------------------------
+If @object_type='20' and @transaction_type in ('A','U')
+Begin
+IF Exists
+(SELECT T1.DocEntry
+ FROM OPDN T0 
+ INNER JOIN PDN1 T1 ON T0.DocEntry = T1.DocEntry 
+ left join OITL T2 on t1.docentry = T2.[ApplyEntry] and T1.[LineNum] = T2.[ApplyLine] and T2.[ApplyType] = 20 
+ left JOIN ITL1 T3 ON T2.LogEntry = T3.LogEntry
+ left join OBTN T4 on T4.[ItemCode] = T3.[ItemCode] and T3.[MdAbsEntry] = t4.[absentry] 
+ left join OITM on OITM.ItemCode = T1.ItemCode
+ left join OFCT on OFCT.Code = T1.U_LotNo
+where t0.DocEntry = @list_of_cols_val_tab_del and t0.CANCELED = 'N'
+ AND ISNULL(OITM.ManBtchNum, 'N') = 'Y'
+ and (T4.MnfSerial is null or T4.MnfSerial = '')  and OITM.ItmsGrpCod NOt In ('117','110') )
+BEGIN
+SELECT 
+@error = 20,
+@error_message = 'Please Add Lot No. In Batch attribute 1'
+END
+END
+-----------------------------------------------------Sandeep----------------------
+If @object_type='20' and @transaction_type in ('A','U')
+Begin
+IF Exists
+(SELECT T0.DocEntry
+ FROM OPDN T0 
+ INNER JOIN PDN1 T1 ON T0.DocEntry = T1.DocEntry 
+ left join OITL T2 on t1.docentry = T2.[ApplyEntry] and T1.[LineNum] = T2.[ApplyLine] and T2.[ApplyType] = 20 
+ left JOIN ITL1 T3 ON T2.LogEntry = T3.LogEntry
+ left join OBTN T4 on T4.[ItemCode] = T3.[ItemCode] and T3.[MdAbsEntry] = t4.[absentry] 
+ left join OITM on OITM.ItemCode = T1.ItemCode
+where t0.DocEntry = @list_of_cols_val_tab_del and t0.CANCELED = 'N'
+ AND ISNULL(OITM.ManBtchNum, 'N') = 'Y' 
+and (T1.U_LotNo <> T4.MnfSerial)  and OITM.ItmsGrpCod NOt In ('117','110') )
+BEGIN
+SELECT 
+@error = 30,
+@error_message = 'Batch attribute 1 not match Grpo Lot no.'
+END
+END
+-------------------------------------------------------
+/*if @transaction_type IN ('A','U') and @object_type = '22'
+
+begin
+
+if exists(select T.DocEntry
+from POR1 T 
+left join OITM on OITM.ItemCode = t.ItemCode
+Left join OALI on OITM.ItemCode = OALI.OrigItem
+Left join 
+(Select 
+(Select Sum(OnHand) from OITM where ItemCode =  OALI.AltItem group by ItemCode) AS "InStock" ,OITM.ItemCode
+from OITM
+Left join OALI on OALI.OrigItem = OITM.ItemCode
+group by oitm.ItemCode,OALI.AltItem)A on a.ItemCode = T.ItemCode
+
+where T.docentry = @list_of_cols_val_tab_del and a.InStock > 0)
+begin
+SET @error = 111
+
+SET @error_message = 'You can not add this Document Beacuse alternative Item InStock is availabel'
+end
+end*/
+-----------------------
+If @object_type='60' and @transaction_type in ('A','U')
+Begin
+IF Exists
+(SELECT T1.DocEntry
+FROM IGE1 T0
+					INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+					INNER JOIN OITL T2 ON T2.DocEntry = T0.DocEntry AND T2.DocType = T0.ObjType AND                         T2.DocLine = T0.LineNum AND T2.ItemCode = T0.ItemCode
+					INNER JOIN ITL1 T3 ON T3.LogEntry = T2.LogEntry and T3.ItemCode = T3.ItemCode
+					INNER JOIN OBTN T4 ON T4.AbsEntry = T3.MdAbsEntry and T4.ItemCode = T3.ItemCode
+where t0.DocEntry = @list_of_cols_val_tab_del 
+ AND ISNULL(T1.ManBtchNum,'N') = 'Y'
+ and (T4.MnfSerial is null or T4.MnfSerial = '' )  and T1.ItmsGrpCod NOt In ('117','110') and T0.BaseType = '202')
+BEGIN
+SELECT 
+@error = 20,
+@error_message = 'Please Add Lot No. In Batch attribute 1'
+END
+END
+------------------------------------------------------Sandeep----------------------
+If @object_type='60' and @transaction_type in ('A','U')
+Begin
+IF Exists
+(SELECT T1.DocEntry
+FROM IGE1 T0
+					INNER JOIN OITM T1 ON T1.ItemCode = T0.ItemCode
+					INNER JOIN OITL T2 ON T2.DocEntry = T0.DocEntry AND T2.DocType = T0.ObjType AND                         T2.DocLine = T0.LineNum AND T2.ItemCode = T0.ItemCode
+					INNER JOIN ITL1 T3 ON T3.LogEntry = T2.LogEntry and T3.ItemCode = T3.ItemCode
+					INNER JOIN OBTN T4 ON T4.AbsEntry = T3.MdAbsEntry and T4.ItemCode = T3.ItemCode
+where t0.DocEntry = @list_of_cols_val_tab_del 
+ AND ISNULL(T1.ManBtchNum,'N') = 'Y'
+ and (T0.U_LotNo <> T4.MnfSerial) and T1.ItmsGrpCod NOt In ('117','110') and T0.BaseType = '202')
+BEGIN
+SELECT 
+@error = 40,
+@error_message = 'Batch attribute 1 not match Issue for Production Lot no.'
+END
+END
+
+-------------------------------
+--------------------------------------------------
+If @object_type='22' and @transaction_type in ('A','U')
+Begin
+IF Exists
+(SELECT T0.DocEntry
+ FROM OPOR T0 
+ INNER JOIN POR1  ON T0.DocEntry = POR1.DocEntry 
+ Left join PRQ1 on PRQ1.DocEntry = POR1.BaseEntry and prq1.LineNum =  POR1.BaseLine
+ Left join OPRQ on OPRQ.DocEntry = PRQ1.DocEntry
+where t0.DocEntry = @list_of_cols_val_tab_del and oprq.U_Planning In ('Hold'))
+BEGIN
+
+		set @error = 10002
+		set @error_message = 'You can not add this Document Beacuse PR is HOLD'
+	end
+	end 
+-------------------------------------------------
+If @object_type='20' and @transaction_type in ('A','U')
+Begin
+IF Exists
+(SELECT T0.DocEntry
+ FROM OPDN T0 
+ INNER JOIN PDN1  ON T0.DocEntry = PDN1.DocEntry 
+ Left join POR1 on POR1.DocEntry = PDN1.BaseEntry and POR1.LineNum =  PDN1.BaseLine
+ Left join OPOR on OPOR.DocEntry = POR1.DocEntry
+where t0.DocEntry = @list_of_cols_val_tab_del and OPOR.U_Planning = 'Hold')
+BEGIN
+SELECT 
+@error = 40,
+@error_message = 'You can not add this Document Beacuse PO is HOLD'
+END
+END
+---------------------------------------------------
+If @object_type='18' and @transaction_type in ('A','U')
+Begin
+IF Exists
+(SELECT T0.DocEntry
+ FROM OPCH T0 
+ INNER JOIN PCH1  ON T0.DocEntry = PCH1.DocEntry 
+ Left join POR1 on POR1.DocEntry = PCH1.BaseEntry and POR1.LineNum =  PCH1.BaseLine
+ Left join OPOR on OPOR.DocEntry = POR1.DocEntry
+where t0.DocEntry = @list_of_cols_val_tab_del and OPOR.U_Planning = 'Hold')
+BEGIN
+SELECT 
+@error = 50,
+@error_message = 'You can not add this Document Beacuse PO is HOLD'
+END
+END
+------------
+
+-- Select the return values
+select @error, @error_message
+
+end
+
